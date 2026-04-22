@@ -26,7 +26,7 @@ import {
 
 import {
   fetchPasswordsByVault,
-  fetchVaultById,
+  fetchVaultBySlug,
   fetchFoldersByVault,
   openAddPasswordModal,
   deleteFolder,
@@ -34,10 +34,12 @@ import {
 
 function VaultPage() {
   const dispatch = useDispatch();
-  const { id } = useParams();
+  const { slug } = useParams();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { user, token } = useSelector((state) => state.auth);
   const {
@@ -50,8 +52,6 @@ function VaultPage() {
   } = useSelector((state) => state.vault);
 
   const selectedFolder = folders.find((item) => item.id === selectedFolderId);
-  
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   const selectedFolderPermission = selectedFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
@@ -63,12 +63,17 @@ function VaultPage() {
       : selectedFolderPermission?.accessLevel || null;
 
   useEffect(() => {
-    if (id) {
-      dispatch(fetchVaultById(id));
-      dispatch(fetchPasswordsByVault(id));
-      dispatch(fetchFoldersByVault(id));
+    if (slug) {
+      dispatch(fetchVaultBySlug(slug));
     }
-  }, [dispatch, id]);
+  }, [dispatch, slug]);
+
+  useEffect(() => {
+    if (selectedVault?.id) {
+      dispatch(fetchPasswordsByVault(selectedVault.id));
+      dispatch(fetchFoldersByVault(selectedVault.id));
+    }
+  }, [dispatch, selectedVault?.id]);
 
   const canAddPassword =
     user?.role === 'ADMIN' ||
@@ -82,73 +87,83 @@ function VaultPage() {
     !!selectedFolder &&
     (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR');
 
-    const handleExportExcel = async () => {
-  try {
-    const response = await api.get(
-      `/passwords/export-excel?vaultId=${id}&folderId=${selectedFolder?.id || ''}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: 'blob',
+  const handleExportExcel = async () => {
+    try {
+      if (!selectedVault?.id) {
+        alert('Vault not loaded');
+        return;
       }
-    );
 
-    const blob = new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
+      const response = await api.get(
+        `/passwords/export-excel?vaultId=${selectedVault.id}&folderId=${selectedFolder?.id || ''}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          responseType: 'blob',
+        }
+      );
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${selectedFolder?.name || 'passwords'}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to export Excel');
-  }
-};
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
 
-const handleImportExcel = async (e) => {
-  try {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!selectedFolder?.id) {
-      alert('Please select a folder first');
-      return;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedFolder?.name || selectedVault?.name || 'passwords'}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to export Excel');
     }
+  };
 
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json(worksheet);
+  const handleImportExcel = async (e) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    await api.post(
-      '/passwords/import-excel',
-      {
-        vaultId: id,
-        folderId: selectedFolder.id,
-        rows,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!selectedVault?.id) {
+        alert('Vault not loaded');
+        return;
       }
-    );
 
-    dispatch(fetchPasswordsByVault(id));
-    alert('Passwords imported successfully');
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to import Excel');
-  } finally {
-    e.target.value = '';
-  }
-};
+      if (!selectedFolder?.id) {
+        alert('Please select a folder first');
+        return;
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet);
+
+      await api.post(
+        '/passwords/import-excel',
+        {
+          vaultId: selectedVault.id,
+          folderId: selectedFolder.id,
+          rows,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      dispatch(fetchPasswordsByVault(selectedVault.id));
+      alert('Passwords imported successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to import Excel');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   return (
     <AppLayout>
@@ -194,7 +209,6 @@ const handleImportExcel = async (e) => {
 
                 {menuOpen && (
                   <div className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-20">
-
                     <button
                       onClick={() => {
                         setHistoryOpen(true);
@@ -288,19 +302,25 @@ const handleImportExcel = async (e) => {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         folderId={selectedFolder?.id || null}
-        vaultId={id}
+        vaultId={selectedVault?.id || null}
       />
+
       <FolderHistoryPanel
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         folderId={selectedFolder?.id || null}
       />
+
       <FolderUsersModal
         open={usersOpen}
         onClose={() => setUsersOpen(false)}
         folderId={selectedFolder?.id || null}
         folderName={selectedFolder?.name || ''}
-        onSaved={() => dispatch(fetchFoldersByVault(id))}
+        onSaved={() => {
+          if (selectedVault?.id) {
+            dispatch(fetchFoldersByVault(selectedVault.id));
+          }
+        }}
       />
 
       <AddFolderModal />

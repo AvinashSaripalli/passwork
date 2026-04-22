@@ -45,14 +45,24 @@ function App() {
         }
       />
 
-      <Route
+      {/* <Route
         path="/vaults/:id"
         element={
           <MasterProtectedRoute>
             <VaultPage />
           </MasterProtectedRoute>
         }
+      /> */}
+
+      <Route
+        path="/vaults/:slug"
+        element={
+          <MasterProtectedRoute>
+            <VaultPage />
+          </MasterProtectedRoute>
+        }
       />
+
 
       <Route
         path="/activity-log"

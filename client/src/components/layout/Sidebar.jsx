@@ -29,21 +29,27 @@ function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { id: currentVaultId } = useParams();
+  const { slug: currentVaultSlug } = useParams();
 
-  const { user } = useSelector((state) => state.auth);
-  const {
-    vaults,
-    vaultsLoading,
-    folders,
-    foldersLoading,
-    selectedFolderId,
-    error,
-  } = useSelector((state) => state.vault);
+const { user } = useSelector((state) => state.auth);
+const {
+  vaults,
+  vaultsLoading,
+  folders,
+  foldersLoading,
+  selectedFolderId,
+  error,
+} = useSelector((state) => state.vault);
 
-  const [shareOpen, setShareOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [actionFolder, setActionFolder] = useState(null);
+const activeVault = vaults.find(
+  (v) => v.slug === currentVaultSlug
+);
+
+const currentVaultId = activeVault?.id;
+
+const [shareOpen, setShareOpen] = useState(false);
+const [renameOpen, setRenameOpen] = useState(false);
+const [actionFolder, setActionFolder] = useState(null);
 
   useEffect(() => {
     dispatch(fetchVaults());
@@ -147,7 +153,7 @@ function Sidebar() {
 
           {!vaultsLoading &&
             vaults.map((vault) => {
-              const vaultActive = location.pathname === `/vaults/${vault.id}`;
+              const vaultActive = location.pathname === `/vaults/${vault.slug}`;
 
               return (
                 <div key={vault.id} className="mb-3">
@@ -159,7 +165,7 @@ function Sidebar() {
                     }`}
                   >
                     <Link
-                      to={`/vaults/${vault.id}`}
+                      to={`/vaults/${vault.slug}`}
                       onClick={() => dispatch(clearSelectedFolder())}
                       className="flex items-center gap-3 flex-1 min-w-0"
                     >

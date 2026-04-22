@@ -1,5 +1,11 @@
 const prisma = require('../config/prisma');
-const { isAdminUser } = require('../utils/permissions');
+
+const makeSlug = (name) =>
+  name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
 
 const createVault = async (req, res) => {
   try {
@@ -13,10 +19,20 @@ const createVault = async (req, res) => {
       return res.status(400).json({ message: 'Name and type are required' });
     }
 
+    let baseSlug = makeSlug(name);
+    let slug = baseSlug;
+    let count = 1;
+
+    while (await prisma.vault.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${count}`;
+      count += 1;
+    }
+
     const vault = await prisma.vault.create({
       data: {
         name,
         type,
+        slug,
         ownerId: req.user.id,
       },
     });
@@ -38,6 +54,7 @@ const createVault = async (req, res) => {
         metadata: {
           name: vault.name,
           type: vault.type,
+          slug: vault.slug,
         },
       },
     });
@@ -133,13 +150,13 @@ const getVaults = async (req, res) => {
   }
 };
 
-const getVaultById = async (req, res) => {
+const getVaultBySlug = async (req, res) => {
   try {
     let vault;
 
     if (req.user.role === 'ADMIN') {
       vault = await prisma.vault.findUnique({
-        where: { id: req.params.id },
+        where: { slug: req.params.slug },
         include: {
           owner: {
             select: {
@@ -186,11 +203,20 @@ const getVaultById = async (req, res) => {
         },
       });
     } else {
+      const targetVault = await prisma.vault.findUnique({
+        where: { slug: req.params.slug },
+        select: { id: true },
+      });
+
+      if (!targetVault) {
+        return res.status(404).json({ message: 'Vault not found' });
+      }
+
       const folderPermissions = await prisma.folderPermission.findMany({
         where: {
           userId: req.user.id,
           folder: {
-            vaultId: req.params.id,
+            vaultId: targetVault.id,
           },
         },
         include: {
@@ -213,7 +239,7 @@ const getVaultById = async (req, res) => {
       }
 
       vault = await prisma.vault.findUnique({
-        where: { id: req.params.id },
+        where: { slug: req.params.slug },
         include: {
           owner: {
             select: {
@@ -254,7 +280,7 @@ const getVaultById = async (req, res) => {
 
     res.json(vault);
   } catch (error) {
-    console.error('Get vault by id error:', error);
+    console.error('Get vault by slug error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -268,6 +294,6 @@ const shareVault = async (req, res) => {
 module.exports = {
   createVault,
   getVaults,
-  getVaultById,
+  getVaultBySlug,
   shareVault,
 };

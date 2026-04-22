@@ -6,9 +6,7 @@ const vaultController = require('../controllers/vaultController');
 
 router.get('/', authenticate, vaultController.getVaults);
 router.post('/', authenticate, vaultController.createVault);
-router.get('/:id', authenticate, vaultController.getVaultById);
-
-// ❌ REMOVE VAULT SHARE (we use folder share now)
+router.get('/:slug', authenticate, vaultController.getVaultBySlug);
 router.post('/:id/share', authenticate, vaultController.shareVault);
 
 module.exports = router;

@@ -22,13 +22,13 @@ export const fetchVaults = createAsyncThunk(
   }
 );
 
-export const fetchVaultById = createAsyncThunk(
-  'vault/fetchVaultById',
-  async (vaultId, thunkAPI) => {
+export const fetchVaultBySlug = createAsyncThunk(
+  'vault/fetchVaultBySlug',
+  async (slug, thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.token;
 
-      const response = await api.get(`/vaults/${vaultId}`, {
+      const response = await api.get(`/vaults/${slug}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -350,15 +350,15 @@ const vaultSlice = createSlice({
         state.error = action.payload;
       })
 
-      .addCase(fetchVaultById.pending, (state) => {
+      .addCase(fetchVaultBySlug.pending, (state) => {
         state.vaultsLoading = true;
         state.error = null;
       })
-      .addCase(fetchVaultById.fulfilled, (state, action) => {
+      .addCase(fetchVaultBySlug.fulfilled, (state, action) => {
         state.vaultsLoading = false;
         state.selectedVault = action.payload;
       })
-      .addCase(fetchVaultById.rejected, (state, action) => {
+      .addCase(fetchVaultBySlug.rejected, (state, action) => {
         state.vaultsLoading = false;
         state.error = action.payload;
       })
