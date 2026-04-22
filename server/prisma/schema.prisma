@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum FolderAccessLevel {
+  ADMINISTRATOR
+  FULL_ACCESS
+  READ_ONLY
+  EDIT_ONLY
+}
+
+enum VaultType {
+  PERSONAL
+  COMPANY
+  CLIENT
+}
+
+enum VaultAccessLevel {
+  READ_ONLY
+  READ_WRITE
+  DELETE
+  ADMIN
+}
+
+enum ActivityAction {
+  REGISTER
+  LOGIN
+  CREATE_VAULT
+  UPDATE_VAULT
+  DELETE_VAULT
+  CREATE_FOLDER
+  UPDATE_FOLDER
+  DELETE_FOLDER
+  COPY_PASSWORD
+  CREATE_PASSWORD
+  UPDATE_PASSWORD
+  DELETE_PASSWORD
+  VIEW_PASSWORD
+  SHARE_VAULT
+  IMPORT_PASSWORDS
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  fullName           String
+  email              String             @unique
+  passwordHash       String
+  masterPasswordHash String?
+  masterPasswordHint String?
+  role               Role               @default(USER)
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  encryptionSalt     String?
+
+  ownedVaults        Vault[]            @relation("VaultOwner")
+  vaultPermissions   VaultPermission[]
+  folderPermissions  FolderPermission[]
+  createdPasswords   PasswordEntry[]    @relation("PasswordCreatedBy")
+  activityLogs       ActivityLog[]
+}
+
+model Folder {
+  id          String             @id @default(uuid())
+  name        String
+  vaultId     String
+  parentId    String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  vault        Vault             @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  parent       Folder?           @relation("FolderTree", fields: [parentId], references: [id])
+  children     Folder[]          @relation("FolderTree")
+  passwords    PasswordEntry[]
+  permissions  FolderPermission[]
+}
+
+model FolderPermission {
+  id          String            @id @default(uuid())
+  folderId     String
+  userId       String
+  accessLevel  FolderAccessLevel
+  createdAt    DateTime         @default(now())
+
+  folder       Folder           @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, userId])
+}
+
+model Vault {
+  id          String            @id @default(uuid())
+  name        String
+  type        VaultType
+  ownerId     String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  owner       User              @relation("VaultOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  folders     Folder[]
+  passwords   PasswordEntry[]
+  permissions VaultPermission[]
+}
+
+model VaultPermission {
+  id          String            @id @default(uuid())
+  vaultId     String
+  userId      String
+  accessLevel VaultAccessLevel
+  createdAt   DateTime          @default(now())
+
+  vault       Vault             @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultId, userId])
+}
+
+model PasswordEntry {
+  id                String         @id @default(uuid())
+  name              String
+  login             String
+  encryptedPassword String
+  encryptedNote     String?
+  url               String?
+  colorTag          String?
+  vaultId           String
+  folderId          String?
+  createdById       String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  lastViewedAt      DateTime?
+  lastUpdatedAt     DateTime?
+  strengthScore     Int?           
+  isWeak            Boolean        @default(false)
+  isOld             Boolean        @default(false)
+  isAtRisk          Boolean        @default(false)
+
+  vault             Vault          @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  folder            Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdBy         User           @relation("PasswordCreatedBy", fields: [createdById], references: [id])
+  tags              PasswordTag[]
+}
+
+model Tag {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  passwords   PasswordTag[]
+}
+
+model PasswordTag {
+  passwordId  String
+  tagId       String
+
+  password    PasswordEntry  @relation(fields: [passwordId], references: [id], onDelete: Cascade)
+  tag         Tag            @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([passwordId, tagId])
+}
+
+model ActivityLog {
+  id          String          @id @default(uuid())
+  userId      String
+  action      ActivityAction
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
