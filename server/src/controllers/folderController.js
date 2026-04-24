@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { isAdminUser, getFolderAccess } = require('../utils/permissions');
+const generateId = require('../utils/generateId');
 
 const ALLOWED_ACCESS_LEVELS = [
   'ADMINISTRATOR',
@@ -16,13 +17,15 @@ const createFolder = async (req, res) => {
       return res.status(400).json({ message: 'Name and vaultId are required' });
     }
 
-    // no subfolders allowed
     if (parentId) {
       return res.status(400).json({ message: 'Subfolders are not allowed' });
     }
 
+    const folderId = await generateId('folder');
+
     const folder = await prisma.folder.create({
       data: {
+        id: folderId,
         name,
         vaultId,
         parentId: null,
@@ -38,8 +41,11 @@ const createFolder = async (req, res) => {
       },
     });
 
+    const activityId = await generateId('activityLog');
+
     await prisma.activityLog.create({
       data: {
+        id: activityId,
         userId: req.user.id,
         action: 'CREATE_FOLDER',
         targetType: 'Folder',
@@ -55,6 +61,92 @@ const createFolder = async (req, res) => {
     res.status(201).json(folder);
   } catch (error) {
     console.error('Create folder error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+const shareFolder = async (req, res) => {
+  try {
+    const folderId = req.params.id;
+    const { userEmail, accessLevel } = req.body;
+
+    if (!folderId) {
+      return res.status(400).json({ message: 'Folder id is required' });
+    }
+
+    if (!userEmail || !accessLevel) {
+      return res.status(400).json({ message: 'userEmail and accessLevel are required' });
+    }
+
+    if (!ALLOWED_ACCESS_LEVELS.includes(accessLevel)) {
+      return res.status(400).json({ message: 'Invalid access level' });
+    }
+
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+    });
+
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const folderPermissionId = await generateId('folderPermission');
+
+    const permission = await prisma.folderPermission.upsert({
+      where: {
+        folderId_userId: {
+          folderId,
+          userId: user.id,
+        },
+      },
+      update: {
+        accessLevel,
+      },
+      create: {
+        id: folderPermissionId,
+        folderId,
+        userId: user.id,
+        accessLevel,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const activityId = await generateId('activityLog');
+
+    await prisma.activityLog.create({
+      data: {
+        id: activityId,
+        userId: req.user.id,
+        action: 'UPDATE_FOLDER',
+        targetType: 'Folder',
+        targetId: folderId,
+        metadata: {
+          folderId,
+          sharedWith: user.email,
+          accessLevel,
+        },
+      },
+    });
+
+    res.json(permission);
+  } catch (error) {
+    console.error('Share folder error:', error);
     res.status(500).json({ message: error.message || 'Server error' });
   }
 };
@@ -120,9 +212,33 @@ const getFoldersByVault = async (req, res) => {
     let folders;
 
     if (admin) {
+      // folders = await prisma.folder.findMany({
+      //   where: { vaultId: req.params.vaultId },
+      //   include: {
+      //     permissions: {
+      //       include: {
+      //         user: {
+      //           select: { id: true, fullName: true, email: true },
+      //         },
+      //       },
+      //     },
+      //   },
+      //   orderBy: { createdAt: 'asc' },
+      // });
       folders = await prisma.folder.findMany({
         where: { vaultId: req.params.vaultId },
         include: {
+          vault: {
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+            },
+          },
           permissions: {
             include: {
               user: {
@@ -134,6 +250,26 @@ const getFoldersByVault = async (req, res) => {
         orderBy: { createdAt: 'asc' },
       });
     } else {
+      // folders = await prisma.folder.findMany({
+      //   where: {
+      //     vaultId: req.params.vaultId,
+      //     permissions: {
+      //       some: {
+      //         userId: req.user.id,
+      //       },
+      //     },
+      //   },
+      //   include: {
+      //     permissions: {
+      //       include: {
+      //         user: {
+      //           select: { id: true, fullName: true, email: true },
+      //         },
+      //       },
+      //     },
+      //   },
+      //   orderBy: { createdAt: 'asc' },
+      // });
       folders = await prisma.folder.findMany({
         where: {
           vaultId: req.params.vaultId,
@@ -144,6 +280,17 @@ const getFoldersByVault = async (req, res) => {
           },
         },
         include: {
+          vault: {
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+            },
+          },
           permissions: {
             include: {
               user: {
@@ -167,7 +314,40 @@ const getFolderById = async (req, res) => {
   try {
     const folder = await prisma.folder.findUnique({
       where: { id: req.params.id },
+      // include: {
+      //   permissions: {
+      //     include: {
+      //       user: {
+      //         select: {
+      //           id: true,
+      //           fullName: true,
+      //           email: true,
+      //         },
+      //       },
+      //     },
+      //   },
+      //   passwords: {
+      //     include: {
+      //       tags: {
+      //         include: {
+      //           tag: true,
+      //         },
+      //       },
+      //     },
+      //   },
+      // },
       include: {
+        vault: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+          },
+        },
         permissions: {
           include: {
             user: {
@@ -204,86 +384,6 @@ const getFolderById = async (req, res) => {
     res.json(folder);
   } catch (error) {
     console.error('Get folder by id error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
-  }
-};
-
-const shareFolder = async (req, res) => {
-  try {
-    const folderId = req.params.id;
-    const { userEmail, accessLevel } = req.body;
-
-    if (!folderId) {
-      return res.status(400).json({ message: 'Folder id is required' });
-    }
-
-    if (!userEmail || !accessLevel) {
-      return res.status(400).json({ message: 'userEmail and accessLevel are required' });
-    }
-
-    if (!ALLOWED_ACCESS_LEVELS.includes(accessLevel)) {
-      return res.status(400).json({ message: 'Invalid access level' });
-    }
-
-    const folder = await prisma.folder.findUnique({
-      where: { id: folderId },
-    });
-
-    if (!folder) {
-      return res.status(404).json({ message: 'Folder not found' });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: userEmail },
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const permission = await prisma.folderPermission.upsert({
-      where: {
-        folderId_userId: {
-          folderId,
-          userId: user.id,
-        },
-      },
-      update: {
-        accessLevel,
-      },
-      create: {
-        folderId,
-        userId: user.id,
-        accessLevel,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    await prisma.activityLog.create({
-      data: {
-        userId: req.user.id,
-        action: 'UPDATE_FOLDER',
-        targetType: 'Folder',
-        targetId: folderId,
-        metadata: {
-          folderId,
-          sharedWith: user.email,
-          accessLevel,
-        },
-      },
-    });
-
-    res.json(permission);
-  } catch (error) {
-    console.error('Share folder error:', error);
     res.status(500).json({ message: error.message || 'Server error' });
   }
 };

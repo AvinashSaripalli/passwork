@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const generateId = require('../utils/generateId');
 
 const makeSlug = (name) =>
   name
@@ -19,7 +20,7 @@ const createVault = async (req, res) => {
       return res.status(400).json({ message: 'Name and type are required' });
     }
 
-    let baseSlug = makeSlug(name);
+    const baseSlug = makeSlug(name);
     let slug = baseSlug;
     let count = 1;
 
@@ -28,8 +29,11 @@ const createVault = async (req, res) => {
       count += 1;
     }
 
+    const vaultId = await generateId('vault');
+
     const vault = await prisma.vault.create({
       data: {
+        id: vaultId,
         name,
         type,
         slug,
@@ -37,16 +41,22 @@ const createVault = async (req, res) => {
       },
     });
 
+    const vaultPermissionId = await generateId('vaultPermission');
+
     await prisma.vaultPermission.create({
       data: {
+        id: vaultPermissionId,
         vaultId: vault.id,
         userId: req.user.id,
         accessLevel: 'ADMIN',
       },
     });
 
+    const activityId = await generateId('activityLog');
+
     await prisma.activityLog.create({
       data: {
+        id: activityId,
         userId: req.user.id,
         action: 'CREATE_VAULT',
         targetType: 'Vault',

@@ -15,11 +15,24 @@ function FolderMembersSummary({ onClick }) {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
   const permissions = selectedFolder?.permissions || [];
+  const owner = selectedFolder?.vault?.owner || null;
 
-  if (!selectedFolderId || !permissions.length) return null;
+  const allMembers = owner
+    ? [
+        {
+          id: `owner-${owner.id}`,
+          user: owner,
+          accessLevel: 'ADMINISTRATOR',
+          isOwner: true,
+        },
+        ...permissions.filter((item) => item.user?.id !== owner.id),
+      ]
+    : permissions;
 
-  const visibleMembers = permissions.slice(0, 3);
-  const extraCount = permissions.length - visibleMembers.length;
+  if (!selectedFolderId || !allMembers.length) return null;
+
+  const visibleMembers = allMembers.slice(0, 3);
+  const extraCount = allMembers.length - visibleMembers.length;
 
   return (
     <button
@@ -46,7 +59,7 @@ function FolderMembersSummary({ onClick }) {
 
       <div className="text-sm leading-tight">
         <div className="text-indigo-600 font-medium">
-          Shared with {permissions.length} user{permissions.length > 1 ? 's' : ''}
+          Shared with {allMembers.length} user{allMembers.length > 1 ? 's' : ''}
           {extraCount > 0 ? ` (+${extraCount})` : ''}
         </div>
         <div className="text-slate-400 text-xs">Folder members</div>

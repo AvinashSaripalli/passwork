@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { getFolderAccess, isAdminUser } = require('../utils/permissions');
 const XLSX = require('xlsx');
+const generateId = require('../utils/generateId');
 
 const createPassword = async (req, res) => {
   try {
@@ -33,8 +34,11 @@ const createPassword = async (req, res) => {
     const strengthScore =
       encryptedPassword.length >= 16 ? 90 : encryptedPassword.length >= 12 ? 70 : 40;
 
+    const passwordId = await generateId('passwordEntry');
+
     const passwordEntry = await prisma.passwordEntry.create({
       data: {
+        id: passwordId,
         name,
         login,
         encryptedPassword,
@@ -54,7 +58,10 @@ const createPassword = async (req, res) => {
             tag: {
               connectOrCreate: {
                 where: { name: tagName },
-                create: { name: tagName },
+                create: {
+                  id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  name: tagName,
+                },
               },
             },
           })),
@@ -69,8 +76,11 @@ const createPassword = async (req, res) => {
       },
     });
 
+    const activityId = await generateId('activityLog');
+
     await prisma.activityLog.create({
       data: {
+        id: activityId,
         userId: req.user.id,
         action: 'CREATE_PASSWORD',
         targetType: 'PasswordEntry',
@@ -86,6 +96,94 @@ const createPassword = async (req, res) => {
     res.status(201).json(passwordEntry);
   } catch (error) {
     console.error('Create password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const importPasswordsFromExcel = async (req, res) => {
+  try {
+    const { vaultId, folderId, rows } = req.body;
+
+    if (!vaultId || !folderId) {
+      return res.status(400).json({ message: 'vaultId and folderId are required' });
+    }
+
+    if (!Array.isArray(rows) || !rows.length) {
+      return res.status(400).json({ message: 'Excel rows are required' });
+    }
+
+    const access = await getFolderAccess(folderId, req.user.id);
+    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const createdPasswords = [];
+
+    for (const row of rows) {
+      const passwordId = await generateId('passwordEntry');
+
+      const created = await prisma.passwordEntry.create({
+        data: {
+          id: passwordId,
+          name: row.name || 'Imported Password',
+          login: row.login || '',
+          encryptedPassword: row.encryptedPassword || '',
+          encryptedNote: row.encryptedNote || null,
+          url: row.url || null,
+          colorTag: row.colorTag || null,
+          vaultId,
+          folderId,
+          createdById: req.user.id,
+          isWeak: row.isWeak === true || row.isWeak === 'true' || row.isWeak === 'Yes',
+          isOld: row.isOld === true || row.isOld === 'true' || row.isOld === 'Yes',
+          isAtRisk: row.isAtRisk === true || row.isAtRisk === 'true' || row.isAtRisk === 'Yes',
+          strengthScore: row.strengthScore ? Number(row.strengthScore) : null,
+          lastUpdatedAt: new Date(),
+          tags: {
+            create: (
+              row.tags
+                ? String(row.tags).split(',').map((t) => t.trim()).filter(Boolean)
+                : []
+            ).map((tagName) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: {
+                    id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    name: tagName,
+                  },
+                },
+              },
+            })),
+          },
+        },
+      });
+
+      createdPasswords.push(created);
+    }
+
+    const activityId = await generateId('activityLog');
+
+    await prisma.activityLog.create({
+      data: {
+        id: activityId,
+        userId: req.user.id,
+        action: 'IMPORT_PASSWORDS',
+        targetType: 'PasswordEntry',
+        metadata: {
+          vaultId,
+          folderId,
+          count: createdPasswords.length,
+        },
+      },
+    });
+
+    res.status(201).json({
+      message: 'Passwords imported successfully',
+      count: createdPasswords.length,
+    });
+  } catch (error) {
+    console.error('Import passwords from excel error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -311,71 +409,6 @@ const logCopyPassword = async (req, res) => {
     res.json({ message: 'Password copy activity logged' });
   } catch (error) {
     console.error('Log copy password error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const importPasswordsFromExcel = async (req, res) => {
-  try {
-    const { vaultId, folderId, rows } = req.body;
-
-    if (!vaultId || !folderId) {
-      return res.status(400).json({ message: 'vaultId and folderId are required' });
-    }
-
-    if (!Array.isArray(rows) || !rows.length) {
-      return res.status(400).json({ message: 'Excel rows are required' });
-    }
-
-    const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const createdPasswords = [];
-
-    for (const row of rows) {
-      const created = await prisma.passwordEntry.create({
-        data: {
-          name: row.name || 'Imported Password',
-          login: row.login || '',
-          encryptedPassword: row.encryptedPassword || '',
-          encryptedNote: row.encryptedNote || null,
-          url: row.url || null,
-          colorTag: row.colorTag || null,
-          vaultId,
-          folderId,
-          createdById: req.user.id,
-          isWeak: row.isWeak === true || row.isWeak === 'true' || row.isWeak === 'Yes',
-          isOld: row.isOld === true || row.isOld === 'true' || row.isOld === 'Yes',
-          isAtRisk: row.isAtRisk === true || row.isAtRisk === 'true' || row.isAtRisk === 'Yes',
-          strengthScore: row.strengthScore ? Number(row.strengthScore) : null,
-          lastUpdatedAt: new Date(),
-          tags: {
-            create: (row.tags
-              ? String(row.tags).split(',').map((t) => t.trim()).filter(Boolean)
-              : []
-            ).map((tagName) => ({
-              tag: {
-                connectOrCreate: {
-                  where: { name: tagName },
-                  create: { name: tagName },
-                },
-              },
-            })),
-          },
-        },
-      });
-
-      createdPasswords.push(created);
-    }
-
-    res.status(201).json({
-      message: 'Passwords imported successfully',
-      count: createdPasswords.length,
-    });
-  } catch (error) {
-    console.error('Import passwords from excel error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

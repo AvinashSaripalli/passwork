@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
-
+const generateId = require('../utils/generateId');
 
 const signToken = (user) => {
   return jwt.sign(
@@ -33,15 +33,17 @@ const register = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const crypto = require('crypto');
+    const encryptionSalt = crypto.randomBytes(16).toString('hex');
+    const userId = await generateId('user');
 
-const encryptionSalt = crypto.randomBytes(16).toString('hex');
     const user = await prisma.user.create({
       data: {
+        id: userId,
         fullName,
         email,
         passwordHash,
-    encryptionSalt,
-    role: 'USER',
+        encryptionSalt,
+        role: 'USER',
       },
     });
 

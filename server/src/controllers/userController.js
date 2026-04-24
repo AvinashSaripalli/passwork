@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const generateId = require('../utils/generateId');
 
 const requireAdmin = (req, res) => {
   if (req.user.role !== 'ADMIN') {
@@ -50,9 +51,11 @@ const createUserByAdmin = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const encryptionSalt = crypto.randomBytes(16).toString('hex');
+    const userId = await generateId('user');
 
     const user = await prisma.user.create({
       data: {
+        id: userId,
         fullName,
         email,
         passwordHash,

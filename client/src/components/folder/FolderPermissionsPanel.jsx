@@ -5,6 +5,19 @@ function FolderPermissionsPanel() {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
   const permissions = selectedFolder?.permissions || [];
+  const owner = selectedFolder?.vault?.owner || null;
+
+  const allMembers = owner
+    ? [
+        {
+          id: `owner-${owner.id}`,
+          user: owner,
+          accessLevel: 'ADMINISTRATOR',
+          isOwner: true,
+        },
+        ...permissions.filter((item) => item.user?.id !== owner.id),
+      ]
+    : permissions;
 
   if (!selectedFolderId) return null;
 
@@ -22,17 +35,22 @@ function FolderPermissionsPanel() {
             </tr>
           </thead>
           <tbody>
-            {permissions.map((item) => (
-              <tr key={item.id} className="border-b last:border-0">
+            {allMembers.map((item) => (
+              <tr
+                key={item.id}
+                className={`border-b last:border-0 ${item.isOwner ? 'bg-indigo-50/50' : ''}`}
+              >
                 <td className="py-4">{item.user?.fullName || '-'}</td>
                 <td className="py-4">{item.user?.email || '-'}</td>
-                <td className="py-4">{item.accessLevel}</td>
+                <td className="py-4">
+                  {item.isOwner ? 'ADMINISTRATOR (Owner)' : item.accessLevel}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {!permissions.length && (
+        {!allMembers.length && (
           <p className="text-slate-500 mt-4">No folder permissions found.</p>
         )}
       </div>

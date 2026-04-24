@@ -50,7 +50,7 @@ enum ActivityAction {
 }
 
 model User {
-  id                 String             @id @default(uuid())
+  id                 String             @id
   fullName           String
   email              String             @unique
   passwordHash       String
@@ -70,7 +70,7 @@ model User {
 }
 
 model Folder {
-  id          String             @id @default(uuid())
+  id          String             @id
   name        String
   vaultId     String
   parentId    String?
@@ -85,23 +85,23 @@ model Folder {
 }
 
 model FolderPermission {
-  id          String            @id @default(uuid())
+  id           String            @id
   folderId     String
   userId       String
   accessLevel  FolderAccessLevel
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime          @default(now())
 
-  folder       Folder           @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder       Folder            @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([folderId, userId])
 }
 
 model Vault {
-  id          String            @id @default(uuid())
+  id          String            @id
   name        String
   type        VaultType
-  slug String @unique
+  slug        String            @unique
   ownerId     String
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -113,7 +113,7 @@ model Vault {
 }
 
 model VaultPermission {
-  id          String            @id @default(uuid())
+  id          String            @id
   vaultId     String
   userId      String
   accessLevel VaultAccessLevel
@@ -126,7 +126,7 @@ model VaultPermission {
 }
 
 model PasswordEntry {
-  id                String         @id @default(uuid())
+  id                String         @id
   name              String
   login             String
   encryptedPassword String
@@ -140,7 +140,7 @@ model PasswordEntry {
   updatedAt         DateTime       @updatedAt
   lastViewedAt      DateTime?
   lastUpdatedAt     DateTime?
-  strengthScore     Int?           
+  strengthScore     Int?
   isWeak            Boolean        @default(false)
   isOld             Boolean        @default(false)
   isAtRisk          Boolean        @default(false)
@@ -152,7 +152,7 @@ model PasswordEntry {
 }
 
 model Tag {
-  id          String         @id @default(uuid())
+  id          String         @id
   name        String         @unique
   passwords   PasswordTag[]
 }
@@ -168,7 +168,7 @@ model PasswordTag {
 }
 
 model ActivityLog {
-  id          String          @id @default(uuid())
+  id          String          @id
   userId      String
   action      ActivityAction
   targetType  String?
