@@ -11,6 +11,7 @@ import ActivityLogPage from './pages/activity/ActivityLogPage';
 import TeamManagementPage from './pages/team/TeamManagementPage';
 import AddUserPage from './pages/team/AddUserPage';
 import EditUserPage from './pages/team/EditUserPage';
+import InviteUserPage from './pages/team/InviteUserPage';
 
 function App() {
   return (
@@ -83,10 +84,10 @@ function App() {
       />
 
       <Route
-        path="/team-management/add"
+        path="/team-management/invite"
         element={
           <MasterProtectedRoute>
-            <AddUserPage />
+            <InviteUserPage />
           </MasterProtectedRoute>
         }
       />

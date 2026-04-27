@@ -67,6 +67,7 @@ model User {
   folderPermissions  FolderPermission[]
   createdPasswords   PasswordEntry[]    @relation("PasswordCreatedBy")
   activityLogs       ActivityLog[]
+  sentInvitations Invitation[] @relation("InvitationSender")
 }
 
 model Folder {
@@ -177,4 +178,17 @@ model ActivityLog {
   createdAt   DateTime        @default(now())
 
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Invitation {
+  id         String   @id
+  email      String
+  token      String   @unique
+  role       Role     @default(USER)
+  invitedBy  String
+  isUsed     Boolean  @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  inviter    User     @relation("InvitationSender", fields: [invitedBy], references: [id], onDelete: Cascade)
 }

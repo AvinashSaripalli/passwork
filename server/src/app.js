@@ -12,6 +12,7 @@ const activityRoutes = require('./routes/activityRoutes');
 const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const folderRoutes = require('./routes/folderRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
 
 const app = express();
 
@@ -46,5 +47,6 @@ app.use('/api/v1/activity', activityRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/folders', folderRoutes);
+app.use('/api/v1/invitations', invitationRoutes);
 
 module.exports = app;

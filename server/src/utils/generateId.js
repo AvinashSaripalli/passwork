@@ -8,6 +8,7 @@ const config = {
   vaultPermission: 'VPERM',
   passwordEntry: 'PWD',
   activityLog: 'ACT',
+  invitation: 'INV',
 };
 
 async function generateId(model) {
