@@ -195,11 +195,19 @@ const verifyAdministratorMasterPassword = async (req, res) => {
     const adminUser = await prisma.user.findFirst({
       where: {
         role: 'ADMIN',
+        masterPasswordHash: {
+          not: null,
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
       },
     });
 
-    if (!adminUser || !adminUser.masterPasswordHash) {
-      return res.status(404).json({ message: 'Administrator master password not set' });
+    if (!adminUser) {
+      return res.status(400).json({
+        message: 'Administrator master password not set',
+      });
     }
 
     const isMatch = await bcrypt.compare(
@@ -208,7 +216,9 @@ const verifyAdministratorMasterPassword = async (req, res) => {
     );
 
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid administrator master password' });
+      return res.status(400).json({
+        message: 'Invalid administrator master password',
+      });
     }
 
     res.json({ verified: true });

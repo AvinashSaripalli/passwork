@@ -11,6 +11,14 @@ const ALLOWED_ACCESS_LEVELS = [
 
 const createFolder = async (req, res) => {
   try {
+    const admin = await isAdminUser(req.user.id);
+
+    if (!admin) {
+      return res.status(403).json({
+        message: 'Only administrator can create folders',
+      });
+    }
+
     const { name, vaultId, parentId } = req.body;
 
     if (!name || !vaultId) {
@@ -186,6 +194,7 @@ const updateFolder = async (req, res) => {
 
     await prisma.activityLog.create({
       data: {
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'UPDATE_FOLDER',
         targetType: 'Folder',
@@ -495,6 +504,7 @@ const deleteFolder = async (req, res) => {
       }),
       prisma.activityLog.create({
         data: {
+          id: await generateId('activityLog'),
           userId: req.user.id,
           action: 'DELETE_FOLDER',
           targetType: 'Folder',

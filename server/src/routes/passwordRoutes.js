@@ -14,5 +14,6 @@ router.get('/:id', authenticate, passwordController.getPasswordById);
 router.put('/:id', authenticate, passwordController.updatePassword);
 router.delete('/:id', authenticate, passwordController.deletePassword);
 router.post('/:id/copy-log', authenticate, passwordController.logCopyPassword);
+router.post('/:id/view-log', authenticate, passwordController.logViewPassword);
 
 module.exports = router;

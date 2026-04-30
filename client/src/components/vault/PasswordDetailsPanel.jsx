@@ -103,6 +103,16 @@ function PasswordDetailsPanel() {
         ...prev,
         [activePassword.id]: !prev[activePassword.id],
       }));
+
+      await api.post(
+        `/passwords/${activePassword.id}/view-log`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     }
 
     if (pendingAction === 'copy-login' && canView) {

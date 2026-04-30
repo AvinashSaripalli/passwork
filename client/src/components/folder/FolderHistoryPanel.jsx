@@ -182,7 +182,7 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-white border border-slate-200 rounded-xl p-4">
               <p className="text-sm text-slate-500">Members</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1">
@@ -196,7 +196,7 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
                 {summary.activities}
               </h3>
             </div>
-          </div>
+          </div> */}
 
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -271,11 +271,11 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
                               <p className="text-sm font-semibold text-slate-900">
                                 {config.label}
                               </p>
-                              <span
+                              {/* <span
                                 className={`text-[11px] font-semibold px-2 py-1 rounded-md ${config.badge}`}
                               >
                                 {log.action}
-                              </span>
+                              </span>   */}
                             </div>
 
                             <p className="text-sm text-slate-600 mt-1 truncate">

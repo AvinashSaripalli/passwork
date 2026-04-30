@@ -31,25 +31,22 @@ function Sidebar() {
   const dispatch = useDispatch();
   const { slug: currentVaultSlug } = useParams();
 
-const { user } = useSelector((state) => state.auth);
-const {
-  vaults,
-  vaultsLoading,
-  folders,
-  foldersLoading,
-  selectedFolderId,
-  error,
-} = useSelector((state) => state.vault);
+  const { user } = useSelector((state) => state.auth);
+  const {
+    vaults,
+    vaultsLoading,
+    folders,
+    foldersLoading,
+    selectedFolderId,
+    error,
+  } = useSelector((state) => state.vault);
 
-const activeVault = vaults.find(
-  (v) => v.slug === currentVaultSlug
-);
+  const activeVault = vaults.find((v) => v.slug === currentVaultSlug);
+  const currentVaultId = activeVault?.id;
 
-const currentVaultId = activeVault?.id;
-
-const [shareOpen, setShareOpen] = useState(false);
-const [renameOpen, setRenameOpen] = useState(false);
-const [actionFolder, setActionFolder] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [actionFolder, setActionFolder] = useState(null);
 
   useEffect(() => {
     dispatch(fetchVaults());
@@ -104,18 +101,18 @@ const [actionFolder, setActionFolder] = useState(null);
 
   return (
     <>
-      <aside className="w-[292px] bg-white border-r border-slate-200 px-5 py-6 flex flex-col">
-        <div className="mb-10">
-          <h1 className="text-[28px] leading-none font-bold text-slate-900">
+      <aside className="w-[290px] bg-white border-r border-slate-200 px-5 py-6 flex flex-col">
+        <div className="mb-9">
+          <h1 className="text-[30px] leading-none font-bold text-slate-900">
             Passwork
           </h1>
-          <p className="text-sm text-slate-500 mt-4">
+          <p className="text-sm text-slate-500 mt-3">
             {user?.role === 'ADMIN' ? 'Administrator' : 'User'}
           </p>
         </div>
 
-        <div className="mb-8">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-400 uppercase mb-4">
+        <div className="mb-9">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400 uppercase mb-4">
             Management
           </p>
 
@@ -128,13 +125,13 @@ const [actionFolder, setActionFolder] = useState(null);
                 <Link
                   key={item.name}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] transition ${
+                  className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] transition ${
                     active
                       ? 'bg-indigo-50 text-indigo-700 font-medium'
                       : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <Icon size={18} />
+                  <Icon size={17} />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -143,12 +140,14 @@ const [actionFolder, setActionFolder] = useState(null);
         </div>
 
         <div className="mb-6">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-400 uppercase mb-4">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400 uppercase mb-4">
             Company Vault
           </p>
 
           {vaultsLoading && (
-            <p className="text-sm text-slate-400 px-3 py-2">Loading vaults...</p>
+            <p className="text-sm text-slate-400 px-3 py-2">
+              Loading vaults...
+            </p>
           )}
 
           {!vaultsLoading &&
@@ -156,12 +155,12 @@ const [actionFolder, setActionFolder] = useState(null);
               const vaultActive = location.pathname === `/vaults/${vault.slug}`;
 
               return (
-                <div key={vault.id} className="mb-3">
+                <div key={vault.id} className="mb-2">
                   <div
-                    className={`flex items-center justify-between rounded-2xl px-3 py-3 ${
+                    className={`flex items-center justify-between px-3 py-3 rounded-2xl ${
                       vaultActive
-                        ? 'bg-slate-100 text-slate-900'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-slate-100 text-slate-900 font-medium'
+                        : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <Link
@@ -169,31 +168,29 @@ const [actionFolder, setActionFolder] = useState(null);
                       onClick={() => dispatch(clearSelectedFolder())}
                       className="flex items-center gap-3 flex-1 min-w-0"
                     >
-                      <FolderOpen size={18} />
-                      <span className="text-[15px] font-medium truncate">
-                        {vault.name}
-                      </span>
+                      <FolderOpen size={17} />
+                      <span className="text-[15px] truncate">{vault.name}</span>
                     </Link>
 
                     <div className="flex items-center gap-2 ml-2">
                       {vaultActive && user?.role === 'ADMIN' && (
                         <button
                           onClick={() => dispatch(openAddFolderModal())}
-                          className="w-8 h-8 rounded-xl border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-50"
+                          className="w-7 h-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-50"
                           title="Add folder"
                         >
-                          <Plus size={15} />
+                          <Plus size={14} />
                         </button>
                       )}
 
                       {vaultActive && (
-                        <ChevronDown size={16} className="text-slate-400" />
+                        <ChevronDown size={15} className="text-slate-400" />
                       )}
                     </div>
                   </div>
 
                   {vaultActive && (
-                    <div className="mt-2 ml-6 pl-3 border-l border-slate-200 space-y-1">
+                    <div className="ml-6 mt-2 space-y-1 border-l border-slate-200 pl-3">
                       {foldersLoading && (
                         <p className="text-xs text-slate-400 py-1">
                           Loading folders...
@@ -206,7 +203,8 @@ const [actionFolder, setActionFolder] = useState(null);
 
                           const folderPermission = folder?.permissions?.find(
                             (item) =>
-                              item.userId === user?.id || item.user?.id === user?.id
+                              item.userId === user?.id ||
+                              item.user?.id === user?.id
                           );
 
                           const folderAccess =
@@ -221,7 +219,7 @@ const [actionFolder, setActionFolder] = useState(null);
                           return (
                             <div
                               key={folder.id}
-                              className={`flex items-center justify-between rounded-xl ${
+                              className={`w-full flex items-center justify-between rounded-lg ${
                                 selected
                                   ? 'bg-indigo-50 text-indigo-700'
                                   : 'text-slate-600 hover:bg-slate-50'
@@ -229,9 +227,9 @@ const [actionFolder, setActionFolder] = useState(null);
                             >
                               <button
                                 onClick={() => dispatch(selectFolder(folder.id))}
-                                className="flex items-center gap-2 px-3 py-2 text-left text-sm flex-1 min-w-0"
+                                className="flex items-center gap-2 px-2 py-2 text-left text-sm flex-1 min-w-0"
                               >
-                                <Folder size={15} />
+                                <Folder size={14} />
                                 <span className="truncate">{folder.name}</span>
                               </button>
 
@@ -257,16 +255,16 @@ const [actionFolder, setActionFolder] = useState(null);
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2">
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
             <p className="text-xs text-red-600">{error}</p>
           </div>
         )}
 
         <button
           onClick={handleLogout}
-          className="mt-auto flex items-center gap-3 px-4 py-3 rounded-2xl text-red-600 hover:bg-red-50 text-[15px]"
+          className="mt-auto flex items-center gap-3 px-3 py-3 rounded-xl text-red-600 hover:bg-red-50 text-sm"
         >
-          <LogOut size={18} />
+          <LogOut size={16} />
           <span>Logout</span>
         </button>
       </aside>

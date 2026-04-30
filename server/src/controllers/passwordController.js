@@ -34,11 +34,9 @@ const createPassword = async (req, res) => {
     const strengthScore =
       encryptedPassword.length >= 16 ? 90 : encryptedPassword.length >= 12 ? 70 : 40;
 
-    const passwordId = await generateId('passwordEntry');
-
     const passwordEntry = await prisma.passwordEntry.create({
       data: {
-        id: passwordId,
+        id: await generateId('passwordEntry'),
         name,
         login,
         encryptedPassword,
@@ -69,18 +67,14 @@ const createPassword = async (req, res) => {
       },
       include: {
         tags: {
-          include: {
-            tag: true,
-          },
+          include: { tag: true },
         },
       },
     });
 
-    const activityId = await generateId('activityLog');
-
     await prisma.activityLog.create({
       data: {
-        id: activityId,
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'CREATE_PASSWORD',
         targetType: 'PasswordEntry',
@@ -120,11 +114,9 @@ const importPasswordsFromExcel = async (req, res) => {
     const createdPasswords = [];
 
     for (const row of rows) {
-      const passwordId = await generateId('passwordEntry');
-
       const created = await prisma.passwordEntry.create({
         data: {
-          id: passwordId,
+          id: await generateId('passwordEntry'),
           name: row.name || 'Imported Password',
           login: row.login || '',
           encryptedPassword: row.encryptedPassword || '',
@@ -162,11 +154,9 @@ const importPasswordsFromExcel = async (req, res) => {
       createdPasswords.push(created);
     }
 
-    const activityId = await generateId('activityLog');
-
     await prisma.activityLog.create({
       data: {
-        id: activityId,
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'IMPORT_PASSWORDS',
         targetType: 'PasswordEntry',
@@ -249,12 +239,13 @@ const getPasswordById = async (req, res) => {
     }
 
     const access = await getFolderAccess(password.folderId, req.user.id);
-    if (!access) {
+    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     await prisma.activityLog.create({
       data: {
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'VIEW_PASSWORD',
         targetType: 'PasswordEntry',
@@ -315,6 +306,7 @@ const updatePassword = async (req, res) => {
 
     await prisma.activityLog.create({
       data: {
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'UPDATE_PASSWORD',
         targetType: 'PasswordEntry',
@@ -355,6 +347,7 @@ const deletePassword = async (req, res) => {
 
     await prisma.activityLog.create({
       data: {
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'DELETE_PASSWORD',
         targetType: 'PasswordEntry',
@@ -394,6 +387,7 @@ const logCopyPassword = async (req, res) => {
 
     await prisma.activityLog.create({
       data: {
+        id: await generateId('activityLog'),
         userId: req.user.id,
         action: 'COPY_PASSWORD',
         targetType: 'PasswordEntry',
@@ -409,6 +403,54 @@ const logCopyPassword = async (req, res) => {
     res.json({ message: 'Password copy activity logged' });
   } catch (error) {
     console.error('Log copy password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const logViewPassword = async (req, res) => {
+  try {
+    const password = await prisma.passwordEntry.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!password) {
+      return res.status(404).json({ message: 'Password not found' });
+    }
+
+    const access = await getFolderAccess(password.folderId, req.user.id);
+
+    if (
+      !access ||
+      !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(access)
+    ) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await prisma.passwordEntry.update({
+      where: { id: password.id },
+      data: {
+        lastViewedAt: new Date(),
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'VIEW_PASSWORD',
+        targetType: 'PasswordEntry',
+        targetId: password.id,
+        metadata: {
+          name: password.name,
+          folderId: password.folderId,
+          vaultId: password.vaultId,
+        },
+      },
+    });
+
+    res.json({ message: 'Password view activity logged' });
+  } catch (error) {
+    console.error('Log view password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -483,7 +525,6 @@ const exportPasswordsToExcel = async (req, res) => {
   }
 };
 
-
 module.exports = {
   createPassword,
   getPasswordsByVault,
@@ -491,6 +532,7 @@ module.exports = {
   updatePassword,
   deletePassword,
   logCopyPassword,
+  logViewPassword,
   importPasswordsFromExcel,
   exportPasswordsToExcel,
 };

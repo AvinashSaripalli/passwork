@@ -30,8 +30,7 @@ function getInitials(name = '') {
 }
 
 function getAccessMeta(accessLevel) {
-  const found = ACCESS_OPTIONS.find((item) => item.value === accessLevel);
-  return found || ACCESS_OPTIONS[3];
+  return ACCESS_OPTIONS.find((item) => item.value === accessLevel) || ACCESS_OPTIONS[3];
 }
 
 function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
@@ -41,18 +40,23 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
   const [search, setSearch] = useState('');
   const [members, setMembers] = useState([]);
   const [changedMembers, setChangedMembers] = useState({});
+  const [folderDetails, setFolderDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const selectedFolder = folders.find((f) => f.id === folderId);
+  const activeFolder = folderDetails || selectedFolder;
+  const owner = activeFolder?.vault?.owner || null;
 
-  const currentUserPermission = selectedFolder?.permissions?.find(
+  const currentUserPermission = activeFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
   );
 
+  const isCurrentUserOwner = owner?.id === user?.id;
+
   const currentUserAccess =
-    user?.role === 'ADMIN'
+    user?.role === 'ADMIN' || isCurrentUserOwner
       ? 'ADMINISTRATOR'
       : currentUserPermission?.accessLevel || null;
 
@@ -62,19 +66,51 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
   useEffect(() => {
     if (!open || !folderId) return;
 
-    setLoading(true);
-    setError('');
+    const loadFolderDetails = async () => {
+      try {
+        setLoading(true);
+        setError('');
 
-    try {
-      const currentPermissions = selectedFolder?.permissions || [];
-      setMembers(currentPermissions);
-      setChangedMembers({});
-    } catch (err) {
-      setError('Failed to load folder members');
-    } finally {
-      setLoading(false);
-    }
-  }, [open, folderId, selectedFolder]);
+        const res = await api.get(`/folders/${folderId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const folder = res.data;
+        setFolderDetails(folder);
+
+        const currentPermissions = folder?.permissions || [];
+        const folderOwner = folder?.vault?.owner || null;
+
+        const finalMembers = folderOwner
+          ? [
+              {
+                id: `owner-${folderOwner.id}`,
+                userId: folderOwner.id,
+                user: folderOwner,
+                accessLevel: 'ADMINISTRATOR',
+                isOwner: true,
+              },
+              ...currentPermissions.filter(
+                (item) =>
+                  item.userId !== folderOwner.id &&
+                  item.user?.id !== folderOwner.id
+              ),
+            ]
+          : currentPermissions;
+
+        setMembers(finalMembers);
+        setChangedMembers({});
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to load folder members');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFolderDetails();
+  }, [open, folderId, token]);
 
   const filteredMembers = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -88,6 +124,9 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
 
   const handleAccessChange = (permissionId, newAccess) => {
     if (!canManageMembers) return;
+
+    const member = members.find((item) => item.id === permissionId);
+    if (member?.isOwner) return;
 
     setChangedMembers((prev) => ({
       ...prev,
@@ -106,6 +145,9 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
 
   const handleRemoveMember = (permissionId) => {
     if (!canManageMembers) return;
+
+    const member = members.find((item) => item.id === permissionId);
+    if (member?.isOwner) return;
 
     setChangedMembers((prev) => ({
       ...prev,
@@ -128,34 +170,26 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
       const updates = Object.entries(changedMembers);
 
       for (const [permissionId, change] of updates) {
+        if (permissionId.startsWith('owner-')) continue;
+
         if (change.remove) {
           await api.delete(`/folders/permissions/${permissionId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
         } else if (change.accessLevel) {
           await api.put(
             `/folders/permissions/${permissionId}`,
             { accessLevel: change.accessLevel },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
+            { headers: { Authorization: `Bearer ${token}` } }
           );
         }
       }
 
-      if (onSaved) {
-        await onSaved();
-      }
+      if (onSaved) await onSaved();
 
       onClose();
     } catch (err) {
-      setError(
-        err.response?.data?.message || 'Failed to save folder permissions'
-      );
+      setError(err.response?.data?.message || 'Failed to save folder permissions');
     } finally {
       setSaving(false);
     }
@@ -175,7 +209,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
               </div>
 
               <h2 className="text-[30px] leading-[1.15] font-bold text-slate-900">
-                {folderName || 'Folder'}
+                {folderName || activeFolder?.name || 'Folder'}
               </h2>
 
               <p className="text-slate-500 mt-2 text-sm">
@@ -228,6 +262,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                   <div className="space-y-3">
                     {ACCESS_OPTIONS.map((item) => {
                       const Icon = item.icon;
+
                       return (
                         <div
                           key={item.value}
@@ -284,7 +319,9 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                       return (
                         <div
                           key={item.id}
-                          className="px-6 py-5 flex items-center justify-between gap-5 hover:bg-slate-50/70 transition"
+                          className={`px-6 py-5 flex items-center justify-between gap-5 hover:bg-slate-50/70 transition ${
+                            item.isOwner ? 'bg-indigo-50/40' : ''
+                          }`}
                         >
                           <div className="flex items-center gap-4 min-w-0">
                             <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 text-sm font-bold flex items-center justify-center shrink-0">
@@ -292,9 +329,16 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="text-[15px] font-semibold text-slate-900 truncate">
-                                {item.user?.fullName || 'Unknown user'}
+                              <div className="text-[15px] font-semibold text-slate-900 truncate flex items-center gap-2">
+                                <span>{item.user?.fullName || 'Unknown user'}</span>
+
+                                {item.isOwner && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
+                                    Folder Administrator
+                                  </span>
+                                )}
                               </div>
+
                               <div className="text-sm text-slate-500 truncate mt-0.5">
                                 {item.user?.email || '-'}
                               </div>
@@ -302,7 +346,12 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                           </div>
 
                           <div className="flex items-center gap-3 shrink-0">
-                            {canManageMembers ? (
+                            {item.isOwner ? (
+                              <div className="min-w-[220px] h-[48px] rounded-2xl border border-indigo-200 bg-indigo-50 px-4 flex items-center gap-2 text-sm font-semibold text-indigo-700">
+                                <Crown size={16} />
+                                <span>Administrator</span>
+                              </div>
+                            ) : canManageMembers ? (
                               <div className="relative">
                                 <select
                                   value={item.accessLevel}
@@ -317,6 +366,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                                     </option>
                                   ))}
                                 </select>
+
                                 <ChevronDown
                                   size={17}
                                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -329,7 +379,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                               </div>
                             )}
 
-                            {canManageMembers && (
+                            {canManageMembers && !item.isOwner && (
                               <button
                                 onClick={() => handleRemoveMember(item.id)}
                                 className="w-11 h-11 rounded-2xl border border-red-200 bg-white text-red-500 hover:bg-red-50 flex items-center justify-center"
@@ -350,9 +400,11 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                     <div className="w-14 h-14 rounded-2xl bg-slate-100 mx-auto flex items-center justify-center text-slate-400 mb-4">
                       <Users size={22} />
                     </div>
+
                     <div className="text-base font-semibold text-slate-800">
                       No users found
                     </div>
+
                     <p className="text-sm text-slate-500 mt-1">
                       Try another name or email in search.
                     </p>
