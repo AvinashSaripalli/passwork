@@ -99,11 +99,7 @@ const importPasswordsFromExcel = async (req, res) => {
     const { vaultId, folderId, rows } = req.body;
 
     if (!vaultId || !folderId) {
-      return res.status(400).json({ message: 'vaultId and folderId are required' });
-    }
-
-    if (!Array.isArray(rows) || !rows.length) {
-      return res.status(400).json({ message: 'Excel rows are required' });
+      return res.status(400).json({ message: 'vaultId and folderId required' });
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
@@ -117,63 +113,29 @@ const importPasswordsFromExcel = async (req, res) => {
       const created = await prisma.passwordEntry.create({
         data: {
           id: await generateId('passwordEntry'),
-          name: row.name || 'Imported Password',
+
+          // ✅ ONLY REQUIRED FIELDS
+          name: row.name || '',
           login: row.login || '',
-          encryptedPassword: row.encryptedPassword || '',
-          encryptedNote: row.encryptedNote || null,
-          url: row.url || null,
-          colorTag: row.colorTag || null,
+          encryptedPassword: row.password || '', // frontend should encrypt if needed
+          url: row.url || '',
+
           vaultId,
           folderId,
           createdById: req.user.id,
-          isWeak: row.isWeak === true || row.isWeak === 'true' || row.isWeak === 'Yes',
-          isOld: row.isOld === true || row.isOld === 'true' || row.isOld === 'Yes',
-          isAtRisk: row.isAtRisk === true || row.isAtRisk === 'true' || row.isAtRisk === 'Yes',
-          strengthScore: row.strengthScore ? Number(row.strengthScore) : null,
           lastUpdatedAt: new Date(),
-          tags: {
-            create: (
-              row.tags
-                ? String(row.tags).split(',').map((t) => t.trim()).filter(Boolean)
-                : []
-            ).map((tagName) => ({
-              tag: {
-                connectOrCreate: {
-                  where: { name: tagName },
-                  create: {
-                    id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-                    name: tagName,
-                  },
-                },
-              },
-            })),
-          },
         },
       });
 
       createdPasswords.push(created);
     }
 
-    await prisma.activityLog.create({
-      data: {
-        id: await generateId('activityLog'),
-        userId: req.user.id,
-        action: 'IMPORT_PASSWORDS',
-        targetType: 'PasswordEntry',
-        metadata: {
-          vaultId,
-          folderId,
-          count: createdPasswords.length,
-        },
-      },
-    });
-
-    res.status(201).json({
-      message: 'Passwords imported successfully',
+    res.json({
+      message: 'Imported successfully',
       count: createdPasswords.length,
     });
   } catch (error) {
-    console.error('Import passwords from excel error:', error);
+    console.error('Import error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -475,30 +437,15 @@ const exportPasswordsToExcel = async (req, res) => {
 
     const passwords = await prisma.passwordEntry.findMany({
       where,
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
+    // ✅ ONLY REQUIRED FIELDS
     const rows = passwords.map((item) => ({
-      name: item.name,
-      login: item.login,
-      encryptedPassword: item.encryptedPassword,
-      encryptedNote: item.encryptedNote || '',
+      name: item.name || '',
+      login: item.login || '',
+      password: item.encryptedPassword || '', // you can decrypt if needed
       url: item.url || '',
-      colorTag: item.colorTag || '',
-      isWeak: item.isWeak ? 'Yes' : 'No',
-      isOld: item.isOld ? 'Yes' : 'No',
-      isAtRisk: item.isAtRisk ? 'Yes' : 'No',
-      strengthScore: item.strengthScore ?? '',
-      tags: item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean).join(', ') || '',
     }));
 
     const workbook = XLSX.utils.book_new();
@@ -510,17 +457,18 @@ const exportPasswordsToExcel = async (req, res) => {
       bookType: 'xlsx',
     });
 
-    const fileName = `${folderId ? 'folder-passwords' : 'vault-passwords'}.xlsx`;
-
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="passwords.xlsx"`
+    );
 
     res.send(buffer);
   } catch (error) {
-    console.error('Export passwords to excel error:', error);
+    console.error('Export error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

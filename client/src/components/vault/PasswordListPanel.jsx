@@ -46,6 +46,11 @@ function PasswordListPanel() {
   );
 
   useEffect(() => {
+    if (!selectedFolderId) {
+      dispatch(selectPassword(null));
+      return;
+    }
+
     const stillVisible = filteredPasswords.some(
       (item) => item.id === selectedPasswordId
     );
@@ -58,7 +63,7 @@ function PasswordListPanel() {
     if (!stillVisible) {
       dispatch(selectPassword(filteredPasswords[0].id));
     }
-  }, [filteredPasswords, selectedPasswordId, dispatch]);
+  }, [filteredPasswords, selectedPasswordId, selectedFolderId, dispatch]);
 
   return (
     <div className="bg-white p-6 border-r border-slate-200">

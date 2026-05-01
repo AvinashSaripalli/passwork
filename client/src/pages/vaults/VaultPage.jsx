@@ -291,10 +291,28 @@ function VaultPage() {
         {error && <div className="p-8 text-red-600">{error}</div>}
 
         {!vaultsLoading && !passwordsLoading && !error && (
-          <div className="grid grid-cols-[420px_1fr] min-h-[640px]">
-            <PasswordListPanel />
-            <PasswordDetailsPanel />
-          </div>
+          <>
+            {!selectedFolderId ? (
+              <div className="min-h-[640px] flex flex-col items-center justify-center text-center px-6">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+                  <Users size={28} />
+                </div>
+
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Select a folder
+                </h2>
+
+                <p className="text-slate-500 mt-2 text-sm">
+                  Click a folder from the left sidebar to view your passwords.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-[420px_1fr] min-h-[640px]">
+                <PasswordListPanel />
+                <PasswordDetailsPanel />
+              </div>
+            )}
+          </>
         )}
       </div>
 

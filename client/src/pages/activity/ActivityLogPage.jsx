@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppLayout from '../../components/layout/AppLayout';
 import { fetchActivityLogs } from '../../features/vault/vaultSlice';
+
+const PAGE_SIZE = 10;
 
 function formatAction(action) {
   switch (action) {
@@ -45,28 +47,31 @@ function getActionBadge(action) {
   }
 }
 
-function getTargetBadge(targetType) {
-  switch (targetType) {
-    case 'Folder':
-      return 'bg-indigo-50 text-indigo-700';
-    case 'PasswordEntry':
-      return 'bg-purple-50 text-purple-700';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
-
 function ActivityLogPage() {
   const dispatch = useDispatch();
-  const { activityLogs, activityLoading, error } = useSelector((state) => state.vault);
+
+  const { activityLogs, activityLoading, error } = useSelector(
+    (state) => state.vault
+  );
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     dispatch(fetchActivityLogs());
   }, [dispatch]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activityLogs.length]);
+
   const summary = useMemo(() => {
-    const folderCount = activityLogs.filter((log) => log.targetType === 'Folder').length;
-    const passwordCount = activityLogs.filter((log) => log.targetType === 'PasswordEntry').length;
+    const folderCount = activityLogs.filter((log) =>
+      log.action?.includes('FOLDER')
+    ).length;
+
+    const passwordCount = activityLogs.filter((log) =>
+      log.action?.includes('PASSWORD')
+    ).length;
 
     return {
       total: activityLogs.length,
@@ -75,29 +80,49 @@ function ActivityLogPage() {
     };
   }, [activityLogs]);
 
+  const totalPages = Math.ceil(activityLogs.length / PAGE_SIZE) || 1;
+
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return activityLogs.slice(start, start + PAGE_SIZE);
+  }, [activityLogs, currentPage]);
+
+  const startItem =
+    activityLogs.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endItem = Math.min(currentPage * PAGE_SIZE, activityLogs.length);
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-8">
           <h1 className="text-4xl font-bold text-slate-900">Activity Log</h1>
-          <p className="text-slate-500 mt-2">Track password and folder activity</p>
+          <p className="text-slate-500 mt-2">
+            Track password and folder activity
+          </p>
         </div>
 
         {!activityLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="text-sm text-slate-500">Total Activities</p>
-              <h2 className="text-3xl font-bold text-slate-900 mt-2">{summary.total}</h2>
+              <h2 className="text-3xl font-bold text-slate-900 mt-2">
+                {summary.total}
+              </h2>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="text-sm text-slate-500">Folder Activities</p>
-              <h2 className="text-3xl font-bold text-slate-900 mt-2">{summary.folder}</h2>
+              <h2 className="text-3xl font-bold text-slate-900 mt-2">
+                {summary.folder}
+              </h2>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="text-sm text-slate-500">Password Activities</p>
-              <h2 className="text-3xl font-bold text-slate-900 mt-2">{summary.password}</h2>
+              <h2 className="text-3xl font-bold text-slate-900 mt-2">
+                {summary.password}
+              </h2>
             </div>
           </div>
         )}
@@ -122,13 +147,12 @@ function ActivityLogPage() {
                       <th className="py-4 pr-4 font-medium">Date</th>
                       <th className="py-4 pr-4 font-medium">User</th>
                       <th className="py-4 pr-4 font-medium">Action</th>
-                      <th className="py-4 pr-4 font-medium">Target Type</th>
                       <th className="py-4 font-medium">Target ID</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {activityLogs.map((log) => (
+                    {paginatedLogs.map((log) => (
                       <tr
                         key={log.id}
                         className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60"
@@ -153,17 +177,10 @@ function ActivityLogPage() {
                           </span>
                         </td>
 
-                        <td className="py-4 pr-4">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTargetBadge(
-                              log.targetType
-                            )}`}
-                          >
-                            {log.targetType || '-'}
-                          </span>
-                        </td>
-
-                        <td className="py-4 text-sm text-slate-500 break-all">
+                        <td
+                          className="py-4 text-sm font-medium text-slate-700 break-all"
+                          title={log.targetId || ''}
+                        >
                           {log.targetId || '-'}
                         </td>
                       </tr>
@@ -175,6 +192,52 @@ function ActivityLogPage() {
               {!activityLogs.length && (
                 <div className="py-8 text-center">
                   <p className="text-slate-500">No activity logs found.</p>
+                </div>
+              )}
+
+              {activityLogs.length > 0 && (
+                <div className="flex items-center justify-between mt-6">
+                  <p className="text-sm text-slate-500">
+                    Showing {startItem} - {endItem} of {activityLogs.length}
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-xl border border-slate-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, index) => {
+                      const page = index + 1;
+
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-10 h-10 rounded-xl text-sm font-medium ${
+                            currentPage === page
+                              ? 'bg-indigo-600 text-white'
+                              : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(p + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 rounded-xl border border-slate-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </>

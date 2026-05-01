@@ -370,7 +370,18 @@ const vaultSlice = createSlice({
       .addCase(fetchPasswordsByVault.fulfilled, (state, action) => {
         state.passwordsLoading = false;
         state.passwords = action.payload;
-        state.selectedPasswordId = action.payload.length ? action.payload[0].id : null;
+
+        if (state.selectedFolderId) {
+          const folderPasswords = action.payload.filter(
+            (item) => item.folderId === state.selectedFolderId
+          );
+
+          state.selectedPasswordId = folderPasswords.length
+            ? folderPasswords[0].id
+            : null;
+        } else {
+          state.selectedPasswordId = null;
+        }
       })
       .addCase(fetchPasswordsByVault.rejected, (state, action) => {
         state.passwordsLoading = false;
