@@ -1,16 +1,90 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 import AppLayout from '../../components/layout/AppLayout';
 import { fetchSecurityDashboard } from '../../features/dashboard/dashboardSlice';
 
+function PasswordTrendGraph({ data = [] }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-2xl font-bold text-slate-900">
+            Password Activity
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Monthly password added and deleted count
+          </p>
+        </div>
+      </div>
+
+      <div className="h-[320px] rounded-2xl bg-slate-50 border border-slate-200 p-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+
+            <XAxis
+              dataKey="month"
+              tick={{ fill: '#64748b', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+
+            <YAxis
+              allowDecimals={false}
+              tick={{ fill: '#64748b', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+
+            <Tooltip />
+            <Legend />
+
+            <Line
+              type="monotone"
+              dataKey="added"
+              name="Passwords Added"
+              stroke="#10b981"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+            />
+
+            <Line
+              type="monotone"
+              dataKey="deleted"
+              name="Passwords Deleted"
+              stroke="#f43f5e"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const dispatch = useDispatch();
+
   const {
     totalPasswords,
     weakPasswords,
     oldPasswords,
     riskPasswords,
     recentPasswords,
+    passwordTrend,
     loading,
     error,
   } = useSelector((state) => state.dashboard);
@@ -25,28 +99,24 @@ function DashboardPage() {
       value: totalPasswords,
       subtext: 'Stored in vaults',
       valueClass: 'text-slate-900',
-      bgClass: 'bg-white',
     },
     {
       label: 'Weak Passwords',
       value: weakPasswords,
       subtext: 'Need stronger passwords',
       valueClass: 'text-green-600',
-      bgClass: 'bg-white',
     },
     {
       label: 'Old or Expired',
       value: oldPasswords,
       subtext: 'Consider updating soon',
       valueClass: 'text-yellow-600',
-      bgClass: 'bg-white',
     },
     {
       label: 'Risks',
       value: riskPasswords,
       subtext: 'Potential security issues',
       valueClass: 'text-red-600',
-      bgClass: 'bg-white',
     },
   ];
 
@@ -59,6 +129,7 @@ function DashboardPage() {
               <h1 className="text-4xl font-bold text-slate-900">
                 Security Dashboard
               </h1>
+
               <p className="text-slate-500 mt-2">
                 Monitor password health and recent activity
               </p>
@@ -87,17 +158,23 @@ function DashboardPage() {
 
         {!loading && !error && (
           <>
+            <PasswordTrendGraph data={passwordTrend || []} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {stats.map((item) => (
                 <div
                   key={item.label}
-                  className={`rounded-2xl border border-slate-200 p-6 ${item.bgClass}`}
+                  className="rounded-2xl border border-slate-200 bg-white p-6"
                 >
                   <p className="text-sm text-slate-500">{item.label}</p>
+
                   <h2 className={`text-4xl font-bold mt-3 ${item.valueClass}`}>
                     {item.value}
                   </h2>
-                  <p className="text-sm text-slate-400 mt-2">{item.subtext}</p>
+
+                  <p className="text-sm text-slate-400 mt-2">
+                    {item.subtext}
+                  </p>
                 </div>
               ))}
             </div>
@@ -108,6 +185,7 @@ function DashboardPage() {
                   <h3 className="text-2xl font-semibold text-slate-900">
                     Recent Passwords
                   </h3>
+
                   <p className="text-slate-500 text-sm mt-1">
                     Latest passwords included in your dashboard analysis
                   </p>

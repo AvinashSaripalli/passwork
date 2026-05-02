@@ -30,6 +30,7 @@ const initialState = {
   recentPasswords: [],
   loading: false,
   error: null,
+  passwordTrend: [],
 };
 
 const dashboardSlice = createSlice({
@@ -49,6 +50,7 @@ const dashboardSlice = createSlice({
         state.oldPasswords = action.payload.oldPasswords;
         state.riskPasswords = action.payload.riskPasswords;
         state.recentPasswords = action.payload.recentPasswords;
+        state.passwordTrend = action.payload.passwordTrend || [];
       })
       .addCase(fetchSecurityDashboard.rejected, (state, action) => {
         state.loading = false;
