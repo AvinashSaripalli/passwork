@@ -81,6 +81,13 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // ✅ BLOCK INACTIVE USER LOGIN
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: 'Your account is inactive. Please contact administrator.',
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
@@ -97,6 +104,7 @@ const login = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        isActive: user.isActive,
         masterPasswordHint: user.masterPasswordHint,
         hasMasterPassword: !!user.masterPasswordHash,
         encryptionSalt: user.encryptionSalt,
