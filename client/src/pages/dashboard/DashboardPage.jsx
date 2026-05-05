@@ -12,12 +12,20 @@ import {
   RadialBarChart,
   RadialBar,
   PolarAngleAxis,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
 } from 'recharts';
 import AppLayout from '../../components/layout/AppLayout';
 import {
   fetchSecuritySummary,
   fetchPasswordActivity,
   fetchRecentPasswords,
+  fetchPasswordHealth,
+  fetchVaultPasswordCounts,
+  fetchRecentActivity,
 } from '../../features/dashboard/dashboardSlice';
 
 const RANGE_OPTIONS = [
@@ -27,6 +35,12 @@ const RANGE_OPTIONS = [
   { label: 'Last Month', value: 'LAST_MONTH' },
   { label: '6 Months', value: '6M' },
 ];
+
+const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
+
+function formatAction(action) {
+  return action?.replaceAll('_', ' ') || '-';
+}
 
 function SecurityScoreGraph({
   securityScore,
@@ -42,22 +56,14 @@ function SecurityScoreGraph({
   const scoreLabel =
     score >= 80 ? 'Good' : score >= 50 ? 'Needs Attention' : 'Poor';
 
-  const data = [
-    {
-      name: 'Security Score',
-      value: score,
-      fill: scoreColor,
-    },
-  ];
+  const data = [{ name: 'Security Score', value: score, fill: scoreColor }];
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-4">
-        <h3 className="text-2xl font-bold text-slate-900">Security Score</h3>
-        <p className="text-sm text-slate-500 mt-1">
-          Overall vault health based on password quality
-        </p>
-      </div>
+      <h3 className="text-2xl font-bold text-slate-900">Security Score</h3>
+      <p className="text-sm text-slate-500 mt-1">
+        Overall vault health based on password quality
+      </p>
 
       <div className="h-[260px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
@@ -72,7 +78,6 @@ function SecurityScoreGraph({
             endAngle={-270}
           >
             <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-
             <RadialBar
               background={{ fill: '#e5e7eb' }}
               dataKey="value"
@@ -167,21 +172,8 @@ function PasswordTrendGraph({ data = [], range, onRangeChange }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-
-            <XAxis
-              dataKey="label"
-              tick={{ fill: '#64748b', fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-            />
-
-            <YAxis
-              allowDecimals={false}
-              tick={{ fill: '#64748b', fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-            />
-
+            <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 12 }} />
+            <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
             <Tooltip />
             <Legend />
 
@@ -191,8 +183,6 @@ function PasswordTrendGraph({ data = [], range, onRangeChange }) {
               name="Passwords Added"
               stroke="#10b981"
               strokeWidth={3}
-              dot={{ r: 4 }}
-              activeDot={{ r: 7 }}
             />
 
             <Line
@@ -201,11 +191,105 @@ function PasswordTrendGraph({ data = [], range, onRangeChange }) {
               name="Passwords Deleted"
               stroke="#f43f5e"
               strokeWidth={3}
-              dot={{ r: 4 }}
-              activeDot={{ r: 7 }}
             />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function PasswordHealthDonut({ data = [] }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-2xl font-bold text-slate-900">
+        Password Health
+      </h3>
+      <p className="text-sm text-slate-500 mt-1">
+        Breakdown of safe, weak, old and risky passwords
+      </p>
+
+      <div className="h-[300px] mt-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={70}
+              outerRadius={105}
+              paddingAngle={3}
+            >
+              {data.map((entry, index) => (
+                <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function VaultWisePasswordCount({ data = [] }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-2xl font-bold text-slate-900">
+        Vault-wise Password Count
+      </h3>
+      <p className="text-sm text-slate-500 mt-1">
+        Password distribution across vaults
+      </p>
+
+      <div className="h-[300px] mt-4 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
+            <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+            <Tooltip />
+            <Bar dataKey="count" name="Passwords" fill="#6366f1" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function RecentActivityTimeline({ data = [] }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-2xl font-bold text-slate-900">
+        Recent Activity
+      </h3>
+      <p className="text-sm text-slate-500 mt-1">
+        Latest actions performed in accessible vaults
+      </p>
+
+      <div className="mt-6 space-y-4">
+        {data.map((item) => (
+          <div key={item.id} className="flex gap-3">
+            <div className="mt-1 h-3 w-3 rounded-full bg-indigo-600" />
+
+            <div className="border-b border-slate-100 pb-4 flex-1">
+              <p className="text-sm font-semibold text-slate-800">
+                {formatAction(item.action)}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {item.user?.fullName || item.user?.email || 'User'} •{' '}
+                {item.createdAt
+                  ? new Date(item.createdAt).toLocaleString()
+                  : '-'}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {!data.length && (
+          <p className="text-sm text-slate-500">No recent activity found.</p>
+        )}
       </div>
     </div>
   );
@@ -223,17 +307,32 @@ function DashboardPage() {
     securityScore,
     recentPasswords,
     passwordTrend,
+    passwordHealth,
+    vaultPasswordCounts,
+    recentActivity,
     summaryLoading,
     activityLoading,
     recentLoading,
+    healthLoading,
+    vaultCountsLoading,
+    recentActivityLoading,
     error,
   } = useSelector((state) => state.dashboard);
 
-  const loading = summaryLoading || activityLoading || recentLoading;
+  const loading =
+    summaryLoading ||
+    activityLoading ||
+    recentLoading ||
+    healthLoading ||
+    vaultCountsLoading ||
+    recentActivityLoading;
 
   useEffect(() => {
     dispatch(fetchSecuritySummary());
     dispatch(fetchRecentPasswords());
+    dispatch(fetchPasswordHealth());
+    dispatch(fetchVaultPasswordCounts());
+    dispatch(fetchRecentActivity());
   }, [dispatch]);
 
   useEffect(() => {
@@ -244,6 +343,9 @@ function DashboardPage() {
     dispatch(fetchSecuritySummary());
     dispatch(fetchPasswordActivity(range));
     dispatch(fetchRecentPasswords());
+    dispatch(fetchPasswordHealth());
+    dispatch(fetchVaultPasswordCounts());
+    dispatch(fetchRecentActivity());
   };
 
   const stats = [
@@ -282,7 +384,6 @@ function DashboardPage() {
               <h1 className="text-4xl font-bold text-slate-900">
                 Security Dashboard
               </h1>
-
               <p className="text-slate-500 mt-2">
                 Monitor password health and recent activity
               </p>
@@ -335,93 +436,82 @@ function DashboardPage() {
                   className="rounded-2xl border border-slate-200 bg-white p-6"
                 >
                   <p className="text-sm text-slate-500">{item.label}</p>
-
                   <h2 className={`text-4xl font-bold mt-3 ${item.valueClass}`}>
                     {item.value}
                   </h2>
-
-                  <p className="text-sm text-slate-400 mt-2">
-                    {item.subtext}
-                  </p>
+                  <p className="text-sm text-slate-400 mt-2">{item.subtext}</p>
                 </div>
               ))}
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-8">
-              <div className="mb-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <PasswordHealthDonut data={passwordHealth || []} />
+              <VaultWisePasswordCount data={vaultPasswordCounts || []} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-8">
                 <h3 className="text-2xl font-semibold text-slate-900">
                   Recent Passwords
                 </h3>
 
-                <p className="text-slate-500 text-sm mt-1">
+                <p className="text-slate-500 text-sm mt-1 mb-6">
                   Latest passwords included in your dashboard analysis
                 </p>
-              </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left text-slate-600">
-                      <th className="px-5 py-4 font-semibold">Name</th>
-                      <th className="px-5 py-4 font-semibold">Vault</th>
-                      <th className="px-5 py-4 font-semibold">Login</th>
-                      <th className="px-5 py-4 font-semibold">Weak</th>
-                      <th className="px-5 py-4 font-semibold">Old</th>
-                      <th className="px-5 py-4 font-semibold">Risk</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {recentPasswords.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="border-t border-slate-200 hover:bg-slate-50"
-                      >
-                        <td className="px-5 py-4 font-medium text-slate-900">
-                          {row.name}
-                        </td>
-
-                        <td className="px-5 py-4 text-slate-600">
-                          {row.vault?.name || '-'}
-                        </td>
-
-                        <td className="px-5 py-4 text-slate-600">
-                          {row.login}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                            {row.isWeak ? 'Yes' : 'No'}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                            {row.isOld ? 'Yes' : 'No'}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                            {row.isAtRisk ? 'Yes' : 'No'}
-                          </span>
-                        </td>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full">
+                    <thead className="bg-slate-50">
+                      <tr className="text-left text-slate-600">
+                        <th className="px-5 py-4 font-semibold">Name</th>
+                        <th className="px-5 py-4 font-semibold">Vault</th>
+                        <th className="px-5 py-4 font-semibold">Login</th>
+                        <th className="px-5 py-4 font-semibold">Weak</th>
+                        <th className="px-5 py-4 font-semibold">Old</th>
+                        <th className="px-5 py-4 font-semibold">Risk</th>
                       </tr>
-                    ))}
+                    </thead>
 
-                    {!recentPasswords.length && (
-                      <tr>
-                        <td
-                          colSpan="6"
-                          className="px-5 py-10 text-center text-slate-500"
+                    <tbody>
+                      {recentPasswords.map((row) => (
+                        <tr
+                          key={row.id}
+                          className="border-t border-slate-200 hover:bg-slate-50"
                         >
-                          No passwords found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          <td className="px-5 py-4 font-medium text-slate-900">
+                            {row.name}
+                          </td>
+
+                          <td className="px-5 py-4 text-slate-600">
+                            {row.vault?.name || '-'}
+                          </td>
+
+                          <td className="px-5 py-4 text-slate-600">
+                            {row.login}
+                          </td>
+
+                          <td className="px-5 py-4">{row.isWeak ? 'Yes' : 'No'}</td>
+                          <td className="px-5 py-4">{row.isOld ? 'Yes' : 'No'}</td>
+                          <td className="px-5 py-4">{row.isAtRisk ? 'Yes' : 'No'}</td>
+                        </tr>
+                      ))}
+
+                      {!recentPasswords.length && (
+                        <tr>
+                          <td
+                            colSpan="6"
+                            className="px-5 py-10 text-center text-slate-500"
+                          >
+                            No passwords found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+
+              <RecentActivityTimeline data={recentActivity || []} />
             </div>
           </>
         )}
