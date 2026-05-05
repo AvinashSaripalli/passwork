@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   LineChart,
@@ -9,21 +9,157 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis,
 } from 'recharts';
 import AppLayout from '../../components/layout/AppLayout';
-import { fetchSecurityDashboard } from '../../features/dashboard/dashboardSlice';
+import {
+  fetchSecuritySummary,
+  fetchPasswordActivity,
+  fetchRecentPasswords,
+} from '../../features/dashboard/dashboardSlice';
 
-function PasswordTrendGraph({ data = [] }) {
+const RANGE_OPTIONS = [
+  { label: '7 Days', value: '7D' },
+  { label: '30 Days', value: '30D' },
+  { label: 'This Month', value: 'THIS_MONTH' },
+  { label: 'Last Month', value: 'LAST_MONTH' },
+  { label: '6 Months', value: '6M' },
+];
+
+function SecurityScoreGraph({
+  securityScore,
+  weakPasswords,
+  oldPasswords,
+  riskPasswords,
+}) {
+  const score = securityScore ?? 100;
+
+  const scoreColor =
+    score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+
+  const scoreLabel =
+    score >= 80 ? 'Good' : score >= 50 ? 'Needs Attention' : 'Poor';
+
+  const data = [
+    {
+      name: 'Security Score',
+      value: score,
+      fill: scoreColor,
+    },
+  ];
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-4">
+        <h3 className="text-2xl font-bold text-slate-900">Security Score</h3>
+        <p className="text-sm text-slate-500 mt-1">
+          Overall vault health based on password quality
+        </p>
+      </div>
+
+      <div className="h-[260px] flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart
+            cx="50%"
+            cy="50%"
+            innerRadius="72%"
+            outerRadius="95%"
+            barSize={18}
+            data={data}
+            startAngle={90}
+            endAngle={-270}
+          >
+            <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+
+            <RadialBar
+              background={{ fill: '#e5e7eb' }}
+              dataKey="value"
+              cornerRadius={20}
+            />
+
+            <text
+              x="50%"
+              y="43%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-slate-900 text-5xl font-bold"
+            >
+              {score}
+            </text>
+
+            <text
+              x="50%"
+              y="56%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-slate-500 text-sm"
+            >
+              out of 100
+            </text>
+
+            <text
+              x="50%"
+              y="66%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={scoreColor}
+              className="text-sm font-semibold"
+            >
+              {scoreLabel}
+            </text>
+          </RadialBarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mt-2 text-center">
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Weak</p>
+          <p className="font-bold text-slate-900">{weakPasswords}</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Old</p>
+          <p className="font-bold text-slate-900">{oldPasswords}</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Risk</p>
+          <p className="font-bold text-slate-900">{riskPasswords}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PasswordTrendGraph({ data = [], range, onRangeChange }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-slate-900">
             Password Activity
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Monthly password added and deleted count
+            Track added and deleted passwords by selected period
           </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {RANGE_OPTIONS.map((item) => (
+            <button
+              key={item.value}
+              onClick={() => onRangeChange(item.value)}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                range === item.value
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -33,7 +169,7 @@ function PasswordTrendGraph({ data = [] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
 
             <XAxis
-              dataKey="month"
+              dataKey="label"
               tick={{ fill: '#64748b', fontSize: 12 }}
               axisLine={false}
               tickLine={false}
@@ -55,7 +191,7 @@ function PasswordTrendGraph({ data = [] }) {
               name="Passwords Added"
               stroke="#10b981"
               strokeWidth={3}
-              dot={{ r: 5 }}
+              dot={{ r: 4 }}
               activeDot={{ r: 7 }}
             />
 
@@ -65,7 +201,7 @@ function PasswordTrendGraph({ data = [] }) {
               name="Passwords Deleted"
               stroke="#f43f5e"
               strokeWidth={3}
-              dot={{ r: 5 }}
+              dot={{ r: 4 }}
               activeDot={{ r: 7 }}
             />
           </LineChart>
@@ -77,21 +213,38 @@ function PasswordTrendGraph({ data = [] }) {
 
 function DashboardPage() {
   const dispatch = useDispatch();
+  const [range, setRange] = useState('6M');
 
   const {
     totalPasswords,
     weakPasswords,
     oldPasswords,
     riskPasswords,
+    securityScore,
     recentPasswords,
     passwordTrend,
-    loading,
+    summaryLoading,
+    activityLoading,
+    recentLoading,
     error,
   } = useSelector((state) => state.dashboard);
 
+  const loading = summaryLoading || activityLoading || recentLoading;
+
   useEffect(() => {
-    dispatch(fetchSecurityDashboard());
+    dispatch(fetchSecuritySummary());
+    dispatch(fetchRecentPasswords());
   }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchPasswordActivity(range));
+  }, [dispatch, range]);
+
+  const handleAnalyzeAgain = () => {
+    dispatch(fetchSecuritySummary());
+    dispatch(fetchPasswordActivity(range));
+    dispatch(fetchRecentPasswords());
+  };
 
   const stats = [
     {
@@ -136,7 +289,7 @@ function DashboardPage() {
             </div>
 
             <button
-              onClick={() => dispatch(fetchSecurityDashboard())}
+              onClick={handleAnalyzeAgain}
               className="h-11 px-5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700"
             >
               Analyze Again
@@ -158,7 +311,22 @@ function DashboardPage() {
 
         {!loading && !error && (
           <>
-            <PasswordTrendGraph data={passwordTrend || []} />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2">
+                <PasswordTrendGraph
+                  data={passwordTrend || []}
+                  range={range}
+                  onRangeChange={setRange}
+                />
+              </div>
+
+              <SecurityScoreGraph
+                securityScore={securityScore}
+                weakPasswords={weakPasswords}
+                oldPasswords={oldPasswords}
+                riskPasswords={riskPasswords}
+              />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {stats.map((item) => (
@@ -180,16 +348,14 @@ function DashboardPage() {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-2xl font-semibold text-slate-900">
-                    Recent Passwords
-                  </h3>
+              <div className="mb-6">
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  Recent Passwords
+                </h3>
 
-                  <p className="text-slate-500 text-sm mt-1">
-                    Latest passwords included in your dashboard analysis
-                  </p>
-                </div>
+                <p className="text-slate-500 text-sm mt-1">
+                  Latest passwords included in your dashboard analysis
+                </p>
               </div>
 
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -211,10 +377,8 @@ function DashboardPage() {
                         key={row.id}
                         className="border-t border-slate-200 hover:bg-slate-50"
                       >
-                        <td className="px-5 py-4">
-                          <div className="font-medium text-slate-900">
-                            {row.name}
-                          </div>
+                        <td className="px-5 py-4 font-medium text-slate-900">
+                          {row.name}
                         </td>
 
                         <td className="px-5 py-4 text-slate-600">
@@ -226,37 +390,19 @@ function DashboardPage() {
                         </td>
 
                         <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                              row.isWeak
-                                ? 'bg-green-50 text-green-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                             {row.isWeak ? 'Yes' : 'No'}
                           </span>
                         </td>
 
                         <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                              row.isOld
-                                ? 'bg-yellow-50 text-yellow-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                             {row.isOld ? 'Yes' : 'No'}
                           </span>
                         </td>
 
                         <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                              row.isAtRisk
-                                ? 'bg-red-50 text-red-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                             {row.isAtRisk ? 'Yes' : 'No'}
                           </span>
                         </td>
