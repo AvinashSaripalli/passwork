@@ -10,9 +10,6 @@ const isAdminUser = async (userId) => {
 };
 
 const getFolderAccess = async (folderId, userId) => {
-  const admin = await isAdminUser(userId);
-  if (admin) return 'ADMINISTRATOR';
-
   const folder = await prisma.folder.findUnique({
     where: { id: folderId },
     include: {
@@ -23,6 +20,13 @@ const getFolderAccess = async (folderId, userId) => {
 
   if (!folder) return null;
 
+  if (folder.vault.type === 'PERSONAL') {
+    return folder.vault.ownerId === userId ? 'ADMINISTRATOR' : null;
+  }
+
+  const admin = await isAdminUser(userId);
+  if (admin) return 'ADMINISTRATOR';
+
   if (folder.vault.ownerId === userId) {
     return 'ADMINISTRATOR';
   }
@@ -32,9 +36,6 @@ const getFolderAccess = async (folderId, userId) => {
 };
 
 const getVaultAccess = async (vaultId, userId) => {
-  const admin = await isAdminUser(userId);
-  if (admin) return 'ADMIN';
-
   const vault = await prisma.vault.findUnique({
     where: { id: vaultId },
     include: {
@@ -43,6 +44,13 @@ const getVaultAccess = async (vaultId, userId) => {
   });
 
   if (!vault) return null;
+
+  if (vault.type === 'PERSONAL') {
+    return vault.ownerId === userId ? 'ADMIN' : null;
+  }
+
+  const admin = await isAdminUser(userId);
+  if (admin) return 'ADMIN';
 
   if (vault.ownerId === userId) {
     return 'ADMIN';

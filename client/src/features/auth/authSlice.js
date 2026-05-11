@@ -1,6 +1,8 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
+const getSavedToken = () => localStorage.getItem('token');
+
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
   async (formData, thunkAPI) => {
@@ -29,34 +31,29 @@ export const loginUser = createAsyncThunk(
   }
 );
 
-export const fetchMe = createAsyncThunk(
-  'auth/fetchMe',
-  async (_, thunkAPI) => {
-    try {
-      const state = thunkAPI.getState();
-      const token = state.auth.token;
+export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, thunkAPI) => {
+  try {
+    const token = thunkAPI.getState().auth.token || getSavedToken();
 
-      const response = await api.get('/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await api.get('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      return response.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || 'Failed to fetch user'
-      );
-    }
+    return response.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(
+      error.response?.data?.message || 'Failed to fetch user'
+    );
   }
-);
+});
 
 export const setMasterPassword = createAsyncThunk(
   'auth/setMasterPassword',
   async (formData, thunkAPI) => {
     try {
-      const state = thunkAPI.getState();
-      const token = state.auth.token;
+      const token = thunkAPI.getState().auth.token || getSavedToken();
 
       const response = await api.post('/auth/set-master-password', formData, {
         headers: {
@@ -76,10 +73,12 @@ export const setMasterPassword = createAsyncThunk(
   }
 );
 
+const savedToken = getSavedToken();
+
 const initialState = {
-  token: null,
+  token: savedToken,
   user: null,
-  isAuthenticated: false,
+  isAuthenticated: !!savedToken,
   loading: false,
   error: null,
   isMasterVerified: false,
@@ -92,6 +91,7 @@ const authSlice = createSlice({
     setMasterVerified: (state, action) => {
       state.isMasterVerified = action.payload;
     },
+
     logout: (state) => {
       state.token = null;
       state.user = null;
@@ -99,24 +99,32 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.isMasterVerified = false;
+
+      localStorage.removeItem('token');
     },
+
     clearError: (state) => {
       state.error = null;
     },
   },
+
   extraReducers: (builder) => {
     builder
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
+
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+
+        localStorage.setItem('token', action.payload.token);
       })
+
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -126,13 +134,17 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+
+        localStorage.setItem('token', action.payload.token);
       })
+
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -143,10 +155,20 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
       })
 
+      .addCase(fetchMe.rejected, (state) => {
+        state.token = null;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isMasterVerified = false;
+
+        localStorage.removeItem('token');
+      })
+
       .addCase(setMasterPassword.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
+
       .addCase(setMasterPassword.fulfilled, (state, action) => {
         state.loading = false;
         state.user = {
@@ -156,6 +178,7 @@ const authSlice = createSlice({
         };
         state.isMasterVerified = true;
       })
+
       .addCase(setMasterPassword.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

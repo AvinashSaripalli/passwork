@@ -10,6 +10,8 @@ import {
   Plus,
   ChevronDown,
   Sparkles,
+  LockKeyhole,
+  Share2,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -25,7 +27,7 @@ import {
 import ShareFolderModal from '../folder/ShareFolderModal';
 import RenameFolderModal from '../folder/RenameFolderModal';
 import FolderActionsMenu from '../folder/FolderActionsMenu';
-import logo from '../../assets/Vaultix.png';
+import logo from '../../assets/Vaultix1.png';
 
 function Sidebar() {
   const location = useLocation();
@@ -63,6 +65,8 @@ function Sidebar() {
   const menu = [
     { name: 'Security Dashboard', path: '/dashboard', icon: Shield },
     { name: 'Activity Log', path: '/activity-log', icon: Activity },
+    { name: 'My Vault', path: '/my-vault', icon: LockKeyhole },
+    { name: 'Shared With Me', path: '/shared-with-me', icon: Share2 },
   ];
 
   if (user?.role === 'ADMIN') {

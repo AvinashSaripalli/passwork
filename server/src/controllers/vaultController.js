@@ -82,36 +82,41 @@ const getVaults = async (req, res) => {
 
     if (req.user.role === 'ADMIN') {
       vaults = await prisma.vault.findMany({
-        include: {
-          permissions: {
-            include: {
-              user: {
-                select: { id: true, fullName: true, email: true },
-              },
-            },
-          },
-          folders: {
-            include: {
-              permissions: {
-                include: {
-                  user: {
-                    select: { id: true, fullName: true, email: true },
-                  },
-                },
-              },
-            },
-          },
-          passwords: {
-            select: {
-              id: true,
-              name: true,
-              login: true,
-              createdAt: true,
+  where: {
+    type: {
+      not: 'PERSONAL',
+    },
+  },
+  include: {
+    permissions: {
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true },
+        },
+      },
+    },
+    folders: {
+      include: {
+        permissions: {
+          include: {
+            user: {
+              select: { id: true, fullName: true, email: true },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-      });
+      },
+    },
+    passwords: {
+      select: {
+        id: true,
+        name: true,
+        login: true,
+        createdAt: true,
+      },
+    },
+  },
+  orderBy: { createdAt: 'desc' },
+});
     } else {
       const folderPermissions = await prisma.folderPermission.findMany({
         where: { userId: req.user.id },

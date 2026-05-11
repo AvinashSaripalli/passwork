@@ -9,6 +9,7 @@ const config = {
   passwordEntry: 'PWD',
   activityLog: 'ACT',
   invitation: 'INV',
+  passwordShare: 'PSHARE',
 };
 
 async function generateId(model) {

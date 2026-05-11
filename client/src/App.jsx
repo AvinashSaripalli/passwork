@@ -12,6 +12,8 @@ import TeamManagementPage from './pages/team/TeamManagementPage';
 import AddUserPage from './pages/team/AddUserPage';
 import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
+import MyVaultPage from './pages/vaults/MyVaultPage';
+import SharedWithMePage from './pages/shared/SharedWithMePage';
 
 function App() {
   return (
@@ -54,6 +56,24 @@ function App() {
           </MasterProtectedRoute>
         }
       /> */}
+
+      <Route
+        path="/my-vault"
+        element={
+          <MasterProtectedRoute>
+            <MyVaultPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/shared-with-me"
+        element={
+          <MasterProtectedRoute>
+            <SharedWithMePage />
+          </MasterProtectedRoute>
+        }
+      />
 
       <Route
         path="/vaults/:slug"

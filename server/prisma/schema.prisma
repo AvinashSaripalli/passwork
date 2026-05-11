@@ -24,6 +24,8 @@ model User {
   createdPasswords   PasswordEntry[]    @relation("PasswordCreatedBy")
   ownedVaults        Vault[]            @relation("VaultOwner")
   vaultPermissions   VaultPermission[]
+  sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
+  sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
 }
 
 model Folder {
@@ -101,6 +103,7 @@ model PasswordEntry {
   folder            Folder?       @relation(fields: [folderId], references: [id])
   vault             Vault         @relation(fields: [vaultId], references: [id], onDelete: Cascade)
   tags              PasswordTag[]
+  shares PasswordShare[]
 }
 
 model Tag {
@@ -139,6 +142,20 @@ model Invitation {
   expiresAt DateTime
   createdAt DateTime @default(now())
   inviter   User     @relation("InvitationSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+}
+
+model PasswordShare {
+  id           String   @id
+  passwordId   String
+  sharedWithId String
+  sharedById   String
+  createdAt    DateTime @default(now())
+
+  password   PasswordEntry @relation(fields: [passwordId], references: [id], onDelete: Cascade)
+  sharedWith User          @relation("PasswordSharedWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
+  sharedBy   User          @relation("PasswordSharedBy", fields: [sharedById], references: [id], onDelete: Cascade)
+
+  @@unique([passwordId, sharedWithId])
 }
 
 enum Role {
@@ -182,4 +199,5 @@ enum ActivityAction {
   VIEW_PASSWORD
   SHARE_VAULT
   IMPORT_PASSWORDS
+  SHARE_PASSWORD
 }
