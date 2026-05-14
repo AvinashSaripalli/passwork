@@ -26,13 +26,9 @@ function SharePasswordModal({
         setFetchingUsers(true);
         setLocalError('');
 
-        const response = await api.get('/users');
+        const response = await api.get('/users/shareable');
 
-        const filteredUsers = response.data.filter(
-          (item) => item.id !== user?.id
-        );
-
-        setUsers(filteredUsers);
+        setUsers(response.data || []);
       } catch (err) {
         setLocalError(
           err.response?.data?.message || 'Failed to fetch users'
@@ -43,7 +39,7 @@ function SharePasswordModal({
     };
 
     fetchUsers();
-  }, [open, user]);
+  }, [open]);
 
   const handleClose = () => {
     setSelectedUserId('');

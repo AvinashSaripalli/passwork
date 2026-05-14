@@ -6,7 +6,33 @@ const requireAdmin = (req, res) => {
     res.status(403).json({ message: 'Access denied' });
     return true;
   }
+
   return false;
+};
+
+const getShareableUsers = async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        id: {
+          not: req.user.id,
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        fullName: true,
+      },
+      orderBy: {
+        fullName: 'asc',
+      },
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error('Get shareable users error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 const getUsers = async (req, res) => {
@@ -22,7 +48,9 @@ const getUsers = async (req, res) => {
         isActive: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     res.json(users);
@@ -38,15 +66,23 @@ const createUserByAdmin = async (req, res) => {
 
     const bcrypt = require('bcrypt');
     const crypto = require('crypto');
+
     const { fullName, email, password, role = 'USER' } = req.body;
 
     if (!fullName || !email || !password) {
-      return res.status(400).json({ message: 'fullName, email and password are required' });
+      return res.status(400).json({
+        message: 'fullName, email and password are required',
+      });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(400).json({
+        message: 'Email already exists',
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -86,7 +122,9 @@ const updateUser = async (req, res) => {
     const { fullName, role, isActive } = req.body;
 
     const updatedUser = await prisma.user.update({
-      where: { id: req.params.id },
+      where: {
+        id: req.params.id,
+      },
       data: {
         fullName,
         role,
@@ -114,10 +152,14 @@ const deleteUser = async (req, res) => {
     if (requireAdmin(req, res)) return;
 
     await prisma.user.delete({
-      where: { id: req.params.id },
+      where: {
+        id: req.params.id,
+      },
     });
 
-    res.json({ message: 'User deleted successfully' });
+    res.json({
+      message: 'User deleted successfully',
+    });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -125,6 +167,7 @@ const deleteUser = async (req, res) => {
 };
 
 module.exports = {
+  getShareableUsers,
   getUsers,
   createUserByAdmin,
   updateUser,

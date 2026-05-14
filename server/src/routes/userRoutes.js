@@ -1,12 +1,21 @@
 const express = require('express');
+const { authenticate } = require('../middlewares/authMiddleware');
+
+const {
+  getShareableUsers,
+  getUsers,
+  createUserByAdmin,
+  updateUser,
+  deleteUser,
+} = require('../controllers/userController');
+
 const router = express.Router();
 
-const { authenticate } = require('../middlewares/authMiddleware');
-const userController = require('../controllers/userController');
+router.get('/shareable', authenticate, getShareableUsers);
 
-router.get('/', authenticate, userController.getUsers);
-router.post('/', authenticate, userController.createUserByAdmin);
-router.put('/:id', authenticate, userController.updateUser);
-router.delete('/:id', authenticate, userController.deleteUser);
+router.get('/', authenticate, getUsers);
+router.post('/', authenticate, createUserByAdmin);
+router.put('/:id', authenticate, updateUser);
+router.delete('/:id', authenticate, deleteUser);
 
 module.exports = router;
