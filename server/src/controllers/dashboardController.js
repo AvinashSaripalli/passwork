@@ -149,20 +149,47 @@ const getSecuritySummary = async (req, res) => {
       },
     });
 
-    const totalPasswords = passwords.length;
+    const totalPasswordsForHealth = passwords.length;
     const weakPasswords = passwords.filter((item) => item.isWeak).length;
     const oldPasswords = passwords.filter((item) => item.isOld).length;
     const riskPasswords = passwords.filter((item) => item.isAtRisk).length;
 
     const securityScore = calculateSecurityScore({
-      totalPasswords,
+      totalPasswords: totalPasswordsForHealth,
       weakPasswords,
       oldPasswords,
       riskPasswords,
     });
 
+    const totalPasswords = await prisma.passwordEntry.count();
+
+    const companyPasswords = await prisma.passwordEntry.count({
+      where: {
+        vault: {
+          type: 'COMPANY',
+        },
+      },
+    });
+
+    const personalPasswords = await prisma.passwordEntry.count({
+      where: {
+        vault: {
+          type: 'PERSONAL',
+        },
+      },
+    });
+
+    const deletedPasswords = await prisma.activityLog.count({
+      where: {
+        action: 'DELETE_PASSWORD',
+      },
+    });
+
     res.json({
       totalPasswords,
+      companyPasswords,
+      personalPasswords,
+      deletedPasswords,
       weakPasswords,
       oldPasswords,
       riskPasswords,
@@ -310,16 +337,40 @@ const getSecurityDashboard = async (req, res) => {
       },
     });
 
-    const totalPasswords = passwords.length;
+    const totalPasswordsForHealth = passwords.length;
     const weakPasswords = passwords.filter((item) => item.isWeak).length;
     const oldPasswords = passwords.filter((item) => item.isOld).length;
     const riskPasswords = passwords.filter((item) => item.isAtRisk).length;
 
     const securityScore = calculateSecurityScore({
-      totalPasswords,
+      totalPasswords: totalPasswordsForHealth,
       weakPasswords,
       oldPasswords,
       riskPasswords,
+    });
+
+    const totalPasswords = await prisma.passwordEntry.count();
+
+    const companyPasswords = await prisma.passwordEntry.count({
+      where: {
+        vault: {
+          type: 'COMPANY',
+        },
+      },
+    });
+
+    const personalPasswords = await prisma.passwordEntry.count({
+      where: {
+        vault: {
+          type: 'PERSONAL',
+        },
+      },
+    });
+
+    const deletedPasswords = await prisma.activityLog.count({
+      where: {
+        action: 'DELETE_PASSWORD',
+      },
     });
 
     const { startDate, endDate } = buildTrendRange(range);
@@ -376,6 +427,9 @@ const getSecurityDashboard = async (req, res) => {
 
     res.json({
       totalPasswords,
+      companyPasswords,
+      personalPasswords,
+      deletedPasswords,
       weakPasswords,
       oldPasswords,
       riskPasswords,

@@ -29,7 +29,10 @@ function PasswordDetailsPanel() {
 
   const { user, token } = useSelector((state) => state.auth);
 
-  const selectedPassword = passwords.find((item) => item.id === selectedPasswordId);
+  const selectedPassword = passwords.find(
+    (item) => item.id === selectedPasswordId
+  );
+
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
 
   const selectedFolderPermission = selectedFolder?.permissions?.find(
@@ -92,6 +95,7 @@ function PasswordDetailsPanel() {
 
   const handleVerified = async () => {
     const activePassword = getPasswordById(activePasswordId);
+
     if (!activePassword) {
       setPendingAction(null);
       setActivePasswordId(null);
@@ -121,7 +125,9 @@ function PasswordDetailsPanel() {
     }
 
     if (pendingAction === 'copy-password' && canView) {
-      await navigator.clipboard.writeText(activePassword.encryptedPassword || '');
+      await navigator.clipboard.writeText(
+        activePassword.encryptedPassword || ''
+      );
 
       await api.post(
         `/passwords/${activePassword.id}/copy-log`,
@@ -143,7 +149,9 @@ function PasswordDetailsPanel() {
 
     if (pendingAction === 'delete' && canDelete) {
       const confirmed = window.confirm(
-        `Are you sure you want to delete "${activePassword.login || activePassword.name}"?`
+        `Are you sure you want to delete "${
+          activePassword.login || activePassword.name
+        }"?`
       );
 
       if (confirmed) {
@@ -164,6 +172,7 @@ function PasswordDetailsPanel() {
             <h2 className="text-[42px] leading-none font-bold text-slate-900">
               {selectedPassword.name}
             </h2>
+
             <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium">
               {sameNamePasswords.length} account
               {sameNamePasswords.length !== 1 ? 's' : ''}
@@ -175,139 +184,170 @@ function PasswordDetailsPanel() {
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200 bg-slate-50/60 overflow-hidden">
-          <div className="max-h-[760px] overflow-y-auto">
-            {sameNamePasswords.map((item, index) => {
-              const tagNames =
-                item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) || [];
+        <div className="space-y-5 max-h-[760px] overflow-y-auto pr-2">
+          {sameNamePasswords.map((item, index) => {
+            const tagNames =
+              item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) ||
+              [];
 
-              const isVisible = !!visiblePasswords[item.id];
+            const isVisible = !!visiblePasswords[item.id];
 
-              return (
-                <div
-                  key={item.id}
-                  className={`bg-white px-7 py-7 ${
-                    index !== 0 ? 'border-t border-slate-200' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4 mb-7">
-                    <div className="min-w-0">
+            return (
+              <div
+                key={item.id}
+                className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              >
+                <div className="flex items-start justify-between gap-4 px-7 py-6 border-b border-slate-200 bg-slate-50/70">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <span className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </span>
+
                       <h3 className="text-[20px] font-bold text-slate-900 break-all">
                         {item.login || item.name}
                       </h3>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Account details
-                      </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {canEdit && (
-                        <button
-                          onClick={() => requestAdminVerification('edit', item.id)}
-                          className="w-11 h-11 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                      )}
-
-                      {canDelete && (
-                        <button
-                          onClick={() => requestAdminVerification('delete', item.id)}
-                          disabled={actionLoading}
-                          className="w-11 h-11 rounded-full border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center disabled:opacity-50"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
+                    <p className="text-sm text-slate-500 mt-2">
+                      Account details
+                    </p>
                   </div>
 
-                  <div className="space-y-0">
-                    <div className="grid grid-cols-[150px_1fr_40px] items-center gap-4 py-5 border-t border-slate-200 first:border-t-0">
-                      <span className="text-slate-500">Login</span>
-                      <span className="break-all text-slate-900">{item.login}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {canEdit && (
+                      <button
+                        onClick={() =>
+                          requestAdminVerification('edit', item.id)
+                        }
+                        className="w-10 h-10 rounded-full border border-slate-200 text-slate-600 hover:bg-white flex items-center justify-center"
+                      >
+                        <Pencil size={17} />
+                      </button>
+                    )}
 
-                      {canView && (
+                    {canDelete && (
+                      <button
+                        onClick={() =>
+                          requestAdminVerification('delete', item.id)
+                        }
+                        disabled={actionLoading}
+                        className="w-10 h-10 rounded-full border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center disabled:opacity-50"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-7 py-2">
+                  <DetailRow
+                    label="Login"
+                    value={item.login || '-'}
+                    action={
+                      canView && (
                         <button
-                          onClick={() => requestAdminVerification('copy-login', item.id)}
+                          onClick={() =>
+                            requestAdminVerification('copy-login', item.id)
+                          }
                           className="text-slate-500 hover:text-slate-700"
                         >
                           <Copy size={18} />
                         </button>
-                      )}
-                    </div>
+                      )
+                    }
+                  />
 
-                    <div className="grid grid-cols-[150px_1fr_80px] items-center gap-4 py-5 border-t border-slate-200">
-                      <span className="text-slate-500">Password</span>
-                      <span className="text-slate-900">
-                        {isVisible ? item.encryptedPassword : '••••••••••••••'}
-                      </span>
-
-                      {canView && (
+                  <DetailRow
+                    label="Password"
+                    value={
+                      isVisible ? item.encryptedPassword : '••••••••••••••'
+                    }
+                    action={
+                      canView && (
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => requestAdminVerification('view', item.id)}
+                            onClick={() =>
+                              requestAdminVerification('view', item.id)
+                            }
                             className="text-slate-500 hover:text-slate-700"
                           >
-                            {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                            {isVisible ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
                           </button>
 
                           <button
-                            onClick={() => requestAdminVerification('copy-password', item.id)}
+                            onClick={() =>
+                              requestAdminVerification('copy-password', item.id)
+                            }
                             className="text-slate-500 hover:text-slate-700"
                           >
                             <Copy size={18} />
                           </button>
                         </div>
+                      )
+                    }
+                  />
+
+                  <DetailRow
+                    label="URL"
+                    value={
+                      item.url ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 break-all hover:underline"
+                        >
+                          {item.url}
+                        </a>
+                      ) : (
+                        '-'
+                      )
+                    }
+                    action={
+                      item.url && (
+                        <button
+                          onClick={() => window.open(item.url, '_blank')}
+                          className="text-slate-500 hover:text-slate-700"
+                        >
+                          <ExternalLink size={18} />
+                        </button>
+                      )
+                    }
+                  />
+
+                  <div className="grid grid-cols-[150px_1fr] gap-4 py-5 border-t border-slate-200">
+                    <span className="text-slate-500">Tags</span>
+
+                    <div className="flex flex-wrap gap-2">
+                      {tagNames.map((tag) => (
+                        <span
+                          key={`${item.id}-${tag}`}
+                          className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 text-sm"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+
+                      {!tagNames.length && (
+                        <span className="text-slate-400 text-sm">No tags</span>
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-[150px_1fr_40px] items-center gap-4 py-5 border-t border-slate-200">
-                      <span className="text-slate-500">URL</span>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 break-all hover:underline"
-                      >
-                        {item.url}
-                      </a>
-
-                      <button
-                        onClick={() => window.open(item.url, '_blank')}
-                        className="text-slate-500 hover:text-slate-700"
-                      >
-                        <ExternalLink size={18} />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-[150px_1fr] gap-4 py-5 border-t border-slate-200">
-                      <span className="text-slate-500">Tags</span>
-
-                      <div className="flex flex-wrap gap-2">
-                        {tagNames.map((tag) => (
-                          <span
-                            key={`${item.id}-${tag}`}
-                            className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-sm"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-
-                        {!tagNames.length && (
-                          <span className="text-slate-400 text-sm">No tags</span>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
 
-            {!sameNamePasswords.length && (
-              <div className="p-6 text-slate-500 text-sm">No passwords found.</div>
-            )}
-          </div>
+          {!sameNamePasswords.length && (
+            <div className="p-6 text-slate-500 text-sm">
+              No passwords found.
+            </div>
+          )}
         </div>
       </div>
 
@@ -320,6 +360,18 @@ function PasswordDetailsPanel() {
         }}
         onVerified={handleVerified}
       />
+    </div>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="grid grid-cols-[150px_1fr_80px] items-center gap-4 py-5 border-t border-slate-200 first:border-t-0">
+      <span className="text-slate-500">{label}</span>
+
+      <span className="break-all text-slate-900">{value}</span>
+
+      <div className="flex items-center justify-end">{action}</div>
     </div>
   );
 }

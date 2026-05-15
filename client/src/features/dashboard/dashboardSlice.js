@@ -69,6 +69,10 @@ export const fetchRecentPasswords = createAsyncThunk(
 
 const initialState = {
   totalPasswords: 0,
+  companyPasswords: 0,
+  personalPasswords: 0,
+  deletedPasswords: 0,
+
   weakPasswords: 0,
   oldPasswords: 0,
   riskPasswords: 0,
@@ -96,7 +100,12 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchSecuritySummary.fulfilled, (state, action) => {
         state.summaryLoading = false;
+
         state.totalPasswords = action.payload.totalPasswords || 0;
+        state.companyPasswords = action.payload.companyPasswords || 0;
+        state.personalPasswords = action.payload.personalPasswords || 0;
+        state.deletedPasswords = action.payload.deletedPasswords || 0;
+
         state.weakPasswords = action.payload.weakPasswords || 0;
         state.oldPasswords = action.payload.oldPasswords || 0;
         state.riskPasswords = action.payload.riskPasswords || 0;
