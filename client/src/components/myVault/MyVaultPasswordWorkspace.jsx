@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import {
   Copy,
   Edit2,
   Eye,
+  EyeOff,
   ExternalLink,
-  KeyRound,
   Share2,
   Trash2,
   Users,
@@ -20,160 +21,353 @@ function MyVaultPasswordWorkspace({
   onDeletePassword,
   onManageShares,
 }) {
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [search, setSearch] =
+    useState('');
+
+  const filteredPasswords =
+    passwords.filter((item) => {
+      const value =
+        search.toLowerCase();
+
+      return (
+        item.name
+          ?.toLowerCase()
+          .includes(value) ||
+        item.login
+          ?.toLowerCase()
+          .includes(value)
+      );
+    });
+
   const selectedPassword =
-    passwords.find((item) => item.id === selectedPasswordId) || passwords[0];
+    filteredPasswords.find(
+      (item) =>
+        item.id ===
+        selectedPasswordId
+    ) || filteredPasswords[0];
 
   const copyText = (value) => {
     if (!value) return;
-    navigator.clipboard.writeText(value);
+
+    navigator.clipboard.writeText(
+      value
+    );
   };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden">
       {loading ? (
-        <div className="p-6 text-slate-500">Loading...</div>
-      ) : passwords.length === 0 ? (
+        <div className="p-6 text-slate-500">
+          Loading...
+        </div>
+      ) : passwords.length ===
+        0 ? (
         <div className="h-full flex items-center justify-center text-slate-400">
           No passwords found
         </div>
       ) : (
-        <div className="grid grid-cols-[330px_1fr] min-h-[600px]">
-          <div className="border-r border-slate-200 p-5">
+        <div className="grid grid-cols-[320px_1fr] min-h-[600px]">
+
+          {/* Left Side */}
+          <div className="border-r border-slate-200 p-5 bg-slate-50/50">
             <input
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
               placeholder="Search passwords..."
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none mb-5"
+              className="
+                w-full
+                border border-slate-300
+                rounded-lg
+                px-4 py-2.5
+                text-sm
+                outline-none
+                bg-white
+                mb-5
+                focus:border-indigo-500
+                focus:ring-2
+                focus:ring-indigo-100
+              "
             />
 
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">
-              {passwords.length} passwords
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900">
+                Passwords
+              </h2>
 
-            <div className="space-y-3">
-              {passwords.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => onSelectPassword(item.id)}
-                  className={`w-full text-left rounded-2xl border p-4 transition ${
-                    selectedPassword?.id === item.id
-                      ? 'bg-indigo-50 border-indigo-200'
-                      : 'bg-white border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <h3 className="font-semibold text-slate-900 truncate">
-                    {item.name}
-                  </h3>
-                  <p className="text-sm text-slate-500 truncate mt-1">
-                    {item.login}
-                  </p>
-                </button>
-              ))}
+              <span className="text-sm text-slate-500">
+                {
+                  filteredPasswords.length
+                }
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {filteredPasswords.map(
+                (item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setShowPassword(
+                        false
+                      );
+
+                      onSelectPassword(
+                        item.id
+                      );
+                    }}
+                    className={`w-full text-left rounded-xl border p-4 transition ${
+                      selectedPassword?.id ===
+                      item.id
+                        ? 'bg-indigo-50 border-indigo-200'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <h3 className="font-semibold text-slate-900 truncate">
+                      {item.name}
+                    </h3>
+
+                    <p className="text-sm text-slate-500 truncate mt-1">
+                      {item.login}
+                    </p>
+                  </button>
+                )
+              )}
             </div>
           </div>
 
+          {/* Right Side */}
           <div className="p-8">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-4xl font-bold text-slate-900">
-                    {selectedPassword?.name}
-                  </h1>
+            {!selectedPassword ? (
+              <div className="h-full flex items-center justify-center text-slate-400">
+                Select a password
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-3xl font-bold text-slate-900">
+                        {
+                          selectedPassword.name
+                        }
+                      </h1>
 
-                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-sm font-medium">
-                    My Vault
-                  </span>
+                      <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
+                        Personal
+                        Vault
+                      </span>
+                    </div>
+
+                    <p className="text-slate-500 mt-2 text-sm">
+                      Personal
+                      password
+                      details
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        onViewPassword(
+                          selectedPassword
+                        )
+                      }
+                      className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                    >
+                      <Eye
+                        size={17}
+                      />
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        onEditPassword(
+                          selectedPassword
+                        )
+                      }
+                      className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                    >
+                      <Edit2
+                        size={17}
+                      />
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        onDeletePassword(
+                          selectedPassword
+                        )
+                      }
+                      className="w-10 h-10 rounded-full border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
+                    >
+                      <Trash2
+                        size={17}
+                      />
+                    </button>
+                  </div>
                 </div>
 
-                <p className="text-slate-500 mt-2">
-                  Personal password details
-                </p>
-              </div>
+                <div className="rounded-2xl border border-slate-200 p-6 bg-white">
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => onViewPassword(selectedPassword)}
-                  className="w-11 h-11 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-                  title="View"
-                >
-                  <Eye size={18} />
-                </button>
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      {
+                        selectedPassword.login
+                      }
+                    </h2>
 
-                <button
-                  onClick={() => onEditPassword(selectedPassword)}
-                  className="w-11 h-11 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-                  title="Edit"
-                >
-                  <Edit2 size={18} />
-                </button>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Account
+                      details
+                    </p>
+                  </div>
 
-                <button
-                  onClick={() => onDeletePassword(selectedPassword)}
-                  className="w-11 h-11 rounded-full border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
-                  title="Delete"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            </div>
+                  <div className="space-y-0">
 
-            <div className="rounded-3xl border border-slate-200 p-7">
-              <div className="mb-7">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  {selectedPassword?.login}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">Account details</p>
-              </div>
+                    <DetailRow
+                      label="Login"
+                      value={
+                        selectedPassword.login
+                      }
+                      onCopy={() =>
+                        copyText(
+                          selectedPassword.login
+                        )
+                      }
+                    />
 
-              <div className="space-y-0">
-                <DetailRow
-                  label="Login"
-                  value={selectedPassword?.login}
-                  onCopy={() => copyText(selectedPassword?.login)}
-                />
+                    {/* Password */}
+                    <div className="grid grid-cols-[140px_1fr_80px] items-center border-b border-slate-200 py-5">
+                      <p className="text-slate-500">
+                        Password
+                      </p>
 
-                <DetailRow
-                  label="Password"
-                  value="••••••••••••"
-                  onCopy={() => copyText(selectedPassword?.encryptedPassword)}
-                />
+                      <p className="text-slate-900 truncate">
+                        {showPassword
+                          ? selectedPassword.encryptedPassword
+                          : '••••••••••••'}
+                      </p>
 
-                <DetailRow
-                  label="URL"
-                  value={selectedPassword?.url || 'No URL'}
-                  link
-                  onCopy={() => copyText(selectedPassword?.url)}
-                />
+                      <div className="flex justify-end items-center gap-3">
+                        <button
+                          onClick={() =>
+                            setShowPassword(
+                              !showPassword
+                            )
+                          }
+                          className="text-slate-500 hover:text-indigo-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff
+                              size={
+                                18
+                              }
+                            />
+                          ) : (
+                            <Eye
+                              size={
+                                18
+                              }
+                            />
+                          )}
+                        </button>
 
-                <DetailRow
-                  label="Tags"
-                  value={
-                    selectedPassword?.tags?.length
-                      ? selectedPassword.tags
-                          .map((item) => item.tag?.name)
-                          .filter(Boolean)
-                          .join(', ')
-                      : 'No tags'
-                  }
-                />
-              </div>
+                        <button
+                          onClick={() =>
+                            copyText(
+                              selectedPassword.encryptedPassword
+                            )
+                          }
+                          className="text-slate-500 hover:text-slate-900"
+                        >
+                          <Copy
+                            size={17}
+                          />
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="flex flex-wrap gap-3 mt-8">
-                <button
-                  onClick={() => onSharePassword(selectedPassword)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm hover:bg-indigo-100"
-                >
-                  <Share2 size={16} />
-                  Share Password
-                </button>
+                    <DetailRow
+                      label="URL"
+                      value={
+                        selectedPassword.url ||
+                        'No URL'
+                      }
+                      link
+                      onCopy={() =>
+                        copyText(
+                          selectedPassword.url
+                        )
+                      }
+                    />
 
-                <button
-                  onClick={() => onManageShares(selectedPassword)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
-                >
-                  <Users size={16} />
-                  Manage Access
-                </button>
-              </div>
-            </div>
+                    <DetailRow
+                      label="Tags"
+                      value={
+                        selectedPassword
+                          ?.tags
+                          ?.length
+                          ? selectedPassword.tags
+                              .map(
+                                (
+                                  item
+                                ) =>
+                                  item
+                                    .tag
+                                    ?.name
+                              )
+                              .filter(
+                                Boolean
+                              )
+                              .join(
+                                ', '
+                              )
+                          : 'No tags'
+                      }
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 mt-7">
+                    <button
+                      onClick={() =>
+                        onSharePassword(
+                          selectedPassword
+                        )
+                      }
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm hover:bg-indigo-100"
+                    >
+                      <Share2
+                        size={16}
+                      />
+                      Share
+                      Password
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        onManageShares(
+                          selectedPassword
+                        )
+                      }
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                    >
+                      <Users
+                        size={16}
+                      />
+                      Manage
+                      Access
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -181,22 +375,45 @@ function MyVaultPasswordWorkspace({
   );
 }
 
-function DetailRow({ label, value, onCopy, link }) {
+function DetailRow({
+  label,
+  value,
+  onCopy,
+  link,
+}) {
   return (
-    <div className="grid grid-cols-[160px_1fr_40px] items-center border-b border-slate-200 py-5 last:border-b-0">
-      <p className="text-slate-500">{label}</p>
+    <div className="grid grid-cols-[140px_1fr_40px] items-center border-b border-slate-200 py-5 last:border-b-0">
+      <p className="text-slate-500">
+        {label}
+      </p>
 
-      <p className={`${link ? 'text-blue-600' : 'text-slate-900'} truncate`}>
+      <p
+        className={`truncate ${
+          link
+            ? 'text-blue-600'
+            : 'text-slate-900'
+        }`}
+      >
         {value}
       </p>
 
-      {onCopy && (
+      {onCopy ? (
         <button
           onClick={onCopy}
           className="text-slate-500 hover:text-slate-900"
         >
-          {link ? <ExternalLink size={17} /> : <Copy size={17} />}
+          {link ? (
+            <ExternalLink
+              size={17}
+            />
+          ) : (
+            <Copy
+              size={17}
+            />
+          )}
         </button>
+      ) : (
+        <div />
       )}
     </div>
   );

@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { KeyRound, LockKeyhole, ShieldCheck, TimerReset } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  KeyRound,
+  LockKeyhole,
+  ShieldCheck,
+  TimerReset,
+} from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
 import { setMasterVerified } from '../../features/auth/authSlice';
@@ -16,6 +23,7 @@ function EnterMasterPasswordPage() {
   );
 
   const [masterPassword, setMasterPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [verifying, setVerifying] = useState(false);
 
@@ -92,12 +100,24 @@ function EnterMasterPasswordPage() {
           {error && <ErrorBox message={error} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Master password"
-              value={masterPassword}
-              onChange={setMasterPassword}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Master password"
+                value={masterPassword}
+                onChange={(e) => setMasterPassword(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
             <button
               type="submit"
@@ -124,19 +144,6 @@ function AuthCard({ title, subtitle, children }) {
       <p className="text-slate-500 mt-2 mb-7">{subtitle}</p>
       {children}
     </div>
-  );
-}
-
-function Input({ type, placeholder, value, onChange }) {
-  return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-      required
-    />
   );
 }
 

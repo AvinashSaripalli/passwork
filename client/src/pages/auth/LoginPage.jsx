@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LockKeyhole, ShieldCheck, Users } from 'lucide-react';
+import { Eye, EyeOff, LockKeyhole, ShieldCheck, Users } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearError, loginUser } from '../../features/auth/authSlice';
 import logo from '../../assets/Vaultix.png';
@@ -15,6 +15,7 @@ function LoginPage() {
   );
 
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -73,11 +74,13 @@ function LoginPage() {
               onChange={(value) => setFormData((p) => ({ ...p, email: value }))}
             />
 
-            <Input
-              type="password"
-              placeholder="Password"
+            <PasswordInput
               value={formData.password}
-              onChange={(value) => setFormData((p) => ({ ...p, password: value }))}
+              showPassword={showPassword}
+              onToggle={() => setShowPassword((prev) => !prev)}
+              onChange={(value) =>
+                setFormData((p) => ({ ...p, password: value }))
+              }
             />
 
             <button
@@ -97,6 +100,29 @@ function LoginPage() {
           </p>
         </AuthCard>
       </div>
+    </div>
+  );
+}
+
+function PasswordInput({ value, onChange, showPassword, onToggle }) {
+  return (
+    <div className="relative">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        placeholder="Password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        required
+      />
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+      >
+        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
     </div>
   );
 }

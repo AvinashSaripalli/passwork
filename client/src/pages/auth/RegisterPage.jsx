@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LockKeyhole, ShieldCheck, Users } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearError, registerUser } from '../../features/auth/authSlice';
 import logo from '../../assets/Vaultix.png';
@@ -10,7 +16,11 @@ function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loading, error, isAuthenticated } = useSelector((state) => state.auth);
+  const { loading, error, isAuthenticated } = useSelector(
+    (state) => state.auth
+  );
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -52,13 +62,30 @@ function RegisterPage() {
           </p>
 
           <div className="grid grid-cols-3 gap-4 mt-10 max-w-4xl">
-            <Feature icon={ShieldCheck} title="Encrypted Vaults" text="Keep sensitive credentials protected." />
-            <Feature icon={LockKeyhole} title="Master Security" text="Add verification before access." />
-            <Feature icon={Users} title="Team Sharing" text="Share passwords safely." />
+            <Feature
+              icon={ShieldCheck}
+              title="Encrypted Vaults"
+              text="Keep sensitive credentials protected."
+            />
+
+            <Feature
+              icon={LockKeyhole}
+              title="Master Security"
+              text="Add verification before access."
+            />
+
+            <Feature
+              icon={Users}
+              title="Team Sharing"
+              text="Share passwords safely."
+            />
           </div>
         </div>
 
-        <AuthCard title="Create account" subtitle="Start managing passwords securely.">
+        <AuthCard
+          title="Create account"
+          subtitle="Start managing passwords securely."
+        >
           {error && <ErrorBox message={error} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,22 +93,54 @@ function RegisterPage() {
               type="text"
               placeholder="Full name"
               value={formData.fullName}
-              onChange={(value) => setFormData((p) => ({ ...p, fullName: value }))}
+              onChange={(value) =>
+                setFormData((p) => ({
+                  ...p,
+                  fullName: value,
+                }))
+              }
             />
 
             <Input
               type="email"
               placeholder="Email address"
               value={formData.email}
-              onChange={(value) => setFormData((p) => ({ ...p, email: value }))}
+              onChange={(value) =>
+                setFormData((p) => ({
+                  ...p,
+                  email: value,
+                }))
+              }
             />
 
-            <Input
-              type="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={(value) => setFormData((p) => ({ ...p, password: value }))}
-            />
+            {/* Password Field With Eye Icon */}
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData((p) => ({
+                    ...p,
+                    password: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
+            </div>
 
             <button
               type="submit"

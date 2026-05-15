@@ -1,16 +1,31 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import api from '../../services/api';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMasterVerified } from '../../features/auth/authSlice';
 
-function VerifyMasterPasswordModal({ open, onClose, onVerified }) {
-  const { token } = useSelector((state) => state.auth);
-  const [masterPassword, setMasterPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+function VerifyMasterPasswordModal({
+  open,
+  onClose,
+  onVerified,
+}) {
   const dispatch = useDispatch();
 
+  const { token } = useSelector((state) => state.auth);
+
+  const [masterPassword, setMasterPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   if (!open) return null;
+
+  const handleClose = () => {
+    setMasterPassword('');
+    setShowPassword(false);
+    setError('');
+    onClose();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,11 +45,21 @@ function VerifyMasterPasswordModal({ open, onClose, onVerified }) {
       );
 
       dispatch(setMasterVerified(true));
+
+      const verifiedPassword = masterPassword;
+
       setMasterPassword('');
-      onClose();
-      if (onVerified) onVerified(masterPassword);
+      setShowPassword(false);
+
+      handleClose();
+
+      if (onVerified) {
+        onVerified(verifiedPassword);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid master password');
+      setError(
+        err.response?.data?.message || 'Invalid master password'
+      );
     } finally {
       setLoading(false);
     }
@@ -42,40 +67,66 @@ function VerifyMasterPasswordModal({ open, onClose, onVerified }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60] px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
-        <h2 className="text-2xl font-bold mb-2">Verify Master Password</h2>
-        <p className="text-slate-500 mb-6">
-          Confirm your master password to continue.
-        </p>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+        <div className="mb-5">
+          <h2 className="text-2xl font-bold text-slate-900">
+            Verify Master Password
+          </h2>
+
+          <p className="text-slate-500 text-sm mt-1">
+            Confirm your master password to continue.
+          </p>
+        </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 text-red-600 px-4 py-3 text-sm">
-            {error}
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-600">
+              {error}
+            </p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="Master password"
-            value={masterPassword}
-            onChange={(e) => setMasterPassword(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
-            required
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Master password"
+              value={masterPassword}
+              onChange={(e) =>
+                setMasterPassword(e.target.value)
+              }
+              className="w-full border border-slate-300 rounded-lg px-4 pr-11 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              required
+            />
 
-          <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={onClose}
-              className="px-5 py-3 rounded-xl border border-slate-300"
+              onClick={() =>
+                setShowPassword((prev) => !prev)
+              }
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+            >
+              {showPassword ? (
+                <EyeOff size={18} />
+              ) : (
+                <Eye size={18} />
+              )}
+            </button>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50"
             >
               Cancel
             </button>
+
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 rounded-xl bg-blue-500 text-white font-medium"
+              className="px-6 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
             >
               {loading ? 'Verifying...' : 'Verify'}
             </button>
