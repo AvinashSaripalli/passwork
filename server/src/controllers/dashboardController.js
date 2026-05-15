@@ -18,26 +18,43 @@ const getMonthLabel = (date) =>
     month: 'short',
   });
 
-const getAccessibleVaultIds = async (userId) => {
+const getAccessibleVaultIds = async (user) => {
+  if (user.role === 'ADMIN') {
+    const vaults = await prisma.vault.findMany({
+      select: { id: true },
+    });
+
+    return vaults.map((vault) => vault.id);
+  }
+
   const vaults = await prisma.vault.findMany({
     where: {
-      OR: [
-        { ownerId: userId },
-        {
-          permissions: {
-            some: {
-              userId,
-            },
-          },
-        },
-      ],
+      ownerId: user.id,
+      type: 'PERSONAL',
     },
-    select: {
-      id: true,
-    },
+    select: { id: true },
   });
 
   return vaults.map((vault) => vault.id);
+};
+
+const getPasswordWhere = async (user) => {
+  const vaultIds = await getAccessibleVaultIds(user);
+
+  if (user.role === 'ADMIN') {
+    return {
+      vaultId: {
+        in: vaultIds,
+      },
+    };
+  }
+
+  return {
+    vaultId: {
+      in: vaultIds,
+    },
+    createdById: user.id,
+  };
 };
 
 const buildTrendRange = (range) => {
@@ -120,14 +137,10 @@ const calculateSecurityScore = ({
 
 const getSecuritySummary = async (req, res) => {
   try {
-    const vaultIds = await getAccessibleVaultIds(req.user.id);
+    const where = await getPasswordWhere(req.user);
 
     const passwords = await prisma.passwordEntry.findMany({
-      where: {
-        vaultId: {
-          in: vaultIds,
-        },
-      },
+      where,
       select: {
         id: true,
         isWeak: true,
@@ -167,13 +180,13 @@ const getPasswordActivityTrend = async (req, res) => {
       ? req.query.range
       : '6M';
 
-    const vaultIds = await getAccessibleVaultIds(req.user.id);
-
+    const vaultIds = await getAccessibleVaultIds(req.user);
     const { startDate, endDate } = buildTrendRange(range);
     const trendBuckets = buildTrendBuckets(range, startDate, endDate);
 
     const activityLogs = await prisma.activityLog.findMany({
       where: {
+        userId: req.user.role === 'ADMIN' ? undefined : req.user.id,
         action: {
           in: ['CREATE_PASSWORD', 'DELETE_PASSWORD'],
         },
@@ -232,16 +245,19 @@ const getPasswordActivityTrend = async (req, res) => {
 
 const getRecentPasswords = async (req, res) => {
   try {
-    const vaultIds = await getAccessibleVaultIds(req.user.id);
+    const where = await getPasswordWhere(req.user);
 
     const recentPasswords = await prisma.passwordEntry.findMany({
-      where: {
-        vaultId: {
-          in: vaultIds,
-        },
-      },
+      where,
       include: {
         vault: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
+        folder: {
           select: {
             id: true,
             name: true,
@@ -269,16 +285,20 @@ const getSecurityDashboard = async (req, res) => {
       ? req.query.range
       : '6M';
 
-    const vaultIds = await getAccessibleVaultIds(req.user.id);
+    const where = await getPasswordWhere(req.user);
+    const vaultIds = await getAccessibleVaultIds(req.user);
 
     const passwords = await prisma.passwordEntry.findMany({
-      where: {
-        vaultId: {
-          in: vaultIds,
-        },
-      },
+      where,
       include: {
         vault: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
+        folder: {
           select: {
             id: true,
             name: true,
@@ -307,6 +327,7 @@ const getSecurityDashboard = async (req, res) => {
 
     const activityLogs = await prisma.activityLog.findMany({
       where: {
+        userId: req.user.role === 'ADMIN' ? undefined : req.user.id,
         action: {
           in: ['CREATE_PASSWORD', 'DELETE_PASSWORD'],
         },
@@ -338,8 +359,13 @@ const getSecurityDashboard = async (req, res) => {
       const found = trendBuckets.find((item) => item.key === key);
       if (!found) return;
 
-      if (log.action === 'CREATE_PASSWORD') found.added += 1;
-      if (log.action === 'DELETE_PASSWORD') found.deleted += 1;
+      if (log.action === 'CREATE_PASSWORD') {
+        found.added += 1;
+      }
+
+      if (log.action === 'DELETE_PASSWORD') {
+        found.deleted += 1;
+      }
     });
 
     const passwordTrend = trendBuckets.map((item) => ({

@@ -65,7 +65,7 @@ function Sidebar() {
   const menu = [
     { name: 'Security Dashboard', path: '/dashboard', icon: Shield },
     { name: 'Activity Log', path: '/activity-log', icon: Activity },
-    { name: 'My Vault', path: '/my-vault', icon: LockKeyhole },
+    { name: 'Personal Vault', path: '/my-vault', icon: LockKeyhole },
     { name: 'Shared With Me', path: '/shared-with-me', icon: Share2 },
   ];
 

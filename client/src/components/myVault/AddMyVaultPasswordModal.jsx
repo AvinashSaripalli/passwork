@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, X } from 'lucide-react';
+import { KeyRound, X, Eye, EyeOff } from 'lucide-react';
 
 const initialForm = {
   folderId: '',
@@ -19,8 +19,12 @@ function AddMyVaultPasswordModal({
   onSubmit,
 }) {
   const [formData, setFormData] = useState(initialForm);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (!open) return null;
+
+  const inputClass =
+    'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition';
 
   const updateField = (field, value) => {
     setFormData((prev) => ({
@@ -31,6 +35,7 @@ function AddMyVaultPasswordModal({
 
   const handleClose = () => {
     setFormData(initialForm);
+    setShowPassword(false);
     onClose();
   };
 
@@ -55,44 +60,44 @@ function AddMyVaultPasswordModal({
     };
 
     onSubmit(payload);
-
     setFormData(initialForm);
+    setShowPassword(false);
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-white rounded-3xl p-8 shadow-xl">
-        <div className="flex items-center justify-between mb-7">
+      <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-xl border border-slate-200">
+        <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
               Add Password
             </h2>
 
             <p className="text-sm text-slate-500 mt-1">
-              Create a new password in My Vault
+              Create a new password in Personal Vault
             </p>
           </div>
 
           <button
             onClick={handleClose}
-            className="text-slate-500 hover:text-slate-900"
+            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
           >
-            <X size={20} />
+            <X size={19} className="text-slate-500" />
           </button>
         </div>
 
-        <p className="text-sm text-slate-500 mb-5">
-          Selected folder:{' '}
-          <span className="font-semibold text-slate-700">
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-4">
+          <p className="text-xs text-slate-500">Selected Folder</p>
+          <p className="text-sm font-semibold text-slate-800 mt-1">
             {selectedFolder?.name || 'Select Folder'}
-          </span>
-        </p>
+          </p>
+        </div>
 
         <div className="space-y-4">
           <select
             value={formData.folderId}
             onChange={(e) => updateField('folderId', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
+            className={inputClass}
           >
             <option value="">Select Folder</option>
 
@@ -103,13 +108,13 @@ function AddMyVaultPasswordModal({
             ))}
           </select>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
               value={formData.name}
               onChange={(e) => updateField('name', e.target.value)}
               placeholder="Name"
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
+              className={inputClass}
             />
 
             <input
@@ -117,25 +122,35 @@ function AddMyVaultPasswordModal({
               value={formData.login}
               onChange={(e) => updateField('login', e.target.value)}
               placeholder="Login / Email"
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
+              className={inputClass}
             />
 
-            <input
-              type="password"
-              value={formData.encryptedPassword}
-              onChange={(e) =>
-                updateField('encryptedPassword', e.target.value)
-              }
-              placeholder="Password"
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={formData.encryptedPassword}
+                onChange={(e) =>
+                  updateField('encryptedPassword', e.target.value)
+                }
+                placeholder="Password"
+                className={`${inputClass} pr-10`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
 
             <input
               type="text"
               value={formData.url}
               onChange={(e) => updateField('url', e.target.value)}
               placeholder="URL"
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
+              className={inputClass}
             />
           </div>
 
@@ -144,7 +159,7 @@ function AddMyVaultPasswordModal({
             value={formData.tags}
             onChange={(e) => updateField('tags', e.target.value)}
             placeholder="Tags, comma separated"
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none"
+            className={inputClass}
           />
 
           <textarea
@@ -152,20 +167,20 @@ function AddMyVaultPasswordModal({
             value={formData.encryptedNote}
             onChange={(e) => updateField('encryptedNote', e.target.value)}
             placeholder="Note"
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none resize-none"
+            className={`${inputClass} resize-none`}
           />
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleClose}
-              className="px-7 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50"
+              className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
             >
               Cancel
             </button>
 
             <button
               onClick={handleSubmit}
-              className="px-7 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2"
             >
               <KeyRound size={16} />
               Save Password

@@ -49,46 +49,50 @@ function SharedWithMePage() {
   return (
     <AppLayout>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Share2 size={22} />
-              </div>
-
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">
-                  Shared With Me
-                </h1>
-                <p className="text-slate-500 mt-1">
-                  Passwords shared with you by other users
-                </p>
-              </div>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Share2 size={22} />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 min-w-[110px]">
-            <p className="text-xs text-slate-500">Total Shared</p>
-            <p className="text-2xl font-bold text-slate-900">
-              {sharedWithMe.length}
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Shared With Me
+            </h1>
+            <p className="text-slate-500 mt-1">
+              Passwords shared with you by other users
             </p>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-white">
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative w-1/4 min-w-[320px]">
+                <Search
+                  size={17}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
 
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, login, URL, or shared user..."
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none focus:bg-white focus:border-indigo-500"
-              />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search shared passwords..."
+                  className="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none focus:bg-white focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl bg-indigo-50 border border-indigo-100 px-5 py-3">
+                <div className="w-9 h-9 rounded-xl bg-white text-indigo-600 flex items-center justify-center">
+                  <KeyRound size={18} />
+                </div>
+
+                <div>
+                  <p className="text-xs text-slate-500">Total Shared Passwords</p>
+                  <p className="text-xl font-bold text-slate-900">
+                    {sharedWithMe.length}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
