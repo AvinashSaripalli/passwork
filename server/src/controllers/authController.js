@@ -15,6 +15,34 @@ const signToken = (user) => {
   );
 };
 
+const getClientIp = (req) => {
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.headers['x-real-ip'] ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    ''
+  );
+};
+
+const saveLoginActivity = async ({ req, userId, status }) => {
+  try {
+    const loginActivityId = await generateId('loginActivity');
+
+    await prisma.loginActivity.create({
+      data: {
+        id: loginActivityId,
+        userId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || '',
+        status,
+      },
+    });
+  } catch (error) {
+    console.error('Save login activity error:', error);
+  }
+};
+
 const register = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
@@ -31,8 +59,8 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
     const crypto = require('crypto');
+    const passwordHash = await bcrypt.hash(password, 12);
     const encryptionSalt = crypto.randomBytes(16).toString('hex');
     const userId = await generateId('user');
 
@@ -48,6 +76,12 @@ const register = async (req, res) => {
     });
 
     const token = signToken(user);
+
+    await saveLoginActivity({
+      req,
+      userId: user.id,
+      status: 'SUCCESS',
+    });
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -70,7 +104,9 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res.status(400).json({
+        message: 'Email and password are required',
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -81,8 +117,13 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // ✅ BLOCK INACTIVE USER LOGIN
     if (user.isActive === false) {
+      await saveLoginActivity({
+        req,
+        userId: user.id,
+        status: 'BLOCKED',
+      });
+
       return res.status(403).json({
         message: 'Your account is inactive. Please contact administrator.',
       });
@@ -91,10 +132,22 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
+      await saveLoginActivity({
+        req,
+        userId: user.id,
+        status: 'FAILED',
+      });
+
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const token = signToken(user);
+
+    await saveLoginActivity({
+      req,
+      userId: user.id,
+      status: 'SUCCESS',
+    });
 
     res.status(200).json({
       message: 'Login successful',
@@ -128,7 +181,7 @@ const me = async (req, res) => {
       email: user.email,
       role: user.role,
       masterPasswordHint: user.masterPasswordHint,
-      hasMasterPassword: !!user.masterPasswordHash, // ✅ ADD THIS
+      hasMasterPassword: !!user.masterPasswordHash,
       encryptionSalt: user.encryptionSalt,
       createdAt: user.createdAt,
     });
@@ -238,6 +291,7 @@ const verifyAdministratorMasterPassword = async (req, res) => {
 
 module.exports = {
   register,
+  saveLoginActivity,
   login,
   me,
   setMasterPassword,

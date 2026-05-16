@@ -26,6 +26,7 @@ model User {
   vaultPermissions   VaultPermission[]
   sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
   sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
+  loginActivities LoginActivity[]
 }
 
 model Folder {
@@ -200,4 +201,14 @@ enum ActivityAction {
   SHARE_VAULT
   IMPORT_PASSWORDS
   SHARE_PASSWORD
+}
+model LoginActivity {
+  id        String   @id
+  userId    String
+  ipAddress String?
+  userAgent String?
+  status    String   // SUCCESS / FAILED
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

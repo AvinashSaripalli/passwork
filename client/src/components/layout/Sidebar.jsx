@@ -9,9 +9,9 @@ import {
   LogOut,
   Plus,
   ChevronDown,
-  Sparkles,
   LockKeyhole,
   Share2,
+  History,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -36,6 +36,7 @@ function Sidebar() {
   const { slug: currentVaultSlug } = useParams();
 
   const { user } = useSelector((state) => state.auth);
+
   const {
     vaults,
     vaultsLoading,
@@ -62,20 +63,50 @@ function Sidebar() {
     }
   }, [dispatch, currentVaultId]);
 
-  const menu = [
-    { name: 'Security Dashboard', path: '/dashboard', icon: Shield },
-    { name: 'Activity Log', path: '/activity-log', icon: Activity },
-    { name: 'Personal Vault', path: '/my-vault', icon: LockKeyhole },
-    { name: 'Shared With Me', path: '/shared-with-me', icon: Share2 },
+  const overviewMenu = [
+    {
+      name: 'Security Dashboard',
+      path: '/dashboard',
+      icon: Shield,
+    },
   ];
 
-  if (user?.role === 'ADMIN') {
-    menu.splice(1, 0, {
-      name: 'Team Management',
-      path: '/team-management',
-      icon: Users,
-    });
-  }
+  const vaultMenu = [
+    {
+      name: 'Personal Vault',
+      path: '/my-vault',
+      icon: LockKeyhole,
+    },
+    {
+      name: 'Shared With Me',
+      path: '/shared-with-me',
+      icon: Share2,
+    },
+  ];
+
+  const securityMenu = [
+    {
+      name: 'Activity Log',
+      path: '/activity-log',
+      icon: Activity,
+    },
+    {
+      name: 'Login History',
+      path: '/login-activity',
+      icon: History,
+    },
+  ];
+
+  const adminMenu =
+    user?.role === 'ADMIN'
+      ? [
+          {
+            name: 'Team Management',
+            path: '/team-management',
+            icon: Users,
+          },
+        ]
+      : [];
 
   const handleLogout = () => {
     dispatch(logout());
@@ -105,11 +136,43 @@ function Sidebar() {
     }
   };
 
+  const renderMenuSection = (title, items) => {
+    if (!items.length) return null;
+
+    return (
+      <div>
+        <p className="px-3 text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase mb-3">
+          {title}
+        </p>
+
+        <div className="space-y-1">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname === item.path;
+
+            return (
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Icon size={17} />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <aside className="w-[260px] bg-white border-r border-slate-200 px-4 py-5 flex flex-col">
-
-        {/* Logo */}
         <div className="flex items-center gap-3 mb-8 px-2">
           <img
             src={logo}
@@ -121,176 +184,166 @@ function Sidebar() {
             <p className="text-lg font-semibold text-slate-900">
               Vault<span className="text-indigo-600">ix</span>
             </p>
+
             <p className="text-xs text-slate-500">
               {user?.role === 'ADMIN' ? 'Administrator' : 'User'}
             </p>
           </div>
         </div>
 
-        {/* Menu */}
-        <div className="mb-6">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase mb-3 px-2">
-            Management
-          </p>
+        <div className="flex-1 overflow-y-auto pr-1 space-y-6">
+          {renderMenuSection('Overview', overviewMenu)}
 
-          <div className="space-y-1">
-            {menu.map((item) => {
-              const Icon = item.icon;
-              const active = location.pathname === item.path;
+          {renderMenuSection('Vaults', vaultMenu)}
 
-              return (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600 font-medium'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon size={16} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <p className="px-3 text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase mb-3">
-            Company Vault
-          </p>
-
-          {vaultsLoading && (
-            <p className="text-sm text-slate-400 px-3 py-2">
-              Loading vaults...
+          <div>
+            <p className="px-3 text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase mb-3">
+              Company Vault
             </p>
-          )}
 
-          {!vaultsLoading &&
-            vaults.map((vault) => {
-              const vaultActive = location.pathname === `/vaults/${vault.slug}`;
+            {vaultsLoading && (
+              <p className="text-sm text-slate-400 px-3 py-2">
+                Loading vaults...
+              </p>
+            )}
 
-              return (
-                <div key={vault.id} className="mb-2">
-                  <div
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-2xl border transition ${
-                      vaultActive
-                        ? 'bg-slate-50 border-slate-200 text-slate-950 font-semibold'
-                        : 'border-transparent text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Link
-                      to={`/vaults/${vault.slug}`}
-                      onClick={() => dispatch(clearSelectedFolder())}
-                      className="flex items-center gap-3 flex-1 min-w-0"
+            {!vaultsLoading &&
+              vaults.map((vault) => {
+                const vaultActive =
+                  location.pathname === `/vaults/${vault.slug}`;
+
+                return (
+                  <div key={vault.id} className="mb-2">
+                    <div
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-2xl border transition ${
+                        vaultActive
+                          ? 'bg-slate-50 border-slate-200 text-slate-950 font-semibold'
+                          : 'border-transparent text-slate-600 hover:bg-slate-50'
+                      }`}
                     >
-                      <div
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                          vaultActive
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
+                      <Link
+                        to={`/vaults/${vault.slug}`}
+                        onClick={() => dispatch(clearSelectedFolder())}
+                        className="flex items-center gap-3 flex-1 min-w-0"
                       >
-                        <FolderOpen size={17} />
-                      </div>
-
-                      <span className="text-[15px] truncate">{vault.name}</span>
-                    </Link>
-
-                    <div className="flex items-center gap-2 ml-2">
-                      {vaultActive && user?.role === 'ADMIN' && (
-                        <button
-                          onClick={() => dispatch(openAddFolderModal())}
-                          className="w-8 h-8 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600"
-                          title="Add folder"
+                        <div
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center ${
+                            vaultActive
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
                         >
-                          <Plus size={15} />
-                        </button>
-                      )}
+                          <FolderOpen size={17} />
+                        </div>
 
-                      {vaultActive && (
-                        <ChevronDown size={16} className="text-slate-400" />
-                      )}
+                        <span className="text-[15px] truncate">
+                          {vault.name}
+                        </span>
+                      </Link>
+
+                      <div className="flex items-center gap-2 ml-2">
+                        {vaultActive && user?.role === 'ADMIN' && (
+                          <button
+                            onClick={() => dispatch(openAddFolderModal())}
+                            className="w-8 h-8 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600"
+                            title="Add folder"
+                          >
+                            <Plus size={15} />
+                          </button>
+                        )}
+
+                        {vaultActive && (
+                          <ChevronDown size={16} className="text-slate-400" />
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {vaultActive && (
-                    <div className="ml-5 mt-2 space-y-1 border-l-2 border-slate-100 pl-3">
-                      {foldersLoading && (
-                        <p className="text-xs text-slate-400 py-1">
-                          Loading folders...
-                        </p>
-                      )}
+                    {vaultActive && (
+                      <div className="ml-5 mt-2 space-y-1 border-l-2 border-slate-100 pl-3">
+                        {foldersLoading && (
+                          <p className="text-xs text-slate-400 py-1">
+                            Loading folders...
+                          </p>
+                        )}
 
-                      {!foldersLoading &&
-                        folders.map((folder) => {
-                          const selected = selectedFolderId === folder.id;
+                        {!foldersLoading &&
+                          folders.map((folder) => {
+                            const selected = selectedFolderId === folder.id;
 
-                          const folderPermission = folder?.permissions?.find(
-                            (item) =>
-                              item.userId === user?.id ||
-                              item.user?.id === user?.id
-                          );
+                            const folderPermission =
+                              folder?.permissions?.find(
+                                (item) =>
+                                  item.userId === user?.id ||
+                                  item.user?.id === user?.id
+                              );
 
-                          const folderAccess =
-                            user?.role === 'ADMIN'
-                              ? 'ADMINISTRATOR'
-                              : folderPermission?.accessLevel || null;
+                            const folderAccess =
+                              user?.role === 'ADMIN'
+                                ? 'ADMINISTRATOR'
+                                : folderPermission?.accessLevel || null;
 
-                          const canManageFolder =
-                            user?.role === 'ADMIN' ||
-                            folderAccess === 'ADMINISTRATOR';
+                            const canManageFolder =
+                              user?.role === 'ADMIN' ||
+                              folderAccess === 'ADMINISTRATOR';
 
-                          return (
-                            <div
-                              key={folder.id}
-                              className={`w-full flex items-center justify-between rounded-xl transition ${
-                                selected
-                                  ? 'bg-indigo-50 text-indigo-700 font-medium'
-                                  : 'text-slate-600 hover:bg-slate-50'
-                              }`}
-                            >
-                              <button
-                                onClick={() => dispatch(selectFolder(folder.id))}
-                                className="flex items-center gap-2 px-3 py-2.5 text-left text-sm flex-1 min-w-0"
+                            return (
+                              <div
+                                key={folder.id}
+                                className={`w-full flex items-center justify-between rounded-xl transition ${
+                                  selected
+                                    ? 'bg-indigo-50 text-indigo-700 font-medium'
+                                    : 'text-slate-600 hover:bg-slate-50'
+                                }`}
                               >
-                                <Folder size={15} />
-                                <span className="truncate">{folder.name}</span>
-                              </button>
+                                <button
+                                  onClick={() =>
+                                    dispatch(selectFolder(folder.id))
+                                  }
+                                  className="flex items-center gap-2 px-3 py-2.5 text-left text-sm flex-1 min-w-0"
+                                >
+                                  <Folder size={15} />
+                                  <span className="truncate">
+                                    {folder.name}
+                                  </span>
+                                </button>
 
-                              <FolderActionsMenu
-                                folder={folder}
-                                canManage={canManageFolder}
-                                onRename={openRename}
-                                onShare={openShare}
-                                onDelete={handleDeleteFolder}
-                              />
-                            </div>
-                          );
-                        })}
+                                <FolderActionsMenu
+                                  folder={folder}
+                                  canManage={canManageFolder}
+                                  onRename={openRename}
+                                  onShare={openShare}
+                                  onDelete={handleDeleteFolder}
+                                />
+                              </div>
+                            );
+                          })}
 
-                      {!foldersLoading && !folders.length && (
-                        <p className="text-xs text-slate-400 py-2 px-2">
-                          No folders
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2">
-            <p className="text-xs text-red-600">{error}</p>
+                        {!foldersLoading && !folders.length && (
+                          <p className="text-xs text-slate-400 py-2 px-2">
+                            No folders
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
-        )}
+
+          {renderMenuSection('Security', securityMenu)}
+
+          {renderMenuSection('Administration', adminMenu)}
+
+          {error && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-3 py-2">
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={handleLogout}
-          className="mt-auto flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 text-sm font-medium"
+          className="mt-5 flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 text-sm font-medium"
         >
           <LogOut size={17} />
           <span>Logout</span>
