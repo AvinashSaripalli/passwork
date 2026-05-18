@@ -16,6 +16,7 @@ const invitationRoutes = require('./routes/invitationRoutes');
 const personalVaultRoutes = require('./routes/personalVaultRoutes');
 const passwordShareRoutes = require('./routes/passwordShareRoutes');
 const loginActivityRoutes = require('./routes/loginActivityRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 
 const app = express();
@@ -55,5 +56,5 @@ app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/v1/my-vault', personalVaultRoutes);
 app.use('/api/v1/password-shares', passwordShareRoutes);
 app.use('/api/v1/login-activity', loginActivityRoutes);
-
+app.use('/api/v1/notifications', notificationRoutes);
 module.exports = app;

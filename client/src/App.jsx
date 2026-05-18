@@ -14,6 +14,7 @@ import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
 
 function App() {
   return (
@@ -53,6 +54,15 @@ function App() {
         element={
           <MasterProtectedRoute>
             <MyVaultPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/notifications"
+        element={
+          <MasterProtectedRoute>
+            <NotificationsPage />
           </MasterProtectedRoute>
         }
       />

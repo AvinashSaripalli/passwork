@@ -93,6 +93,10 @@ function PasswordDetailsPanel() {
   const getPasswordById = (passwordId) =>
     sameNamePasswords.find((item) => item.id === passwordId);
 
+  const getTagNames = (item) => {
+    return item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) || [];
+  };
+
   const handleVerified = async () => {
     const activePassword = getPasswordById(activePasswordId);
 
@@ -125,9 +129,7 @@ function PasswordDetailsPanel() {
     }
 
     if (pendingAction === 'copy-password' && canView) {
-      await navigator.clipboard.writeText(
-        activePassword.encryptedPassword || ''
-      );
+      await navigator.clipboard.writeText(activePassword.encryptedPassword || '');
 
       await api.post(
         `/passwords/${activePassword.id}/copy-log`,
@@ -169,7 +171,11 @@ function PasswordDetailsPanel() {
       <div className="p-8">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <h2 className="text-[42px] leading-none font-bold text-slate-900">
+            <p className="text-[20px] leading-none font-bold text-slate-700">
+              Website / Service Name
+            </p>
+
+            <h2 className="text-[30px] leading-none font-bold text-slate-900">
               {selectedPassword.name}
             </h2>
 
@@ -180,16 +186,13 @@ function PasswordDetailsPanel() {
           </div>
 
           <p className="text-slate-500">
-            All accounts saved under this password name
+            All accounts saved under this website or service name
           </p>
         </div>
 
         <div className="space-y-5 max-h-[760px] overflow-y-auto pr-2">
           {sameNamePasswords.map((item, index) => {
-            const tagNames =
-              item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) ||
-              [];
-
+            const tagNames = getTagNames(item);
             const isVisible = !!visiblePasswords[item.id];
 
             return (
@@ -217,9 +220,7 @@ function PasswordDetailsPanel() {
                   <div className="flex items-center gap-2 shrink-0">
                     {canEdit && (
                       <button
-                        onClick={() =>
-                          requestAdminVerification('edit', item.id)
-                        }
+                        onClick={() => requestAdminVerification('edit', item.id)}
                         className="w-10 h-10 rounded-full border border-slate-200 text-slate-600 hover:bg-white flex items-center justify-center"
                       >
                         <Pencil size={17} />
@@ -324,16 +325,16 @@ function PasswordDetailsPanel() {
                     <span className="text-slate-500">Tags</span>
 
                     <div className="flex flex-wrap gap-2">
-                      {tagNames.map((tag) => (
-                        <span
-                          key={`${item.id}-${tag}`}
-                          className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 text-sm"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-
-                      {!tagNames.length && (
+                      {tagNames.length ? (
+                        tagNames.map((tag) => (
+                          <span
+                            key={`${item.id}-${tag}`}
+                            className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700"
+                          >
+                            {tag}
+                          </span>
+                        ))
+                      ) : (
                         <span className="text-slate-400 text-sm">No tags</span>
                       )}
                     </div>
@@ -368,9 +369,7 @@ function DetailRow({ label, value, action }) {
   return (
     <div className="grid grid-cols-[150px_1fr_80px] items-center gap-4 py-5 border-t border-slate-200 first:border-t-0">
       <span className="text-slate-500">{label}</span>
-
       <span className="break-all text-slate-900">{value}</span>
-
       <div className="flex items-center justify-end">{action}</div>
     </div>
   );

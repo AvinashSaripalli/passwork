@@ -231,6 +231,9 @@ const updatePassword = async (req, res) => {
   try {
     const existingPassword = await prisma.passwordEntry.findUnique({
       where: { id: req.params.id },
+      include: {
+        tags: true,
+      },
     });
 
     if (!existingPassword) {
@@ -238,7 +241,11 @@ const updatePassword = async (req, res) => {
     }
 
     const access = await getFolderAccess(existingPassword.folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY'].includes(access)) {
+
+    if (
+      !access ||
+      !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY'].includes(access)
+    ) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -250,7 +257,21 @@ const updatePassword = async (req, res) => {
       url,
       colorTag,
       folderId,
+      tags,
     } = req.body;
+
+    const cleanTags = Array.isArray(tags)
+      ? tags
+          .map((tag) => String(tag).trim())
+          .filter(Boolean)
+          .filter((tag, index, arr) => {
+            return (
+              arr.findIndex(
+                (item) => item.toLowerCase() === tag.toLowerCase()
+              ) === index
+            );
+          })
+      : undefined;
 
     const updatedPassword = await prisma.passwordEntry.update({
       where: { id: req.params.id },
@@ -263,6 +284,33 @@ const updatePassword = async (req, res) => {
         colorTag,
         folderId: folderId === undefined ? undefined : folderId,
         lastUpdatedAt: new Date(),
+
+        ...(cleanTags !== undefined && {
+          tags: {
+            deleteMany: {},
+            create: cleanTags.map((tagName) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: {
+                    id: `TAG-${Date.now()}-${Math.floor(
+                      Math.random() * 1000
+                    )}`,
+                    name: tagName,
+                  },
+                },
+              },
+            })),
+          },
+        }),
+      },
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        folder: true,
       },
     });
 
@@ -277,6 +325,7 @@ const updatePassword = async (req, res) => {
           name: updatedPassword.name,
           folderId: updatedPassword.folderId,
           vaultId: updatedPassword.vaultId,
+          tags: cleanTags || undefined,
         },
       },
     });

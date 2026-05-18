@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, Users } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearError, loginUser } from '../../features/auth/authSlice';
+import { clearError, loginUser, logout } from '../../features/auth/authSlice';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -94,9 +94,16 @@ function LoginPage() {
 
           <p className="mt-7 text-center text-sm text-slate-600">
             Don’t have an account?{' '}
-            <Link to="/register" className="font-semibold text-blue-600">
-              Create account
-            </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  dispatch(logout());
+                  navigate('/register');
+                }}
+                className="font-semibold text-blue-600"
+              >
+                Create account
+              </button>
           </p>
         </AuthCard>
       </div>

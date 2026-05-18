@@ -27,6 +27,7 @@ model User {
   sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
   sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
   loginActivities LoginActivity[]
+  notifications Notification[]
 }
 
 model Folder {
@@ -208,6 +209,19 @@ model LoginActivity {
   ipAddress String?
   userAgent String?
   status    String   // SUCCESS / FAILED
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  metadata  Json?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -1,10 +1,31 @@
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   closeAddPasswordModal,
   createPassword,
 } from '../../features/vault/vaultSlice';
+
+const SUGGESTED_TAGS = [
+  'Production',
+  'Testing',
+  'Development',
+  'Shared',
+  'Private',
+  'Critical',
+  'Client',
+  'Internal',
+  'Cloud',
+  'CRM',
+  'Hosting',
+  'Email',
+  'Database',
+  'Security',
+  'Marketing',
+  'Finance',
+  'Support',
+  'Temporary',
+];
 
 function AddPasswordModal() {
   const dispatch = useDispatch();
@@ -23,9 +44,10 @@ function AddPasswordModal() {
     encryptedPassword: '',
     confirmPassword: '',
     url: '',
-    tags: '',
+    tags: [],
   });
 
+  const [tagInput, setTagInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -41,8 +63,10 @@ function AddPasswordModal() {
       encryptedPassword: '',
       confirmPassword: '',
       url: '',
-      tags: '',
+      tags: [],
     });
+
+    setTagInput('');
     setShowPassword(false);
     setShowConfirmPassword(false);
     setLocalError('');
@@ -61,6 +85,43 @@ function AddPasswordModal() {
       [e.target.name]: e.target.value,
     }));
   };
+
+  const addTag = (value) => {
+    const cleanTag = value.trim();
+
+    if (!cleanTag) return;
+
+    const exists = formData.tags.some(
+      (tag) => tag.toLowerCase() === cleanTag.toLowerCase()
+    );
+
+    if (exists) {
+      setTagInput('');
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      tags: [...prev.tags, cleanTag],
+    }));
+
+    setTagInput('');
+  };
+
+  const removeTag = (tagName) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((tag) => tag !== tagName),
+    }));
+  };
+
+  const filteredSuggestions = SUGGESTED_TAGS.filter(
+    (tag) =>
+      tag.toLowerCase().includes(tagInput.toLowerCase()) &&
+      !formData.tags.some(
+        (selectedTag) => selectedTag.toLowerCase() === tag.toLowerCase()
+      )
+  ).slice(0, 6);
 
   const validateForm = () => {
     if (!formData.name.trim()) {
@@ -108,12 +169,7 @@ function AddPasswordModal() {
         url: formData.url.trim(),
         vaultId: selectedVault?.id,
         folderId: selectedFolderId || null,
-        tags: formData.tags
-          ? formData.tags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean)
-          : [],
+        tags: formData.tags,
       })
     );
 
@@ -165,7 +221,7 @@ function AddPasswordModal() {
           <input
             type="text"
             name="name"
-            placeholder="Name"
+            placeholder="Website / Service Name"
             value={formData.name}
             onChange={handleChange}
             className="border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
@@ -231,14 +287,80 @@ function AddPasswordModal() {
             className="border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 col-span-2"
           />
 
-          <input
-            type="text"
-            name="tags"
-            placeholder="Tags comma separated"
-            value={formData.tags}
-            onChange={handleChange}
-            className="border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 col-span-2"
-          />
+          <div className="col-span-2">
+            <div className="border border-slate-300 rounded-lg px-3 py-2 min-h-[45px] flex flex-wrap items-center gap-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+              {formData.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                >
+                  {tag}
+
+                  <button
+                    type="button"
+                    onClick={() => removeTag(tag)}
+                    className="text-indigo-500 hover:text-red-500"
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
+
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    addTag(tagInput);
+                  }
+
+                  if (
+                    e.key === 'Backspace' &&
+                    !tagInput &&
+                    formData.tags.length
+                  ) {
+                    removeTag(formData.tags[formData.tags.length - 1]);
+                  }
+                }}
+                onBlur={() => {
+                  if (tagInput.trim()) {
+                    addTag(tagInput);
+                  }
+                }}
+                placeholder={
+                  formData.tags.length
+                    ? ''
+                    : 'Add tags like Production, CRM, Critical'
+                }
+                className="flex-1 min-w-[180px] border-none outline-none text-sm"
+              />
+            </div>
+
+            {tagInput && filteredSuggestions.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {filteredSuggestions.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      addTag(tag);
+                    }}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="mt-1 text-xs text-slate-400">
+              Press Enter or comma to add tags. Example: Production, CRM,
+              Critical.
+            </p>
+          </div>
 
           <div className="col-span-2 flex justify-end gap-3 mt-2">
             <button

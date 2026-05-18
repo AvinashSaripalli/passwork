@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
+const createNotification = require('../utils/createNotification');
 
 const sharePassword = async (req, res) => {
   try {
@@ -103,6 +104,19 @@ const sharePassword = async (req, res) => {
       },
     });
 
+    await createNotification({
+      userId: sharedUser.id,
+      title: 'Password Shared',
+      message: `${req.user.email} shared "${password.name}" with you`,
+      type: 'SHARE_PASSWORD',
+      metadata: {
+        passwordId,
+        shareId: share.id,
+        vaultId: password.vaultId,
+        folderId: password.folderId,
+      },
+    });
+
     res.status(201).json(share);
   } catch (error) {
     console.error('Share password error:', error);
@@ -168,6 +182,7 @@ const removePasswordShare = async (req, res) => {
     const share = await prisma.passwordShare.findUnique({
       where: { id: shareId },
       include: {
+        sharedWith: true,
         password: {
           include: {
             vault: true,
@@ -191,6 +206,19 @@ const removePasswordShare = async (req, res) => {
 
     await prisma.passwordShare.delete({
       where: { id: shareId },
+    });
+
+    await createNotification({
+      userId: share.sharedWithId,
+      title: 'Password Access Removed',
+      message: `Your access to "${share.password.name}" was removed`,
+      type: 'ACCESS_REVOKED',
+      metadata: {
+        passwordId: share.passwordId,
+        shareId,
+        vaultId: share.password.vaultId,
+        folderId: share.password.folderId,
+      },
     });
 
     res.json({ message: 'Password share removed successfully' });

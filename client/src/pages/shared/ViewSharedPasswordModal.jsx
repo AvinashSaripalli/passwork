@@ -31,9 +31,15 @@ function ViewSharedPasswordModal({
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              {password?.name}
-            </h2>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Website / Service Name
+              </p>
+
+              <h2 className="text-2xl font-bold text-slate-900 mt-1">
+                {password?.name}
+              </h2>
+            </div>
 
             <p className="text-sm text-slate-500">
               Shared password details

@@ -11,6 +11,7 @@ const config = {
   invitation: 'INV',
   passwordShare: 'PSHARE',
   loginActivity: 'LOGIN',
+  notification: 'NOTIF',
 };
 
 async function generateId(model) {
