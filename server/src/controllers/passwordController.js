@@ -110,20 +110,35 @@ const importPasswordsFromExcel = async (req, res) => {
     const createdPasswords = [];
 
     for (const row of rows) {
+      if (!row.name || !row.login || !row.encryptedPassword) continue;
+
       const created = await prisma.passwordEntry.create({
         data: {
           id: await generateId('passwordEntry'),
-
-          // ✅ ONLY REQUIRED FIELDS
-          name: row.name || '',
-          login: row.login || '',
-          encryptedPassword: row.password || '', // frontend should encrypt if needed
+          name: row.name,
+          login: row.login,
+          encryptedPassword: row.encryptedPassword,
+          encryptedNote: row.encryptedNote || '',
           url: row.url || '',
-
           vaultId,
           folderId,
           createdById: req.user.id,
           lastUpdatedAt: new Date(),
+          tags: {
+            create: Array.isArray(row.tags)
+              ? row.tags.map((tagName) => ({
+                  tag: {
+                    connectOrCreate: {
+                      where: { name: tagName },
+                      create: {
+                        id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        name: tagName,
+                      },
+                    },
+                  },
+                }))
+              : [],
+          },
         },
       });
 

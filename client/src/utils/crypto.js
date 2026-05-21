@@ -1,56 +1,16 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-export async function deriveKey(masterPassword, salt) {
-  const baseKey = await window.crypto.subtle.importKey(
-    'raw',
-    encoder.encode(masterPassword),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-
-  return window.crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: encoder.encode(salt),
-      iterations: 100000,
-      hash: 'SHA-256',
-    },
-    baseKey,
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    false,
-    ['encrypt', 'decrypt']
-  );
+function getSaltBytes(salt) {
+  return encoder.encode(salt || 'vault-salt');
 }
 
 export async function encryptText(text, masterPassword, salt) {
-  const enc = new TextEncoder();
+  if (!text) return '';
 
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
-    enc.encode(masterPassword),
+    encoder.encode(masterPassword),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
@@ -59,7 +19,7 @@ export async function encryptText(text, masterPassword, salt) {
   const key = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: enc.encode('vault-salt'),
+      salt: getSaltBytes(salt),
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -74,7 +34,7 @@ export async function encryptText(text, masterPassword, salt) {
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    enc.encode(text)
+    encoder.encode(text)
   );
 
   return JSON.stringify({
@@ -84,14 +44,13 @@ export async function encryptText(text, masterPassword, salt) {
 }
 
 export async function decryptText(encryptedText, masterPassword, salt) {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
+  if (!encryptedText) return '';
 
   const parsed = JSON.parse(encryptedText);
 
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
-    enc.encode(masterPassword),
+    encoder.encode(masterPassword),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
@@ -100,7 +59,7 @@ export async function decryptText(encryptedText, masterPassword, salt) {
   const key = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: enc.encode('vault-salt'),
+      salt: getSaltBytes(salt),
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -119,5 +78,21 @@ export async function decryptText(encryptedText, masterPassword, salt) {
     new Uint8Array(parsed.content)
   );
 
-  return dec.decode(decrypted);
+  return decoder.decode(decrypted);
+}
+
+export async function safeDecryptText(encryptedText, masterPassword, salt) {
+  if (!encryptedText) return '';
+
+  try {
+    const parsed = JSON.parse(encryptedText);
+
+    if (!parsed.iv || !parsed.content) {
+      return encryptedText;
+    }
+
+    return await decryptText(encryptedText, masterPassword, salt);
+  } catch (error) {
+    return encryptedText;
+  }
 }

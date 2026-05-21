@@ -37,11 +37,17 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
         }
       );
 
+      const verifiedPassword = masterPassword;
+
       setMasterPassword('');
       setShowPassword(false);
-      handleClose();
+      setError('');
 
-      if (onVerified) onVerified();
+      onClose();
+
+      if (onVerified) {
+        onVerified(verifiedPassword);
+      }
     } catch (err) {
       setError(
         err.response?.data?.message || 'Invalid administrator master password'

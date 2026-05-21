@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams } from 'react-router-dom';
 
@@ -12,6 +12,9 @@ import ShareFolderModal from '../../components/folder/ShareFolderModal';
 import FolderHistoryPanel from '../../components/folder/FolderHistoryPanel';
 import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
+import VerifyAdminMasterPasswordModal from '../../components/security/VerifyAdminMasterPasswordModal';
+import { safeDecryptText, encryptText } from '../../utils/crypto';
+
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 
@@ -40,14 +43,19 @@ function VaultPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [exportVerifyOpen, setExportVerifyOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importVerifyOpen, setImportVerifyOpen] = useState(false);
 
   const { user, token } = useSelector((state) => state.auth);
+
   const {
     selectedVault,
     folders,
     selectedFolderId,
     vaultsLoading,
     passwordsLoading,
+    passwords,
     error,
   } = useSelector((state) => state.vault);
 
@@ -75,6 +83,12 @@ function VaultPage() {
     }
   }, [dispatch, selectedVault?.id]);
 
+  const folderPasswords = useMemo(() => {
+    if (!selectedFolder?.id) return [];
+
+    return passwords.filter((item) => item.folderId === selectedFolder.id);
+  }, [passwords, selectedFolder?.id]);
+
   const canAddPassword =
     user?.role === 'ADMIN' ||
     ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
@@ -87,67 +101,160 @@ function VaultPage() {
     !!selectedFolder &&
     (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR');
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
+    if (!selectedVault?.id) {
+      alert('Vault not loaded');
+      return;
+    }
+
+    if (!selectedFolder?.id) {
+      alert('Please select a folder first');
+      return;
+    }
+
+    if (!folderPasswords.length) {
+      alert('No passwords found in this folder');
+      return;
+    }
+
+    setExportVerifyOpen(true);
+  };
+
+  const handleExportVerified = async (adminMasterPassword) => {
     try {
-      if (!selectedVault?.id) {
-        alert('Vault not loaded');
-        return;
+      const rows = [];
+
+      for (const item of folderPasswords) {
+        const originalPassword = await safeDecryptText(
+          item.encryptedPassword,
+          adminMasterPassword,
+          user?.encryptionSalt
+        );
+
+        const originalNote = item.encryptedNote
+          ? await safeDecryptText(
+              item.encryptedNote,
+              adminMasterPassword,
+              user?.encryptionSalt
+            )
+          : '';
+
+        rows.push({
+          Name: item.name || '',
+          Login: item.login || '',
+          Password: originalPassword,
+          URL: item.url || '',
+          Note: originalNote,
+          Tags:
+            item.tags
+              ?.map((tagItem) => tagItem.tag?.name)
+              .filter(Boolean)
+              .join(', ') || '',
+        });
       }
 
-      const response = await api.get(
-        `/passwords/export-excel?vaultId=${selectedVault.id}&folderId=${selectedFolder?.id || ''}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          responseType: 'blob',
-        }
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Passwords');
+
+      XLSX.writeFile(
+        workbook,
+        `${selectedFolder?.name || selectedVault?.name || 'passwords'}.xlsx`
       );
 
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${selectedFolder?.name || selectedVault?.name || 'passwords'}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to export Excel');
+      setExportVerifyOpen(false);
+    } catch (error) {
+      alert('Export failed. Unable to decrypt passwords.');
+      setExportVerifyOpen(false);
     }
   };
 
   const handleImportExcel = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+
+    if (!selectedVault?.id) {
+      alert('Vault not loaded');
+      return;
+    }
+
+    if (!selectedFolder?.id) {
+      alert('Please select a folder first');
+      return;
+    }
+
+    setImportFile(file);
+    setImportVerifyOpen(true);
+  };
+
+  const handleImportVerified = async (adminMasterPassword) => {
     try {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      if (!importFile) return;
 
-      if (!selectedVault?.id) {
-        alert('Vault not loaded');
-        return;
-      }
-
-      if (!selectedFolder?.id) {
-        alert('Please select a folder first');
-        return;
-      }
-
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = await importFile.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet);
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, {
+        defval: '',
+      });
+
+      const encryptedRows = [];
+
+      for (const row of rows) {
+        const name = row.Name || row.name || '';
+        const login = row.Login || row.login || '';
+        const password = row.Password || row.password || '';
+        const url = row.URL || row.Url || row.url || '';
+        const note = row.Note || row.note || '';
+        const tagsText = row.Tags || row.tags || '';
+
+        if (!name || !login || !password) continue;
+
+        const encryptedPassword = await encryptText(
+          String(password),
+          adminMasterPassword,
+          user?.encryptionSalt
+        );
+
+        const encryptedNote = note
+          ? await encryptText(String(note), adminMasterPassword, user?.encryptionSalt)
+          : '';
+
+        const tags = tagsText
+          ? String(tagsText)
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [];
+
+        encryptedRows.push({
+          name: String(name).trim(),
+          login: String(login).trim(),
+          encryptedPassword,
+          encryptedNote,
+          url: String(url).trim(),
+          tags,
+        });
+      }
+
+      if (!encryptedRows.length) {
+        alert('No valid rows found. Required columns: Name, Login, Password');
+        setImportVerifyOpen(false);
+        setImportFile(null);
+        return;
+      }
 
       await api.post(
         '/passwords/import-excel',
         {
           vaultId: selectedVault.id,
           folderId: selectedFolder.id,
-          rows,
+          rows: encryptedRows,
         },
         {
           headers: {
@@ -157,11 +264,13 @@ function VaultPage() {
       );
 
       dispatch(fetchPasswordsByVault(selectedVault.id));
-      alert('Passwords imported successfully');
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to import Excel');
-    } finally {
-      e.target.value = '';
+      alert(`${encryptedRows.length} passwords imported successfully`);
+
+      setImportVerifyOpen(false);
+      setImportFile(null);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to import Excel');
+      setImportVerifyOpen(false);
     }
   };
 
@@ -174,9 +283,11 @@ function VaultPage() {
               <p className="text-sm font-semibold text-slate-700">
                 Company Vault
               </p>
+
               <h1 className="text-[44px] leading-none font-bold text-slate-900 mt-1">
                 {selectedFolder?.name || selectedVault?.name || 'Company Vault'}
               </h1>
+
               <FolderMembersSummary onClick={() => setUsersOpen(true)} />
             </div>
 
@@ -266,9 +377,11 @@ function VaultPage() {
                           const confirmed = window.confirm(
                             `Delete folder "${selectedFolder.name}"?`
                           );
+
                           if (confirmed) {
                             dispatch(deleteFolder(selectedFolder.id));
                           }
+
                           setMenuOpen(false);
                         }}
                         className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -315,7 +428,15 @@ function VaultPage() {
           </>
         )}
       </div>
-
+      
+      <VerifyAdminMasterPasswordModal
+        open={importVerifyOpen}
+        onClose={() => {
+          setImportVerifyOpen(false);
+          setImportFile(null);
+        }}
+        onVerified={handleImportVerified}
+      />
       <ShareFolderModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -339,6 +460,12 @@ function VaultPage() {
             dispatch(fetchFoldersByVault(selectedVault.id));
           }
         }}
+      />
+
+      <VerifyAdminMasterPasswordModal
+        open={exportVerifyOpen}
+        onClose={() => setExportVerifyOpen(false)}
+        onVerified={handleExportVerified}
       />
 
       <AddFolderModal />

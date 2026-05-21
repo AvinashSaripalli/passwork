@@ -15,6 +15,8 @@ import {
   selectPassword,
 } from '../../features/vault/vaultSlice';
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
+import { safeDecryptText } from '../../utils/crypto';
+import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
 function PasswordDetailsPanel() {
   const dispatch = useDispatch();
@@ -61,6 +63,8 @@ function PasswordDetailsPanel() {
     ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
 
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [decryptedPasswords, setDecryptedPasswords] = useState({});
+  const [decryptedNotes, setDecryptedNotes] = useState({});
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [activePasswordId, setActivePasswordId] = useState(null);
@@ -97,259 +101,280 @@ function PasswordDetailsPanel() {
     return item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) || [];
   };
 
-  const handleVerified = async () => {
-    const activePassword = getPasswordById(activePasswordId);
+  const decryptPasswordItem = async (item, adminMasterPassword) => {
+    const originalPassword = await safeDecryptText(
+      item.encryptedPassword,
+      adminMasterPassword,
+      user?.encryptionSalt
+    );
 
-    if (!activePassword) {
+    const originalNote = item.encryptedNote
+      ? await safeDecryptText(item.encryptedNote, adminMasterPassword, user?.encryptionSalt)
+      : '';
+
+    return {
+      originalPassword,
+      originalNote,
+    };
+  };
+
+  const handleVerified = async (adminMasterPassword) => {
+    try {
+      const activePassword = getPasswordById(activePasswordId);
+
+      if (!activePassword) {
+        setPendingAction(null);
+        setActivePasswordId(null);
+        setVerifyOpen(false);
+        return;
+      }
+
+      if (pendingAction === 'delete' && canDelete) {
+        const confirmed = window.confirm(
+          `Delete password "${activePassword.name}"?`
+        );
+
+        if (confirmed) {
+          const result = await dispatch(deletePassword(activePassword.id));
+
+          if (deletePassword.fulfilled.match(result)) {
+            dispatch(selectPassword(null));
+          }
+        }
+
+        setPendingAction(null);
+        setActivePasswordId(null);
+        setVerifyOpen(false);
+        return;
+      }
+
+      const { originalPassword, originalNote } = await decryptPasswordItem(
+        activePassword,
+        adminMasterPassword
+      );
+
+      if (pendingAction === 'view' && canView) {
+        setDecryptedPasswords((prev) => ({
+          ...prev,
+          [activePassword.id]: originalPassword,
+        }));
+
+        setDecryptedNotes((prev) => ({
+          ...prev,
+          [activePassword.id]: originalNote,
+        }));
+
+        setVisiblePasswords((prev) => ({
+          ...prev,
+          [activePassword.id]: !prev[activePassword.id],
+        }));
+
+        await api.post(
+          `/passwords/${activePassword.id}/view-log`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+
+      if (pendingAction === 'copy-login' && canView) {
+        await navigator.clipboard.writeText(activePassword.login || '');
+        alert('Login copied');
+      }
+
+      if (pendingAction === 'copy-password' && canView) {
+        await navigator.clipboard.writeText(originalPassword);
+
+        await api.post(
+          `/passwords/${activePassword.id}/copy-log`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        alert('Password copied');
+      }
+
+      if (pendingAction === 'edit' && canEdit) {
+        setCompanyPasswordEditCache(activePassword.id, {
+          password: originalPassword,
+          note: originalNote,
+        });
+
+        dispatch(selectPassword(activePassword.id));
+        dispatch(openEditPasswordModal());
+      }
+
       setPendingAction(null);
       setActivePasswordId(null);
-      return;
+      setVerifyOpen(false);
+    } catch (error) {
+      alert('Failed to decrypt password. Please check administrator master password.');
+      setPendingAction(null);
+      setActivePasswordId(null);
+      setVerifyOpen(false);
     }
-
-    if (pendingAction === 'view' && canView) {
-      setVisiblePasswords((prev) => ({
-        ...prev,
-        [activePassword.id]: !prev[activePassword.id],
-      }));
-
-      await api.post(
-        `/passwords/${activePassword.id}/view-log`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-    }
-
-    if (pendingAction === 'copy-login' && canView) {
-      await navigator.clipboard.writeText(activePassword.login || '');
-      alert('Login copied');
-    }
-
-    if (pendingAction === 'copy-password' && canView) {
-      await navigator.clipboard.writeText(activePassword.encryptedPassword || '');
-
-      await api.post(
-        `/passwords/${activePassword.id}/copy-log`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      alert('Password copied');
-    }
-
-    if (pendingAction === 'edit' && canEdit) {
-      dispatch(selectPassword(activePassword.id));
-      dispatch(openEditPasswordModal());
-    }
-
-    if (pendingAction === 'delete' && canDelete) {
-      const confirmed = window.confirm(
-        `Are you sure you want to delete "${
-          activePassword.login || activePassword.name
-        }"?`
-      );
-
-      if (confirmed) {
-        dispatch(selectPassword(activePassword.id));
-        dispatch(deletePassword(activePassword.id));
-      }
-    }
-
-    setPendingAction(null);
-    setActivePasswordId(null);
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-white">
-      <div className="p-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <p className="text-[20px] leading-none font-bold text-slate-700">
-              Website / Service Name
-            </p>
+    <div className="p-8">
+      <div className="mb-8">
+        <p className="text-sm text-slate-500">Selected password group</p>
+        <h2 className="text-3xl font-bold text-slate-900 mt-1">
+          {selectedPassword.name}
+        </h2>
+        <p className="text-slate-500 mt-2">
+          {sameNamePasswords.length} account
+          {sameNamePasswords.length > 1 ? 's' : ''}
+        </p>
+      </div>
 
-            <h2 className="text-[30px] leading-none font-bold text-slate-900">
-              {selectedPassword.name}
-            </h2>
+      <div className="space-y-5">
+        {sameNamePasswords.map((item) => {
+          const isVisible = !!visiblePasswords[item.id];
+          const tagNames = getTagNames(item);
 
-            <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium">
-              {sameNamePasswords.length} account
-              {sameNamePasswords.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+          return (
+            <div
+              key={item.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-5 mb-5">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {item.login || 'No login'}
+                  </h3>
 
-          <p className="text-slate-500">
-            All accounts saved under this website or service name
-          </p>
-        </div>
-
-        <div className="space-y-5 max-h-[760px] overflow-y-auto pr-2">
-          {sameNamePasswords.map((item, index) => {
-            const tagNames = getTagNames(item);
-            const isVisible = !!visiblePasswords[item.id];
-
-            return (
-              <div
-                key={item.id}
-                className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-              >
-                <div className="flex items-start justify-between gap-4 px-7 py-6 border-b border-slate-200 bg-slate-50/70">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <span className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">
-                        {index + 1}
-                      </span>
-
-                      <h3 className="text-[20px] font-bold text-slate-900 break-all">
-                        {item.login || item.name}
-                      </h3>
-                    </div>
-
-                    <p className="text-sm text-slate-500 mt-2">
-                      Account details
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {canEdit && (
-                      <button
-                        onClick={() => requestAdminVerification('edit', item.id)}
-                        className="w-10 h-10 rounded-full border border-slate-200 text-slate-600 hover:bg-white flex items-center justify-center"
-                      >
-                        <Pencil size={17} />
-                      </button>
-                    )}
-
-                    {canDelete && (
-                      <button
-                        onClick={() =>
-                          requestAdminVerification('delete', item.id)
-                        }
-                        disabled={actionLoading}
-                        className="w-10 h-10 rounded-full border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center disabled:opacity-50"
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    )}
-                  </div>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {item.url || 'No URL'}
+                  </p>
                 </div>
 
-                <div className="px-7 py-2">
-                  <DetailRow
-                    label="Login"
-                    value={item.login || '-'}
-                    action={
-                      canView && (
-                        <button
-                          onClick={() =>
-                            requestAdminVerification('copy-login', item.id)
-                          }
-                          className="text-slate-500 hover:text-slate-700"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      )
-                    }
-                  />
+                <div className="flex items-center gap-2">
+                  {canEdit && (
+                    <button
+                      onClick={() => requestAdminVerification('edit', item.id)}
+                      className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                      title="Edit"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
 
-                  <DetailRow
-                    label="Password"
-                    value={
-                      isVisible ? item.encryptedPassword : '••••••••••••••'
-                    }
-                    action={
-                      canView && (
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() =>
-                              requestAdminVerification('view', item.id)
-                            }
-                            className="text-slate-500 hover:text-slate-700"
-                          >
-                            {isVisible ? (
-                              <EyeOff size={18} />
-                            ) : (
-                              <Eye size={18} />
-                            )}
-                          </button>
+                  {canDelete && (
+                    <button
+                      onClick={() => requestAdminVerification('delete', item.id)}
+                      disabled={actionLoading}
+                      className="w-9 h-9 rounded-xl border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 disabled:opacity-50"
+                      title="Delete"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                          <button
-                            onClick={() =>
-                              requestAdminVerification('copy-password', item.id)
-                            }
-                            className="text-slate-500 hover:text-slate-700"
-                          >
-                            <Copy size={18} />
-                          </button>
-                        </div>
-                      )
-                    }
-                  />
+              <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                <DetailRow
+                  label="Login"
+                  value={item.login || '-'}
+                  action={
+                    <button
+                      onClick={() =>
+                        requestAdminVerification('copy-login', item.id)
+                      }
+                      className="text-slate-500 hover:text-slate-900"
+                    >
+                      <Copy size={16} />
+                    </button>
+                  }
+                />
 
-                  <DetailRow
-                    label="URL"
-                    value={
-                      item.url ? (
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-600 break-all hover:underline"
-                        >
-                          {item.url}
-                        </a>
-                      ) : (
-                        '-'
-                      )
-                    }
-                    action={
-                      item.url && (
-                        <button
-                          onClick={() => window.open(item.url, '_blank')}
-                          className="text-slate-500 hover:text-slate-700"
-                        >
-                          <ExternalLink size={18} />
-                        </button>
-                      )
-                    }
-                  />
+                <DetailRow
+                  label="Password"
+                  value={
+                    isVisible
+                      ? decryptedPasswords[item.id] || ''
+                      : '••••••••••••'
+                  }
+                  action={
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() =>
+                          requestAdminVerification('view', item.id)
+                        }
+                        className="text-slate-500 hover:text-slate-900"
+                      >
+                        {isVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
 
-                  <div className="grid grid-cols-[150px_1fr] gap-4 py-5 border-t border-slate-200">
-                    <span className="text-slate-500">Tags</span>
+                      <button
+                        onClick={() =>
+                          requestAdminVerification('copy-password', item.id)
+                        }
+                        className="text-slate-500 hover:text-slate-900"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                  }
+                />
 
-                    <div className="flex flex-wrap gap-2">
-                      {tagNames.length ? (
-                        tagNames.map((tag) => (
+                <DetailRow
+                  label="URL"
+                  value={item.url || 'No URL'}
+                  action={
+                    item.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-slate-500 hover:text-slate-900"
+                      >
+                        <ExternalLink size={16} />
+                      </a>
+                    ) : null
+                  }
+                />
+
+                <DetailRow
+                  label="Note"
+                  value={
+                    isVisible
+                      ? decryptedNotes[item.id] || 'No note'
+                      : '••••••••••••'
+                  }
+                />
+
+                <DetailRow
+                  label="Tags"
+                  value={
+                    tagNames.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {tagNames.map((tag, index) => (
                           <span
-                            key={`${item.id}-${tag}`}
-                            className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700"
+                            key={index}
+                            className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-medium"
                           >
                             {tag}
                           </span>
-                        ))
-                      ) : (
-                        <span className="text-slate-400 text-sm">No tags</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">No tags</span>
+                    )
+                  }
+                />
               </div>
-            );
-          })}
-
-          {!sameNamePasswords.length && (
-            <div className="p-6 text-slate-500 text-sm">
-              No passwords found.
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
 
       <VerifyAdminMasterPasswordModal
@@ -367,10 +392,14 @@ function PasswordDetailsPanel() {
 
 function DetailRow({ label, value, action }) {
   return (
-    <div className="grid grid-cols-[150px_1fr_80px] items-center gap-4 py-5 border-t border-slate-200 first:border-t-0">
-      <span className="text-slate-500">{label}</span>
-      <span className="break-all text-slate-900">{value}</span>
-      <div className="flex items-center justify-end">{action}</div>
+    <div className="grid grid-cols-[120px_1fr_80px] items-center border-b border-slate-200 last:border-b-0 px-4 py-4">
+      <p className="text-sm text-slate-500">{label}</p>
+
+      <div className="text-sm text-slate-900 break-all">
+        {value}
+      </div>
+
+      <div className="flex justify-end">{action}</div>
     </div>
   );
 }
