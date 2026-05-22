@@ -58,6 +58,12 @@ function getActionConfig(action) {
         icon: Pencil,
         badge: 'bg-yellow-100 text-yellow-700',
       };
+    case 'SHARE_FOLDER':
+      return {
+        label: 'Shared folder',
+        icon: Users,
+        badge: 'bg-indigo-100 text-indigo-700',
+      };
     case 'DELETE_FOLDER':
       return {
         label: 'Deleted folder',

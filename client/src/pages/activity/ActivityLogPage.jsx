@@ -50,6 +50,8 @@ function formatAction(action) {
       return 'Copy Password';
     case 'SHARE_PASSWORD':
       return 'Share Password';
+    case 'SHARE_FOLDER':
+      return 'Share Folder';
     case 'CREATE_VAULT':
       return 'Create Vault';
     case 'UPDATE_VAULT':

@@ -141,7 +141,7 @@ const shareFolder = async (req, res) => {
       data: {
         id: activityId,
         userId: req.user.id,
-        action: 'UPDATE_FOLDER',
+        action: 'SHARE_FOLDER',
         targetType: 'Folder',
         targetId: folderId,
         metadata: {
