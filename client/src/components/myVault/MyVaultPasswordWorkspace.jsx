@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import {
   Copy,
   Edit2,
@@ -9,6 +10,8 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
+import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import DecryptDialog from '../common/DecryptDialog';
 
 function MyVaultPasswordWorkspace({
   loading,
@@ -21,8 +24,17 @@ function MyVaultPasswordWorkspace({
   onDeletePassword,
   onManageShares,
 }) {
+  const { user } = useSelector((state) => state.auth);
+
   const [showPassword, setShowPassword] =
     useState(false);
+  const [decryptedPassword, setDecryptedPassword] =
+    useState(null);
+
+  const [showDecryptDialog, setShowDecryptDialog] =
+    useState(false);
+  const [decrypting, setDecrypting] = useState(false);
+  const [decryptError, setDecryptError] = useState('');
 
   const [search, setSearch] =
     useState('');
@@ -57,8 +69,69 @@ function MyVaultPasswordWorkspace({
     );
   };
 
+  const handleDecryptPassword = async (masterPassword) => {
+    try {
+      setDecrypting(true);
+      setDecryptError('');
+
+      const decrypted = await decryptText(
+        selectedPassword.encryptedPassword,
+        masterPassword,
+        user?.encryptionSalt
+      );
+
+      setDecryptedPassword(decrypted);
+      setShowPassword(true);
+      setShowDecryptDialog(false);
+    } catch {
+      setDecryptError('Wrong master password');
+      throw new Error('Wrong master password');
+    } finally {
+      setDecrypting(false);
+    }
+  };
+
+  const handleEyeClick = () => {
+    if (!selectedPassword) return;
+
+    if (showPassword) {
+      setShowPassword(false);
+      return;
+    }
+
+    if (isEncryptedFormat(selectedPassword.encryptedPassword)) {
+      if (decryptedPassword) {
+        setShowPassword(true);
+      } else {
+        setShowDecryptDialog(true);
+      }
+    } else {
+      setShowPassword(true);
+    }
+  };
+
+  useEffect(() => {
+    setShowPassword(false);
+    setDecryptedPassword(null);
+    setShowDecryptDialog(false);
+    setDecryptError('');
+  }, [selectedPassword?.id]);
+
+  const displayValue = decryptedPassword || selectedPassword?.encryptedPassword;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden">
+    <>
+      <DecryptDialog
+        open={showDecryptDialog}
+        onDecrypt={handleDecryptPassword}
+        onClose={() => {
+          setShowDecryptDialog(false);
+          setDecryptError('');
+        }}
+        error={decryptError}
+        decrypting={decrypting}
+      />
+      <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden">
       {loading ? (
         <div className="p-6 text-slate-500">
           Loading...
@@ -244,54 +317,41 @@ function MyVaultPasswordWorkspace({
                     />
 
                     {/* Password */}
-                    <div className="grid grid-cols-[140px_1fr_80px] items-center border-b border-slate-200 py-5">
-                      <p className="text-slate-500">
-                        Password
-                      </p>
+                    <div className="border-b border-slate-200 py-5">
+                      <div className="grid grid-cols-[140px_1fr_80px] items-center">
+                        <p className="text-slate-500">
+                          Password
+                        </p>
 
-                      <p className="text-slate-900 truncate">
-                        {showPassword
-                          ? selectedPassword.encryptedPassword
-                          : '••••••••••••'}
-                      </p>
+                        <p className="text-slate-900 truncate">
+                          {showPassword
+                            ? displayValue
+                            : '••••••••••••'}
+                        </p>
 
-                      <div className="flex justify-end items-center gap-3">
-                        <button
-                          onClick={() =>
-                            setShowPassword(
-                              !showPassword
-                            )
-                          }
-                          className="text-slate-500 hover:text-indigo-600"
-                        >
-                          {showPassword ? (
-                            <EyeOff
-                              size={
-                                18
-                              }
-                            />
-                          ) : (
-                            <Eye
-                              size={
-                                18
-                              }
-                            />
-                          )}
-                        </button>
+                        <div className="flex justify-end items-center gap-3">
+                          <button
+                            onClick={handleEyeClick}
+                            className="text-slate-500 hover:text-indigo-600"
+                          >
+                            {showPassword ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
+                          </button>
 
-                        <button
-                          onClick={() =>
-                            copyText(
-                              selectedPassword.encryptedPassword
-                            )
-                          }
-                          className="text-slate-500 hover:text-slate-900"
-                        >
-                          <Copy
-                            size={17}
-                          />
-                        </button>
+                          <button
+                            onClick={() =>
+                              copyText(displayValue)
+                            }
+                            className="text-slate-500 hover:text-slate-900"
+                          >
+                            <Copy size={17} />
+                          </button>
+                        </div>
                       </div>
+
                     </div>
 
                     <DetailRow
@@ -372,6 +432,7 @@ function MyVaultPasswordWorkspace({
         </div>
       )}
     </div>
+    </>
   );
 }
 

@@ -144,6 +144,7 @@ const getSharedWithMe = async (req, res) => {
                     id: true,
                     fullName: true,
                     email: true,
+                    encryptionSalt: true,
                   },
                 },
               },

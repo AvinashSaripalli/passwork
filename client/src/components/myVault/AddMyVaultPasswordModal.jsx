@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { KeyRound, X, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, Lock, X, Eye, EyeOff } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { encryptText } from '../../utils/crypto';
 
 const initialForm = {
   folderId: '',
@@ -18,8 +20,14 @@ function AddMyVaultPasswordModal({
   onClose,
   onSubmit,
 }) {
+  const { user } = useSelector((state) => state.auth);
+
   const [formData, setFormData] = useState(initialForm);
   const [showPassword, setShowPassword] = useState(false);
+  const [masterPassword, setMasterPassword] = useState('');
+  const [showMasterPassword, setShowMasterPassword] = useState(false);
+  const [encrypting, setEncrypting] = useState(false);
+  const [masterError, setMasterError] = useState('');
 
   if (!open) return null;
 
@@ -36,10 +44,13 @@ function AddMyVaultPasswordModal({
   const handleClose = () => {
     setFormData(initialForm);
     setShowPassword(false);
+    setMasterPassword('');
+    setMasterError('');
+    setShowMasterPassword(false);
     onClose();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (
       !formData.folderId ||
       !formData.name ||
@@ -49,19 +60,47 @@ function AddMyVaultPasswordModal({
       return;
     }
 
-    const payload = {
-      ...formData,
-      tags: formData.tags
-        ? formData.tags
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean)
-        : [],
-    };
+    if (!masterPassword) {
+      setMasterError('Master password is required to encrypt');
+      return;
+    }
 
-    onSubmit(payload);
-    setFormData(initialForm);
-    setShowPassword(false);
+    try {
+      setEncrypting(true);
+      setMasterError('');
+
+      const encryptedPassword = await encryptText(
+        formData.encryptedPassword,
+        masterPassword,
+        user?.encryptionSalt
+      );
+
+      const encryptedNote = formData.encryptedNote
+        ? await encryptText(formData.encryptedNote, masterPassword, user?.encryptionSalt)
+        : '';
+
+      const payload = {
+        ...formData,
+        encryptedPassword,
+        encryptedNote,
+        tags: formData.tags
+          ? formData.tags
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [],
+      };
+
+      onSubmit(payload);
+      setFormData(initialForm);
+      setShowPassword(false);
+      setMasterPassword('');
+      setMasterError('');
+    } catch {
+      setMasterError('Encryption failed. Check your master password.');
+    } finally {
+      setEncrypting(false);
+    }
   };
 
   return (
@@ -170,6 +209,29 @@ function AddMyVaultPasswordModal({
             className={`${inputClass} resize-none`}
           />
 
+          {masterError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm text-red-600">{masterError}</p>
+            </div>
+          )}
+
+          <div className="relative">
+            <input
+              type={showMasterPassword ? 'text' : 'password'}
+              value={masterPassword}
+              onChange={(e) => { setMasterPassword(e.target.value); setMasterError(''); }}
+              placeholder="Enter master password to encrypt"
+              className={`${inputClass} pr-11`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowMasterPassword(!showMasterPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+            >
+              {showMasterPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleClose}
@@ -180,10 +242,14 @@ function AddMyVaultPasswordModal({
 
             <button
               onClick={handleSubmit}
-              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2"
+              disabled={encrypting}
+              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-2"
             >
-              <KeyRound size={16} />
-              Save Password
+              {encrypting ? (
+                <><Lock size={16} className="animate-spin" /> Encrypting...</>
+              ) : (
+                <><KeyRound size={16} /> Save Password</>
+              )}
             </button>
           </div>
         </div>

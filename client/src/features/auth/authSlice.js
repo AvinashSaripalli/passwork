@@ -121,7 +121,6 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
-
         localStorage.setItem('token', action.payload.token);
       })
 
@@ -141,7 +140,6 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
-
         localStorage.setItem('token', action.payload.token);
       })
 

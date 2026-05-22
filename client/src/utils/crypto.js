@@ -5,6 +5,16 @@ function getSaltBytes(salt) {
   return encoder.encode(salt || 'vault-salt');
 }
 
+export function isEncryptedFormat(value) {
+  if (!value || typeof value !== 'string') return false;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed.iv) && Array.isArray(parsed.content);
+  } catch {
+    return false;
+  }
+}
+
 export async function encryptText(text, masterPassword, salt) {
   if (!text) return '';
 
