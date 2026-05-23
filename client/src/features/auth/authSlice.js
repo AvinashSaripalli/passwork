@@ -82,6 +82,7 @@ const initialState = {
   loading: false,
   error: null,
   isMasterVerified: false,
+  sessionMasterPassword: null,
 };
 
 const authSlice = createSlice({
@@ -92,6 +93,10 @@ const authSlice = createSlice({
       state.isMasterVerified = action.payload;
     },
 
+    setSessionMasterPassword: (state, action) => {
+      state.sessionMasterPassword = action.payload;
+    },
+
     logout: (state) => {
       state.token = null;
       state.user = null;
@@ -99,6 +104,7 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.isMasterVerified = false;
+      state.sessionMasterPassword = null;
 
       localStorage.removeItem('token');
     },
@@ -184,5 +190,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setMasterVerified } = authSlice.actions;
+export const { logout, clearError, setMasterVerified, setSessionMasterPassword } = authSlice.actions;
 export default authSlice.reducer;

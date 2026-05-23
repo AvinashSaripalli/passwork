@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
-import { setMasterVerified } from '../../features/auth/authSlice';
+import { setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -49,6 +49,7 @@ function EnterMasterPasswordPage() {
       );
 
       dispatch(setMasterVerified(true));
+      dispatch(setSessionMasterPassword(masterPassword));
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid master password');

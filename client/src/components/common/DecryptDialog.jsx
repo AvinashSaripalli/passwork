@@ -31,7 +31,10 @@ function DecryptDialog({ open, onDecrypt, onClose, error, decrypting }) {
               <p className="text-sm text-slate-500">Enter your master password to decrypt</p>
             </div>
           </div>
-          <button onClick={handleCancel} className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center">
+          <button
+            onClick={handleCancel}
+            className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center"
+          >
             <X size={18} className="text-slate-500" />
           </button>
         </div>

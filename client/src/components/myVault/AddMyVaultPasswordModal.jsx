@@ -20,12 +20,10 @@ function AddMyVaultPasswordModal({
   onClose,
   onSubmit,
 }) {
-  const { user } = useSelector((state) => state.auth);
+  const { user, sessionMasterPassword } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState(initialForm);
   const [showPassword, setShowPassword] = useState(false);
-  const [masterPassword, setMasterPassword] = useState('');
-  const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [encrypting, setEncrypting] = useState(false);
   const [masterError, setMasterError] = useState('');
 
@@ -35,18 +33,13 @@ function AddMyVaultPasswordModal({
     'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition';
 
   const updateField = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleClose = () => {
     setFormData(initialForm);
     setShowPassword(false);
-    setMasterPassword('');
     setMasterError('');
-    setShowMasterPassword(false);
     onClose();
   };
 
@@ -60,8 +53,8 @@ function AddMyVaultPasswordModal({
       return;
     }
 
-    if (!masterPassword) {
-      setMasterError('Master password is required to encrypt');
+    if (!sessionMasterPassword) {
+      setMasterError('Session expired. Please re-enter your master password.');
       return;
     }
 
@@ -71,12 +64,12 @@ function AddMyVaultPasswordModal({
 
       const encryptedPassword = await encryptText(
         formData.encryptedPassword,
-        masterPassword,
+        sessionMasterPassword,
         user?.encryptionSalt
       );
 
       const encryptedNote = formData.encryptedNote
-        ? await encryptText(formData.encryptedNote, masterPassword, user?.encryptionSalt)
+        ? await encryptText(formData.encryptedNote, sessionMasterPassword, user?.encryptionSalt)
         : '';
 
       const payload = {
@@ -84,20 +77,16 @@ function AddMyVaultPasswordModal({
         encryptedPassword,
         encryptedNote,
         tags: formData.tags
-          ? formData.tags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean)
+          ? formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
           : [],
       };
 
       onSubmit(payload);
       setFormData(initialForm);
       setShowPassword(false);
-      setMasterPassword('');
       setMasterError('');
     } catch {
-      setMasterError('Encryption failed. Check your master password.');
+      setMasterError('Encryption failed. Please re-enter your master password.');
     } finally {
       setEncrypting(false);
     }
@@ -108,15 +97,9 @@ function AddMyVaultPasswordModal({
       <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-xl border border-slate-200">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Add Password
-            </h2>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Create a new password in Personal Vault
-            </p>
+            <h2 className="text-2xl font-bold text-slate-900">Add Password</h2>
+            <p className="text-sm text-slate-500 mt-1">Create a new password in Personal Vault</p>
           </div>
-
           <button
             onClick={handleClose}
             className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
@@ -139,7 +122,6 @@ function AddMyVaultPasswordModal({
             className={inputClass}
           >
             <option value="">Select Folder</option>
-
             {folders.map((folder) => (
               <option key={folder.id} value={folder.id}>
                 {folder.name}
@@ -168,13 +150,10 @@ function AddMyVaultPasswordModal({
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={formData.encryptedPassword}
-                onChange={(e) =>
-                  updateField('encryptedPassword', e.target.value)
-                }
+                onChange={(e) => updateField('encryptedPassword', e.target.value)}
                 placeholder="Password"
                 className={`${inputClass} pr-10`}
               />
-
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -215,23 +194,6 @@ function AddMyVaultPasswordModal({
             </div>
           )}
 
-          <div className="relative">
-            <input
-              type={showMasterPassword ? 'text' : 'password'}
-              value={masterPassword}
-              onChange={(e) => { setMasterPassword(e.target.value); setMasterError(''); }}
-              placeholder="Enter master password to encrypt"
-              className={`${inputClass} pr-11`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowMasterPassword(!showMasterPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-            >
-              {showMasterPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-            </button>
-          </div>
-
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleClose}
@@ -239,7 +201,6 @@ function AddMyVaultPasswordModal({
             >
               Cancel
             </button>
-
             <button
               onClick={handleSubmit}
               disabled={encrypting}
