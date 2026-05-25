@@ -11,7 +11,6 @@ import {
   ChevronDown,
   LockKeyhole,
   Share2,
-  History,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -84,16 +83,28 @@ function Sidebar() {
     },
   ];
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await api.get('/notifications/recent');
+        setUnreadCount(res.data.unreadCount || 0);
+      } catch {
+        setUnreadCount(0);
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const securityMenu = [
     {
       name: 'Activity Log',
       path: '/activity-log',
       icon: Activity,
-    },
-    {
-      name: 'Login History',
-      path: '/login-activity',
-      icon: History,
+      badge: unreadCount,
     },
   ];
 
@@ -161,7 +172,12 @@ function Sidebar() {
                 }`}
               >
                 <Icon size={17} />
-                <span>{item.name}</span>
+                <span className="flex-1">{item.name}</span>
+                {item.badge > 0 && (
+                  <span className="h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

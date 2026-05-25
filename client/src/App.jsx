@@ -8,13 +8,11 @@ import VaultPage from './pages/vaults/VaultPage';
 import ProtectedRoute from './routes/ProtectedRoute';
 import MasterProtectedRoute from './routes/MasterProtectedRoute';
 import ActivityLogPage from './pages/activity/ActivityLogPage';
-import LoginActivityPage from './pages/activity/LoginActivityPage';
 import TeamManagementPage from './pages/team/TeamManagementPage';
 import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
-import NotificationsPage from './pages/notifications/NotificationsPage';
 
 function App() {
   return (
@@ -59,15 +57,6 @@ function App() {
       />
 
       <Route
-        path="/notifications"
-        element={
-          <MasterProtectedRoute>
-            <NotificationsPage />
-          </MasterProtectedRoute>
-        }
-      />
-
-      <Route
         path="/shared-with-me"
         element={
           <MasterProtectedRoute>
@@ -90,15 +79,6 @@ function App() {
         element={
           <MasterProtectedRoute>
             <ActivityLogPage />
-          </MasterProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/login-activity"
-        element={
-          <MasterProtectedRoute>
-            <LoginActivityPage />
           </MasterProtectedRoute>
         }
       />

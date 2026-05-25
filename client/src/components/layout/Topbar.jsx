@@ -72,7 +72,7 @@ function Topbar() {
                 <button
                   onClick={() => {
                     setOpen(false);
-                    navigate('/notifications');
+                    navigate('/activity-log?tab=unread');
                   }}
                   className="text-sm text-indigo-600 font-medium"
                 >
