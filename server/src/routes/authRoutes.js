@@ -1,15 +1,22 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middlewares/authMiddleware');
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many attempts. Please try again later.' },
+});
+
+router.post('/register', authLimiter, authController.register);
+router.post('/login', authLimiter, authController.login);
 router.get('/me', authenticate, authController.me);
 router.post('/set-master-password', authenticate, authController.setMasterPassword);
-router.post('/verify-master-password', authenticate, authController.verifyMasterPassword);
-router.post('/verify-admin-master-password',authenticate, authController.verifyAdministratorMasterPassword);
+router.post('/verify-master-password', authLimiter, authenticate, authController.verifyMasterPassword);
+router.post('/verify-admin-master-password', authLimiter, authenticate, authController.verifyAdministratorMasterPassword);
 router.post('/save-login-activity', authenticate, authController.saveLoginActivity);
 
 

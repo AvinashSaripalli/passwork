@@ -102,14 +102,16 @@ function PasswordDetailsPanel() {
   };
 
   const decryptPasswordItem = async (item, adminMasterPassword) => {
+    const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+
     const originalPassword = await safeDecryptText(
       item.encryptedPassword,
       adminMasterPassword,
-      user?.encryptionSalt
+      creatorSalt
     );
 
     const originalNote = item.encryptedNote
-      ? await safeDecryptText(item.encryptedNote, adminMasterPassword, user?.encryptionSalt)
+      ? await safeDecryptText(item.encryptedNote, adminMasterPassword, creatorSalt)
       : '';
 
     return {

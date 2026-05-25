@@ -172,6 +172,9 @@ const getPasswordsByVault = async (req, res) => {
         include: {
           tags: { include: { tag: true } },
           folder: true,
+          createdBy: {
+            select: { id: true, encryptionSalt: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -191,6 +194,9 @@ const getPasswordsByVault = async (req, res) => {
         include: {
           tags: { include: { tag: true } },
           folder: true,
+          createdBy: {
+            select: { id: true, encryptionSalt: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -211,6 +217,9 @@ const getPasswordById = async (req, res) => {
         tags: { include: { tag: true } },
         folder: true,
         vault: true,
+        createdBy: {
+          select: { id: true, encryptionSalt: true },
+        },
       },
     });
 

@@ -69,7 +69,7 @@ const createFolder = async (req, res) => {
     res.status(201).json(folder);
   } catch (error) {
     console.error('Create folder error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -155,7 +155,7 @@ const shareFolder = async (req, res) => {
     res.json(permission);
   } catch (error) {
     console.error('Share folder error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -210,7 +210,7 @@ const updateFolder = async (req, res) => {
     res.json(updatedFolder);
   } catch (error) {
     console.error('Update folder error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -221,19 +221,6 @@ const getFoldersByVault = async (req, res) => {
     let folders;
 
     if (admin) {
-      // folders = await prisma.folder.findMany({
-      //   where: { vaultId: req.params.vaultId },
-      //   include: {
-      //     permissions: {
-      //       include: {
-      //         user: {
-      //           select: { id: true, fullName: true, email: true },
-      //         },
-      //       },
-      //     },
-      //   },
-      //   orderBy: { createdAt: 'asc' },
-      // });
       folders = await prisma.folder.findMany({
         where: { vaultId: req.params.vaultId },
         include: {
@@ -259,26 +246,6 @@ const getFoldersByVault = async (req, res) => {
         orderBy: { createdAt: 'asc' },
       });
     } else {
-      // folders = await prisma.folder.findMany({
-      //   where: {
-      //     vaultId: req.params.vaultId,
-      //     permissions: {
-      //       some: {
-      //         userId: req.user.id,
-      //       },
-      //     },
-      //   },
-      //   include: {
-      //     permissions: {
-      //       include: {
-      //         user: {
-      //           select: { id: true, fullName: true, email: true },
-      //         },
-      //       },
-      //     },
-      //   },
-      //   orderBy: { createdAt: 'asc' },
-      // });
       folders = await prisma.folder.findMany({
         where: {
           vaultId: req.params.vaultId,
@@ -315,7 +282,7 @@ const getFoldersByVault = async (req, res) => {
     res.json(folders);
   } catch (error) {
     console.error('Get folders by vault error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -323,28 +290,6 @@ const getFolderById = async (req, res) => {
   try {
     const folder = await prisma.folder.findUnique({
       where: { id: req.params.id },
-      // include: {
-      //   permissions: {
-      //     include: {
-      //       user: {
-      //         select: {
-      //           id: true,
-      //           fullName: true,
-      //           email: true,
-      //         },
-      //       },
-      //     },
-      //   },
-      //   passwords: {
-      //     include: {
-      //       tags: {
-      //         include: {
-      //           tag: true,
-      //         },
-      //       },
-      //     },
-      //   },
-      // },
       include: {
         vault: {
           include: {
@@ -393,7 +338,7 @@ const getFolderById = async (req, res) => {
     res.json(folder);
   } catch (error) {
     console.error('Get folder by id error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -430,7 +375,7 @@ const getFolderActivityLogs = async (req, res) => {
     res.json(filteredLogs);
   } catch (error) {
     console.error('Get folder activity logs error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -521,7 +466,7 @@ const deleteFolder = async (req, res) => {
     res.json({ message: 'Folder deleted successfully' });
   } catch (error) {
     console.error('Delete folder error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

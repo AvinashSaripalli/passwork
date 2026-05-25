@@ -205,17 +205,19 @@ function EditPasswordModal() {
     try {
       if (!pendingPayload) return;
 
+      const creatorSalt = selectedPassword?.createdBy?.encryptionSalt || user?.encryptionSalt;
+
       const encryptedPassword = await encryptText(
         pendingPayload.password,
         adminMasterPassword,
-        user?.encryptionSalt
+        creatorSalt
       );
 
       const encryptedNote = pendingPayload.note
         ? await encryptText(
             pendingPayload.note,
             adminMasterPassword,
-            user?.encryptionSalt
+            creatorSalt
           )
         : '';
 
