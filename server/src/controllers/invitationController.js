@@ -41,10 +41,10 @@ const sendInvitation = async (req, res) => {
 
     await sendMail({
       to: email,
-      subject: 'Passwork Registration Invitation',
+      subject: 'Vaultix Registration Invitation',
       html: `
         <div style="font-family:Arial,sans-serif">
-          <h2>You are invited to Passwork</h2>
+          <h2>You are invited to Vaultix</h2>
           <p>Please click the button below to register your account.</p>
           <a href="${registerLink}" style="display:inline-block;background:#4f46e5;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">
             Register Now
