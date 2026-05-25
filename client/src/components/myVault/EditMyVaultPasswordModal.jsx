@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, X } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { decryptText, encryptText } from '../../utils/crypto';
+import { getPasswordStrength } from '../../utils/passwordStrength';
+import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
 
 function EditMyVaultPasswordModal({
   open,
@@ -8,6 +12,8 @@ function EditMyVaultPasswordModal({
   onClose,
   onSubmit,
 }) {
+  const { user, sessionMasterPassword } = useSelector((state) => state.auth);
+
   const [formData, setFormData] = useState({
     folderId: '',
     name: '',
@@ -19,22 +25,51 @@ function EditMyVaultPasswordModal({
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [decrypting, setDecrypting] = useState(false);
+  const [decryptError, setDecryptError] = useState('');
 
   useEffect(() => {
-    if (password) {
-      setFormData({
-        folderId: password.folderId || '',
-        name: password.name || '',
-        login: password.login || '',
-        encryptedPassword: password.encryptedPassword || '',
-        url: password.url || '',
-        encryptedNote: password.encryptedNote || '',
-        tags: password.tags?.map((item) => item.tag?.name).join(', ') || '',
-      });
+    if (password && sessionMasterPassword) {
+      const initForm = async () => {
+        setDecrypting(true);
+        setDecryptError('');
+
+        try {
+          const plainPassword = await decryptText(
+            password.encryptedPassword,
+            sessionMasterPassword,
+            user?.encryptionSalt
+          );
+
+          const plainNote = password.encryptedNote
+            ? await decryptText(
+                password.encryptedNote,
+                sessionMasterPassword,
+                user?.encryptionSalt
+              )
+            : '';
+
+          setFormData({
+            folderId: password.folderId || '',
+            name: password.name || '',
+            login: password.login || '',
+            encryptedPassword: plainPassword,
+            url: password.url || '',
+            encryptedNote: plainNote,
+            tags: password.tags?.map((item) => item.tag?.name).join(', ') || '',
+          });
+        } catch {
+          setDecryptError('Failed to decrypt password. Your session may have expired.');
+        } finally {
+          setDecrypting(false);
+        }
+      };
+
+      initForm();
 
       setShowPassword(false);
     }
-  }, [password]);
+  }, [password, sessionMasterPassword, user?.encryptionSalt]);
 
   if (!open) return null;
 
@@ -53,22 +88,53 @@ function EditMyVaultPasswordModal({
     onClose();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.login || !formData.encryptedPassword) {
       return;
     }
 
-    onSubmit({
-      ...formData,
-      tags: formData.tags
-        ? formData.tags
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean)
-        : [],
-    });
+    if (!sessionMasterPassword) {
+      setDecryptError('Session expired. Please re-enter your master password.');
+      return;
+    }
 
-    setShowPassword(false);
+    try {
+      const encryptedPassword = await encryptText(
+        formData.encryptedPassword,
+        sessionMasterPassword,
+        user?.encryptionSalt
+      );
+
+      const encryptedNote = formData.encryptedNote
+        ? await encryptText(
+            formData.encryptedNote,
+            sessionMasterPassword,
+            user?.encryptionSalt
+          )
+        : '';
+
+      const strength = getPasswordStrength(formData.encryptedPassword);
+
+      onSubmit({
+        ...formData,
+        encryptedPassword,
+        encryptedNote,
+        tags: formData.tags
+          ? formData.tags
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [],
+        strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
+        isWeak: strength?.label === 'Weak',
+        isOld: isPasswordOld(password.lastUpdatedAt, password.createdAt),
+        isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
+      });
+
+      setShowPassword(false);
+    } catch {
+      setDecryptError('Encryption failed. Please try again.');
+    }
   };
 
   return (
@@ -92,6 +158,18 @@ function EditMyVaultPasswordModal({
             <X size={20} />
           </button>
         </div>
+
+        {decrypting && (
+          <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <p className="text-sm text-indigo-600">Decrypting password…</p>
+          </div>
+        )}
+
+        {decryptError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-600">{decryptError}</p>
+          </div>
+        )}
 
         <div className="space-y-4">
           <select
@@ -174,10 +252,10 @@ function EditMyVaultPasswordModal({
 
             <button
               onClick={handleSubmit}
-              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700"
+              disabled={decrypting}
+              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-60"
             >
-              <KeyRound size={16} />
-              Save Changes
+              {decrypting ? <>&#9889; Processing…</> : <><KeyRound size={16} /> Save Changes</>}
             </button>
           </div>
         </div>

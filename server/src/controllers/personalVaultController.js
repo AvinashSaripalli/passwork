@@ -204,8 +204,8 @@ const createMyVaultPassword = async (req, res) => {
         folderId,
         createdById: req.user.id,
         lastUpdatedAt: new Date(),
-        strengthScore: encryptedPassword.length >= 16 ? 90 : encryptedPassword.length >= 12 ? 70 : 40,
-        isWeak: encryptedPassword.length < 12,
+        strengthScore: req.body.strengthScore ?? 40,
+        isWeak: req.body.isWeak ?? false,
         tags: {
           create: tags.map((tagName) => ({
             tag: {
@@ -433,6 +433,10 @@ const updateMyVaultPassword = async (req, res) => {
         colorTag,
         folderId,
         lastUpdatedAt: new Date(),
+        strengthScore: req.body.strengthScore ?? undefined,
+        isWeak: req.body.isWeak ?? undefined,
+        isOld: req.body.isOld ?? undefined,
+        isAtRisk: req.body.isAtRisk ?? undefined,
       },
     });
 

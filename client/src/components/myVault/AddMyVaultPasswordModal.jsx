@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { KeyRound, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { encryptText } from '../../utils/crypto';
+import { getPasswordStrength } from '../../utils/passwordStrength';
+import { isPasswordAtRisk } from '../../utils/passwordRisk';
 
 const initialForm = {
   folderId: '',
@@ -72,6 +74,8 @@ function AddMyVaultPasswordModal({
         ? await encryptText(formData.encryptedNote, sessionMasterPassword, user?.encryptionSalt)
         : '';
 
+      const strength = getPasswordStrength(formData.encryptedPassword);
+
       const payload = {
         ...formData,
         encryptedPassword,
@@ -79,6 +83,10 @@ function AddMyVaultPasswordModal({
         tags: formData.tags
           ? formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
           : [],
+        strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
+        isWeak: strength?.label === 'Weak',
+        isOld: false,
+        isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
       };
 
       onSubmit(payload);

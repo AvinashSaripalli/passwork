@@ -28,11 +28,10 @@ const createPassword = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const isWeak = encryptedPassword.length < 12;
-    const isOld = false;
-    const isAtRisk = false;
-    const strengthScore =
-      encryptedPassword.length >= 16 ? 90 : encryptedPassword.length >= 12 ? 70 : 40;
+    const isWeak = req.body.isWeak ?? false;
+    const isOld = req.body.isOld ?? false;
+    const isAtRisk = req.body.isAtRisk ?? false;
+    const strengthScore = req.body.strengthScore ?? 40;
 
     const passwordEntry = await prisma.passwordEntry.create({
       data: {
@@ -124,6 +123,10 @@ const importPasswordsFromExcel = async (req, res) => {
           folderId,
           createdById: req.user.id,
           lastUpdatedAt: new Date(),
+          strengthScore: row.strengthScore ?? 40,
+          isWeak: row.isWeak ?? false,
+          isOld: row.isOld ?? false,
+          isAtRisk: row.isAtRisk ?? false,
           tags: {
             create: Array.isArray(row.tags)
               ? row.tags.map((tagName) => ({
@@ -299,6 +302,10 @@ const updatePassword = async (req, res) => {
         colorTag,
         folderId: folderId === undefined ? undefined : folderId,
         lastUpdatedAt: new Date(),
+        strengthScore: req.body.strengthScore ?? undefined,
+        isWeak: req.body.isWeak ?? undefined,
+        isOld: req.body.isOld ?? undefined,
+        isAtRisk: req.body.isAtRisk ?? undefined,
 
         ...(cleanTags !== undefined && {
           tags: {

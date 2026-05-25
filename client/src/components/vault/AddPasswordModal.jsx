@@ -8,6 +8,7 @@ import {
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import { encryptText } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
+import { isPasswordAtRisk } from '../../utils/passwordRisk';
 
 const SUGGESTED_TAGS = [
   'Production',
@@ -220,7 +221,7 @@ function AddPasswordModal() {
                 : 40,
           isWeak: strength?.label === 'Weak',
           isOld: false,
-          isAtRisk: false,
+          isAtRisk: isPasswordAtRisk(pendingPayload.password),
         })
       );
 

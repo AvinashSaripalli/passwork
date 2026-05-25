@@ -8,6 +8,7 @@ import {
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import { encryptText } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
+import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
 import {
   clearCompanyPasswordEditCache,
   getCompanyPasswordEditCache,
@@ -95,7 +96,7 @@ function EditPasswordModal() {
       setShowConfirmPassword(false);
       setPendingPayload(null);
     }
-  }, [selectedPassword]);
+  }, [selectedPassword, isEditPasswordModalOpen]);
 
   if (!isEditPasswordModalOpen || !selectedPassword) return null;
 
@@ -235,8 +236,8 @@ function EditPasswordModal() {
               ? 70
               : 40,
         isWeak: strength?.label === 'Weak',
-        isOld: false,
-        isAtRisk: false,
+        isOld: isPasswordOld(selectedPassword.lastUpdatedAt, selectedPassword.createdAt),
+        isAtRisk: isPasswordAtRisk(pendingPayload.password),
       };
 
       const result = await dispatch(
