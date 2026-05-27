@@ -1,44 +1,143 @@
-import { useEffect, useState } from 'react';
-import { Bell, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import {
+  Bell,
+  CheckCircle2,
+  KeyRound,
+  LogIn,
+  Share2,
+  ShieldAlert,
+  Activity,
+  Folder,
+  Database,
+  RefreshCw,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMasterVerified } from '../../features/auth/authSlice';
 import api from '../../services/api';
 
+function getItemIcon(type, meta) {
+  if (type === 'LOGIN') {
+    return {
+      icon: <LogIn size={15} />,
+      className:
+        meta?.status === 'SUCCESS'
+          ? 'bg-blue-50 text-blue-600'
+          : 'bg-red-50 text-red-600',
+    };
+  }
+
+  if (type === 'ACTIVITY') {
+    const action = meta?.action || '';
+    if (action.includes('PASSWORD'))
+      return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600' };
+    if (action.includes('FOLDER'))
+      return { icon: <Folder size={15} />, className: 'bg-indigo-50 text-indigo-600' };
+    if (action.includes('VAULT'))
+      return { icon: <Database size={15} />, className: 'bg-slate-100 text-slate-600' };
+    return { icon: <Activity size={15} />, className: 'bg-slate-100 text-slate-600' };
+  }
+
+  if (type === 'SHARE_PASSWORD' || type === 'SHARE_FOLDER' || type === 'SHARE_VAULT')
+    return { icon: <Share2 size={15} />, className: 'bg-indigo-50 text-indigo-600' };
+
+  if (type === 'SECURITY' || type === 'WEAK_PASSWORD')
+    return { icon: <ShieldAlert size={15} />, className: 'bg-red-50 text-red-600' };
+
+  if (type === 'PASSWORD')
+    return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600' };
+
+  return { icon: <Bell size={15} />, className: 'bg-slate-100 text-slate-600' };
+}
+
+function getTypeBadge(type) {
+  if (type === 'LOGIN')
+    return { label: 'Login', className: 'bg-blue-50 text-blue-600' };
+  if (type === 'ACTIVITY')
+    return { label: 'Action', className: 'bg-slate-100 text-slate-500' };
+  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-600' };
+}
+
 function Topbar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
   const { user, isMasterVerified } = useSelector((state) => state.auth);
 
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
+  const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef(null);
 
-  useEffect(() => {
-    fetchNotifications();
+  const fetchRecentActivity = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      const lastViewed = localStorage.getItem('lastViewedAt');
+      if (lastViewed) {
+        params.since = lastViewed;
+      }
+      const res = await api.get('/notifications/recent-activity', { params });
+      setItems(res.data?.items || []);
+      setUnreadCount(res.data?.unreadCount || 0);
+    } catch {
+      setItems([]);
+      setUnreadCount(0);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get('/notifications/recent');
-      setNotifications(res.data.notifications || []);
-      setUnreadCount(res.data.unreadCount || 0);
-    } catch {
-      setNotifications([]);
+  useEffect(() => {
+    fetchRecentActivity();
+    const interval = setInterval(fetchRecentActivity, 10000);
+    return () => clearInterval(interval);
+  }, [fetchRecentActivity]);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
     }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const markAsRead = async (item) => {
+    if (item.type !== 'ACTIVITY' && item.type !== 'LOGIN') {
+      try {
+        await api.patch(`/notifications/${item.sourceId}/read`);
+      } catch {}
+    }
+    localStorage.setItem('lastViewedAt', new Date().toISOString());
+    fetchRecentActivity();
   };
 
-  const markAsRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`);
-    fetchNotifications();
+  const markAllRead = async () => {
+    try {
+      await api.patch('/notifications/mark-all-read');
+    } catch {}
+    localStorage.setItem('lastViewedAt', new Date().toISOString());
+    fetchRecentActivity();
+  };
+
+  const activityCount = items.filter((i) => i.type === 'ACTIVITY').length;
+  const loginCount = items.filter((i) => i.type === 'LOGIN').length;
+  const alertCount = items.filter(
+    (i) => i.type !== 'ACTIVITY' && i.type !== 'LOGIN'
+  ).length;
+
+  const handleOpen = () => {
+    if (!open) {
+      fetchRecentActivity();
+    }
+    setOpen((prev) => !prev);
   };
 
   return (
     <div className="h-[72px] bg-white border-b border-slate-200 flex items-center justify-between px-8">
-      <h2 className="text-sm font-semibold text-slate-700">
-        Password Manager
-      </h2>
+      <h2 className="text-sm font-semibold text-slate-700">Password Manager</h2>
 
       <div className="flex items-center gap-5">
         {isMasterVerified && (
@@ -50,92 +149,150 @@ function Topbar() {
           </button>
         )}
 
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setOpen((prev) => !prev)}
-            className="relative h-10 w-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50"
+            onClick={handleOpen}
+            className="relative h-10 w-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
           >
             <Bell size={18} className="text-slate-600" />
-
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {unreadCount}
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>
 
           {open && (
-            <div className="absolute right-0 top-12 w-[360px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="font-bold text-slate-900">Notifications</h3>
-
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    navigate('/activity-log?tab=unread');
-                  }}
-                  className="text-sm text-indigo-600 font-medium"
-                >
-                  View All
-                </button>
+            <div className="absolute right-0 top-12 w-[400px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="font-bold text-slate-900 text-sm">Recent Activity</h3>
+                  {unreadCount > 0 && (
+                    <span className="h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={fetchRecentActivity}
+                    disabled={loading}
+                    className="text-slate-400 hover:text-slate-600 transition"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                  </button>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="text-xs text-indigo-600 font-semibold hover:text-indigo-700 transition"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      navigate('/activity-log?tab=unread');
+                    }}
+                    className="text-xs text-slate-500 font-medium hover:text-slate-700 transition"
+                  >
+                    View all →
+                  </button>
+                </div>
               </div>
 
-              <div className="max-h-[360px] overflow-y-auto">
-                {notifications.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => markAsRead(item.id)}
-                    className={`w-full text-left px-5 py-4 border-b border-slate-100 hover:bg-slate-50 ${
-                      !item.isRead ? 'bg-indigo-50/40' : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {!item.isRead ? (
-                        <span className="h-2 w-2 rounded-full bg-indigo-600 mt-2" />
-                      ) : (
-                        <CheckCircle2
-                          size={14}
-                          className="text-green-500 mt-1"
-                        />
-                      )}
+              {/* Items list */}
+              <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
+                {loading && items.length === 0 && (
+                  <div className="p-6 text-center text-sm text-slate-500">
+                    Loading...
+                  </div>
+                )}
 
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {item.title}
-                        </p>
+                {!loading && items.length === 0 && (
+                  <div className="p-8 text-center text-sm text-slate-500">
+                    No recent activity.
+                  </div>
+                )}
 
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                          {item.message}
-                        </p>
+                {items.map((item) => {
+                  const { icon, className: iconClass } = getItemIcon(item.type, item.meta);
+                  const { label: badgeLabel, className: badgeClass } = getTypeBadge(item.type);
+                  const isUnread = !item.isRead;
 
-                        <p className="text-[11px] text-slate-400 mt-2">
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => markAsRead(item)}
+                      className={`w-full text-left px-4 py-3.5 hover:bg-slate-50 transition flex items-start gap-3 ${
+                        isUnread ? 'bg-indigo-50/40' : ''
+                      }`}
+                    >
+                      {/* Icon */}
+                      <div
+                        className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconClass}`}
+                      >
+                        {icon}
+                      </div>
+
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isUnread && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
+                          )}
+                          {!isUnread && item.type !== 'ACTIVITY' && item.type !== 'LOGIN' && (
+                            <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+                          )}
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {item.title}
+                          </p>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            {item.message}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-slate-400 mt-1">
                           {new Date(item.createdAt).toLocaleString()}
                         </p>
                       </div>
-                    </div>
-                  </button>
-                ))}
 
-                {!notifications.length && (
-                  <div className="p-8 text-center text-sm text-slate-500">
-                    No notifications yet.
-                  </div>
-                )}
+                      {/* Type badge */}
+                      <span
+                        className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-1 ${badgeClass}`}
+                      >
+                        {badgeLabel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer summary */}
+              <div className="px-5 py-2.5 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
+                <p className="text-[11px] text-slate-400">
+                  {activityCount} actions · {loginCount} logins · {alertCount} alerts
+                </p>
+                <p className="text-[11px] font-semibold text-slate-600">
+                  {unreadCount} unread
+                </p>
               </div>
             </div>
           )}
         </div>
 
+        {/* User avatar */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
             {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
           </div>
-
           <div className="leading-tight">
             <p className="text-sm font-semibold text-slate-900">
               {user?.fullName || 'User'}
             </p>
-
             <p className="text-xs text-slate-500">{user?.email || ''}</p>
           </div>
         </div>

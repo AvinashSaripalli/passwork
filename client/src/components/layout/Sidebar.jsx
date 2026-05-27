@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
+import api from '../../services/api';
 import {
   fetchVaults,
   fetchFoldersByVault,
@@ -88,14 +89,19 @@ function Sidebar() {
   useEffect(() => {
     const fetchUnread = async () => {
       try {
-        const res = await api.get('/notifications/recent');
+        const params = {};
+        const lastViewed = localStorage.getItem('lastViewedAt');
+        if (lastViewed) {
+          params.since = lastViewed;
+        }
+        const res = await api.get('/notifications/recent-activity', { params });
         setUnreadCount(res.data.unreadCount || 0);
       } catch {
         setUnreadCount(0);
       }
     };
     fetchUnread();
-    const interval = setInterval(fetchUnread, 30000);
+    const interval = setInterval(fetchUnread, 10000);
     return () => clearInterval(interval);
   }, []);
 

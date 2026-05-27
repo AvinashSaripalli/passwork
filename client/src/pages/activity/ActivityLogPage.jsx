@@ -11,6 +11,10 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  LogIn,
+  Share2,
+  ShieldAlert,
+  Bell,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppLayout from '../../components/layout/AppLayout';
@@ -44,6 +48,13 @@ const LOGIN_STATUS_FILTERS = [
   { label: 'Blocked', value: 'BLOCKED' },
 ];
 
+const UNREAD_TYPE_FILTERS = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Actions', value: 'ACTIVITY' },
+  { label: 'Logins', value: 'LOGIN' },
+  { label: 'Alerts', value: 'ALERT' },
+];
+
 const TABS = [
   { id: 'actions', label: 'Actions' },
   { id: 'login', label: 'Login History' },
@@ -65,6 +76,8 @@ function formatAction(action) {
     case 'CREATE_VAULT': return 'Create Vault';
     case 'UPDATE_VAULT': return 'Update Vault';
     case 'DELETE_VAULT': return 'Delete Vault';
+    case 'IMPORT_PASSWORDS': return 'Import Passwords';
+    case 'SHARE_VAULT': return 'Share Vault';
     default: return action?.replaceAll('_', ' ') || '-';
   }
 }
@@ -76,6 +89,7 @@ function getActionBadge(action) {
   if (action?.startsWith('VIEW')) return 'bg-blue-50 text-blue-700';
   if (action?.startsWith('COPY')) return 'bg-sky-50 text-sky-700';
   if (action?.startsWith('SHARE')) return 'bg-indigo-50 text-indigo-700';
+  if (action?.startsWith('IMPORT')) return 'bg-violet-50 text-violet-700';
   return 'bg-slate-100 text-slate-700';
 }
 
@@ -84,6 +98,41 @@ function getActionIcon(action) {
   if (action?.includes('FOLDER')) return <Folder size={15} />;
   if (action?.includes('VAULT')) return <Database size={15} />;
   return <Activity size={15} />;
+}
+
+function getUnreadItemIcon(type, meta) {
+  if (type === 'LOGIN') {
+    return {
+      icon: <LogIn size={16} />,
+      className:
+        meta?.status === 'SUCCESS'
+          ? 'bg-blue-50 text-blue-600'
+          : 'bg-red-50 text-red-600',
+    };
+  }
+  if (type === 'ACTIVITY') {
+    const action = meta?.action || '';
+    if (action.includes('PASSWORD'))
+      return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600' };
+    if (action.includes('FOLDER'))
+      return { icon: <Folder size={16} />, className: 'bg-indigo-50 text-indigo-600' };
+    if (action.includes('VAULT'))
+      return { icon: <Database size={16} />, className: 'bg-slate-100 text-slate-600' };
+    return { icon: <Activity size={16} />, className: 'bg-slate-100 text-slate-600' };
+  }
+  if (type === 'SHARE_PASSWORD' || type === 'SHARE_FOLDER' || type === 'SHARE_VAULT')
+    return { icon: <Share2 size={16} />, className: 'bg-indigo-50 text-indigo-600' };
+  if (type === 'SECURITY' || type === 'WEAK_PASSWORD')
+    return { icon: <ShieldAlert size={16} />, className: 'bg-red-50 text-red-600' };
+  if (type === 'PASSWORD')
+    return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600' };
+  return { icon: <Bell size={16} />, className: 'bg-slate-100 text-slate-600' };
+}
+
+function getTypeBadge(type) {
+  if (type === 'LOGIN') return { label: 'Login', className: 'bg-blue-50 text-blue-700' };
+  if (type === 'ACTIVITY') return { label: 'Action', className: 'bg-slate-100 text-slate-600' };
+  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-700' };
 }
 
 function getDateGroup(dateStr) {
@@ -139,8 +188,12 @@ function ActivityLogPage() {
   const [loginActivities, setLoginActivities] = useState([]);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginStatusFilter, setLoginStatusFilter] = useState('ALL');
-  const [notifications, setNotifications] = useState([]);
+
+  const [allActivityItems, setAllActivityItems] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [unreadTypeFilter, setUnreadTypeFilter] = useState('ALL');
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+
   const [expandedLogin, setExpandedLogin] = useState(null);
 
   useEffect(() => {
@@ -161,8 +214,8 @@ function ActivityLogPage() {
 
   useEffect(() => {
     if (activeTab === 'unread') {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 30000);
+      fetchAllActivity();
+      const interval = setInterval(fetchAllActivity, 10000);
       return () => clearInterval(interval);
     }
   }, [activeTab]);
@@ -179,28 +232,48 @@ function ActivityLogPage() {
     }
   }, []);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchAllActivity = useCallback(async () => {
     setNotifLoading(true);
     try {
-      const res = await api.get('/notifications');
-      setNotifications(res.data.notifications || []);
+      const params = {};
+      const lastViewed = localStorage.getItem('lastViewedAt');
+      if (lastViewed) {
+        params.since = lastViewed;
+      }
+      const res = await api.get('/notifications/recent-activity', { params });
+      setAllActivityItems(res.data?.items || []);
+      setTotalUnreadCount(res.data?.unreadCount || 0);
     } catch {
-      setNotifications([]);
+      setAllActivityItems([]);
+      setTotalUnreadCount(0);
     } finally {
       setNotifLoading(false);
     }
   }, []);
 
-  const markAsRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`);
-    fetchNotifications();
+  const markAsRead = async (item) => {
+    if (item.type !== 'ACTIVITY' && item.type !== 'LOGIN') {
+      try {
+        await api.patch(`/notifications/${item.sourceId}/read`);
+      } catch {}
+    }
+    localStorage.setItem('lastViewedAt', new Date().toISOString());
+    fetchAllActivity();
   };
 
   const markAllRead = async () => {
-    await api.patch('/notifications/mark-all-read');
-    fetchNotifications();
+    try {
+      await api.patch('/notifications/mark-all-read');
+    } catch {}
+    localStorage.setItem('lastViewedAt', new Date().toISOString());
+    fetchAllActivity();
   };
 
+  const unreadItems = useMemo(() => {
+    return allActivityItems.filter((i) => !i.isRead);
+  }, [allActivityItems]);
+
+  // --- Actions tab ---
   const filteredLogs = useMemo(() => {
     return activityLogs.filter((log) => {
       const q = search.toLowerCase();
@@ -237,26 +310,36 @@ function ActivityLogPage() {
     return order.filter((g) => groups[g]).map((g) => ({ label: g, items: groups[g] }));
   }, [paginatedLogs]);
 
-  const startItem = filteredLogs.length === 0 ? 0 : (currentPage - 1) * ACTIVITY_PAGE_SIZE + 1;
-  const endItem = Math.min(currentPage * ACTIVITY_PAGE_SIZE, filteredLogs.length);
+  const startItem =
+    filteredLogs.length === 0
+      ? 0
+      : (currentPage - 1) * ACTIVITY_PAGE_SIZE + 1;
+  const endItem = Math.min(
+    currentPage * ACTIVITY_PAGE_SIZE,
+    filteredLogs.length
+  );
 
-  const resetFilters = () => {
-    setSearch('');
-    setActionFilter('ALL');
-    setTypeFilter('ALL');
-    setLoginStatusFilter('ALL');
-  };
-
+  // --- Login tab ---
   const filteredLogin = useMemo(() => {
     const q = search.toLowerCase();
     return loginActivities.filter((item) => {
-      if (loginStatusFilter !== 'ALL' && item.status !== loginStatusFilter) return false;
+      if (loginStatusFilter !== 'ALL' && item.status !== loginStatusFilter)
+        return false;
       if (!q) return true;
-      const userName = (item.user?.fullName || item.user?.email || '').toLowerCase();
+      const userName = (
+        item.user?.fullName ||
+        item.user?.email ||
+        ''
+      ).toLowerCase();
       const email = (item.user?.email || '').toLowerCase();
       const ip = (item.ipAddress || '').toLowerCase();
       const status = (item.status || '').toLowerCase();
-      return userName.includes(q) || email.includes(q) || ip.includes(q) || status.includes(q);
+      return (
+        userName.includes(q) ||
+        email.includes(q) ||
+        ip.includes(q) ||
+        status.includes(q)
+      );
     });
   }, [loginActivities, search, loginStatusFilter]);
 
@@ -274,25 +357,52 @@ function ActivityLogPage() {
       groups[group].push(item);
     });
     const order = ['Today', 'Yesterday', 'This Week', 'Earlier'];
-    return order.filter((g) => groups[g]).map((g) => ({ label: g, items: groups[g] }));
+    return order
+      .filter((g) => groups[g])
+      .map((g) => ({ label: g, items: groups[g] }));
   }, [paginatedLogin]);
 
-  const unreadNotifications = useMemo(() => {
+  // --- Unread tab ---
+  const filteredUnreadItems = useMemo(() => {
     const q = search.toLowerCase();
-    const unread = notifications.filter((n) => !n.isRead);
-    if (!q) return unread;
-    return unread.filter(
-      (n) =>
-        (n.title || '').toLowerCase().includes(q) ||
-        (n.message || '').toLowerCase().includes(q)
-    );
-  }, [notifications, search]);
+    return allActivityItems.filter((item) => {
+      const matchesSearch =
+        !q ||
+        (item.title || '').toLowerCase().includes(q) ||
+        (item.message || '').toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      if (unreadTypeFilter === 'ACTIVITY') return item.type === 'ACTIVITY';
+      if (unreadTypeFilter === 'LOGIN') return item.type === 'LOGIN';
+      if (unreadTypeFilter === 'ALERT')
+        return item.type !== 'ACTIVITY' && item.type !== 'LOGIN';
+
+      return true;
+    });
+  }, [allActivityItems, search, unreadTypeFilter]);
 
   const paginatedUnread = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return unreadNotifications.slice(start, start + PAGE_SIZE);
-  }, [unreadNotifications, currentPage]);
-  const unreadTotalPages = Math.ceil(unreadNotifications.length / PAGE_SIZE) || 1;
+    return filteredUnreadItems.slice(start, start + PAGE_SIZE);
+  }, [filteredUnreadItems, currentPage]);
+  const unreadTotalPages =
+    Math.ceil(filteredUnreadItems.length / PAGE_SIZE) || 1;
+
+  const unreadBadgeCount = useMemo(() => {
+    return allActivityItems.filter(
+      (i) => !i.isRead
+    ).length;
+  }, [allActivityItems]);
+
+  // --- Handlers ---
+  const resetFilters = () => {
+    setSearch('');
+    setActionFilter('ALL');
+    setTypeFilter('ALL');
+    setLoginStatusFilter('ALL');
+    setUnreadTypeFilter('ALL');
+  };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -301,12 +411,13 @@ function ActivityLogPage() {
     setActionFilter('ALL');
     setTypeFilter('ALL');
     setLoginStatusFilter('ALL');
+    setUnreadTypeFilter('ALL');
     setExpandedLogin(null);
   };
 
   const handleRefresh = () => {
     if (activeTab === 'login') fetchLoginActivities();
-    if (activeTab === 'unread') fetchNotifications();
+    if (activeTab === 'unread') fetchAllActivity();
   };
 
   const handleExportCSV = () => {
@@ -334,11 +445,22 @@ function ActivityLogPage() {
       }));
       downloadCSV('login-history.csv', rows, headers);
     }
+    if (activeTab === 'unread') {
+      const headers = ['Date', 'Type', 'Title', 'Message'];
+      const rows = filteredUnreadItems.map((item) => ({
+        Date: item.createdAt ? new Date(item.createdAt).toLocaleString() : '',
+        Type: item.type || '',
+        Title: item.title || '',
+        Message: item.message || '',
+      }));
+      downloadCSV('recent-activity.csv', rows, headers);
+    }
   };
 
   return (
     <AppLayout>
       <div className="space-y-5">
+        {/* Header */}
         <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7">
           <div className="flex flex-col gap-4">
             <div>
@@ -348,6 +470,7 @@ function ActivityLogPage() {
               </p>
             </div>
 
+            {/* Tabs */}
             <div className="flex gap-1 border-b border-slate-200">
               {TABS.map((tab) => (
                 <button
@@ -360,25 +483,35 @@ function ActivityLogPage() {
                   }`}
                 >
                   {tab.label}
-                  {tab.id === 'unread' && unreadNotifications.length > 0 && (
+                  {tab.id === 'unread' && unreadBadgeCount > 0 && (
                     <span className="ml-2 h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
-                      {unreadNotifications.length}
+                      {unreadBadgeCount > 99 ? '99+' : unreadBadgeCount}
                     </span>
                   )}
                 </button>
               ))}
             </div>
 
+            {/* Filters */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative w-full sm:w-[340px]">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); setExpandedLogin(null); }}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                    setExpandedLogin(null);
+                  }}
                   placeholder={
-                    activeTab === 'actions' ? 'Search by user, action, target...' :
-                    activeTab === 'login' ? 'Search by user, IP, status...' :
-                    'Search notifications...'
+                    activeTab === 'actions'
+                      ? 'Search by user, action, target...'
+                      : activeTab === 'login'
+                      ? 'Search by user, IP, status...'
+                      : 'Search activity...'
                   }
                   className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 />
@@ -388,21 +521,31 @@ function ActivityLogPage() {
                 <>
                   <select
                     value={actionFilter}
-                    onChange={(e) => { setActionFilter(e.target.value); setCurrentPage(1); }}
+                    onChange={(e) => {
+                      setActionFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   >
                     {ACTION_FILTERS.map((item) => (
-                      <option key={item.value} value={item.value}>{item.label}</option>
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
                     ))}
                   </select>
 
                   <select
                     value={typeFilter}
-                    onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+                    onChange={(e) => {
+                      setTypeFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   >
                     {TYPE_FILTERS.map((item) => (
-                      <option key={item.value} value={item.value}>{item.label}</option>
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
                     ))}
                   </select>
                 </>
@@ -411,13 +554,39 @@ function ActivityLogPage() {
               {activeTab === 'login' && (
                 <select
                   value={loginStatusFilter}
-                  onChange={(e) => { setLoginStatusFilter(e.target.value); setCurrentPage(1); }}
+                  onChange={(e) => {
+                    setLoginStatusFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 >
                   {LOGIN_STATUS_FILTERS.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
                   ))}
                 </select>
+              )}
+
+              {activeTab === 'unread' && (
+                <div className="flex gap-2">
+                  {UNREAD_TYPE_FILTERS.map((f) => (
+                    <button
+                      key={f.value}
+                      onClick={() => {
+                        setUnreadTypeFilter(f.value);
+                        setCurrentPage(1);
+                      }}
+                      className={`h-11 px-4 rounded-xl text-sm font-semibold border transition ${
+                        unreadTypeFilter === f.value
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               )}
 
               <button
@@ -436,28 +605,34 @@ function ActivityLogPage() {
                   disabled={loginLoading || notifLoading}
                   className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} className={loginLoading || notifLoading ? 'animate-spin' : ''} />
+                  <RefreshCw
+                    size={16}
+                    className={loginLoading || notifLoading ? 'animate-spin' : ''}
+                  />
                   Refresh
                 </button>
               )}
 
-              {activeTab !== 'unread' && (
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  <Download size={16} />
-                  Export CSV
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                <Download size={16} />
+                Export CSV
+              </button>
             </div>
           </div>
         </div>
 
+        {/* ── Actions Tab ── */}
         {activeTab === 'actions' && (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {activityLoading && <div className="p-6 text-sm text-slate-500">Loading activity logs...</div>}
+            {activityLoading && (
+              <div className="p-6 text-sm text-slate-500">
+                Loading activity logs...
+              </div>
+            )}
             {error && (
               <div className="m-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                 <p className="text-sm text-red-600">{error}</p>
@@ -468,7 +643,9 @@ function ActivityLogPage() {
                 {groupedLogs.map((group) => (
                   <div key={group.label}>
                     <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{group.label}</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {group.label}
+                      </p>
                     </div>
                     <table className="w-full min-w-[900px]">
                       <thead className="bg-slate-50">
@@ -481,27 +658,42 @@ function ActivityLogPage() {
                       </thead>
                       <tbody>
                         {group.items.map((log) => (
-                          <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50/70">
+                          <tr
+                            key={log.id}
+                            className="border-t border-slate-100 hover:bg-slate-50/70"
+                          >
                             <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
-                              {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
+                              {log.createdAt
+                                ? new Date(log.createdAt).toLocaleString()
+                                : '-'}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div>
-                                <p className="font-medium text-slate-900">{log.user?.fullName || 'User'}</p>
-                                <p className="text-xs text-slate-500">{log.user?.email || '-'}</p>
+                                <p className="font-medium text-slate-900">
+                                  {log.user?.fullName || 'User'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {log.user?.email || '-'}
+                                </p>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${getActionBadge(log.action)}`}>
+                              <span
+                                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${getActionBadge(log.action)}`}
+                              >
                                 {getActionIcon(log.action)}
                                 {formatAction(log.action)}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-700">
                               <div>
-                                <p className="font-semibold">{log.metadata?.name || log.targetId || '-'}</p>
+                                <p className="font-semibold">
+                                  {log.metadata?.name || log.targetId || '-'}
+                                </p>
                                 {log.metadata?.name && log.targetId && (
-                                  <p className="text-xs text-slate-400">{log.targetId}</p>
+                                  <p className="text-xs text-slate-400">
+                                    {log.targetId}
+                                  </p>
                                 )}
                               </div>
                             </td>
@@ -514,7 +706,9 @@ function ActivityLogPage() {
 
                 {!filteredLogs.length && (
                   <div className="py-14 text-center">
-                    <p className="text-slate-500">No activity logs matched your filters.</p>
+                    <p className="text-slate-500">
+                      No activity logs matched your filters.
+                    </p>
                   </div>
                 )}
 
@@ -528,7 +722,9 @@ function ActivityLogPage() {
                         onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                         disabled={currentPage === 1}
                         className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                      >Previous</button>
+                      >
+                        Previous
+                      </button>
                       {Array.from({ length: totalPages }, (_, index) => {
                         const page = index + 1;
                         return (
@@ -540,14 +736,20 @@ function ActivityLogPage() {
                                 ? 'bg-indigo-600 text-white'
                                 : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
                             }`}
-                          >{page}</button>
+                          >
+                            {page}
+                          </button>
                         );
                       })}
                       <button
-                        onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(p + 1, totalPages))
+                        }
                         disabled={currentPage === totalPages}
                         className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                      >Next</button>
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
                 )}
@@ -556,46 +758,77 @@ function ActivityLogPage() {
           </div>
         )}
 
+        {/* ── Login Tab ── */}
         {activeTab === 'login' && (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {loginLoading && <div className="p-6 text-sm text-slate-500">Loading login history...</div>}
+            {loginLoading && (
+              <div className="p-6 text-sm text-slate-500">
+                Loading login history...
+              </div>
+            )}
             {!loginLoading && (
               <>
                 {groupedLogin.map((group) => (
                   <div key={group.label}>
                     <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{group.label}</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {group.label}
+                      </p>
                     </div>
                     <div className="divide-y divide-slate-100">
                       {group.items.map((item) => (
                         <div key={item.id}>
                           <div
-                            onClick={() => setExpandedLogin(expandedLogin === item.id ? null : item.id)}
+                            onClick={() =>
+                              setExpandedLogin(
+                                expandedLogin === item.id ? null : item.id
+                              )
+                            }
                             className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 cursor-pointer"
                           >
                             <div className="shrink-0">
-                              {expandedLogin === item.id
-                                ? <ChevronDown size={16} className="text-slate-400" />
-                                : <ChevronRight size={16} className="text-slate-400" />}
+                              {expandedLogin === item.id ? (
+                                <ChevronDown
+                                  size={16}
+                                  className="text-slate-400"
+                                />
+                              ) : (
+                                <ChevronRight
+                                  size={16}
+                                  className="text-slate-400"
+                                />
+                              )}
                             </div>
                             <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold shrink-0">
                               {item.user?.fullName?.charAt(0) || 'U'}
                             </div>
                             <div className="min-w-0 flex-1 grid grid-cols-5 gap-4 text-sm items-center">
                               <div>
-                                <p className="font-medium text-slate-900 truncate">{item.user?.fullName || 'User'}</p>
+                                <p className="font-medium text-slate-900 truncate">
+                                  {item.user?.fullName || 'User'}
+                                </p>
                               </div>
-                              <div className="text-slate-600 truncate">{item.user?.email || '-'}</div>
-                              <div className="text-slate-600 font-mono text-xs">{item.ipAddress || '-'}</div>
+                              <div className="text-slate-600 truncate">
+                                {item.user?.email || '-'}
+                              </div>
+                              <div className="text-slate-600 font-mono text-xs">
+                                {item.ipAddress || '-'}
+                              </div>
                               <div>
-                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                  item.status === 'SUCCESS' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                                }`}>
+                                <span
+                                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                                    item.status === 'SUCCESS'
+                                      ? 'bg-green-50 text-green-700'
+                                      : 'bg-red-50 text-red-700'
+                                  }`}
+                                >
                                   {item.status || '-'}
                                 </span>
                               </div>
                               <div className="text-slate-600 whitespace-nowrap">
-                                {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
+                                {item.createdAt
+                                  ? new Date(item.createdAt).toLocaleString()
+                                  : '-'}
                               </div>
                             </div>
                           </div>
@@ -603,23 +836,43 @@ function ActivityLogPage() {
                             <div className="bg-slate-50 px-6 py-4 border-t border-slate-100">
                               <div className="grid grid-cols-2 gap-4 text-sm ml-9">
                                 <div>
-                                  <p className="text-xs text-slate-400 mb-1">IP Address</p>
-                                  <p className="text-slate-700 font-mono">{item.ipAddress || '-'}</p>
+                                  <p className="text-xs text-slate-400 mb-1">
+                                    IP Address
+                                  </p>
+                                  <p className="text-slate-700 font-mono">
+                                    {item.ipAddress || '-'}
+                                  </p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-slate-400 mb-1">Status</p>
-                                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                    item.status === 'SUCCESS' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                                  }`}>{item.status || '-'}</span>
+                                  <p className="text-xs text-slate-400 mb-1">
+                                    Status
+                                  </p>
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                      item.status === 'SUCCESS'
+                                        ? 'bg-green-50 text-green-700'
+                                        : 'bg-red-50 text-red-700'
+                                    }`}
+                                  >
+                                    {item.status || '-'}
+                                  </span>
                                 </div>
                                 <div className="col-span-2">
-                                  <p className="text-xs text-slate-400 mb-1">Device / User Agent</p>
-                                  <p className="text-slate-700 text-xs break-words">{item.userAgent || '-'}</p>
+                                  <p className="text-xs text-slate-400 mb-1">
+                                    Device / User Agent
+                                  </p>
+                                  <p className="text-slate-700 text-xs break-words">
+                                    {item.userAgent || '-'}
+                                  </p>
                                 </div>
                                 {item.location && (
                                   <div className="col-span-2">
-                                    <p className="text-xs text-slate-400 mb-1">Location</p>
-                                    <p className="text-slate-700">{item.location}</p>
+                                    <p className="text-xs text-slate-400 mb-1">
+                                      Location
+                                    </p>
+                                    <p className="text-slate-700">
+                                      {item.location}
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -639,18 +892,30 @@ function ActivityLogPage() {
 
                 {filteredLogin.length > PAGE_SIZE && (
                   <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
-                    <p className="text-sm text-slate-500">Page {currentPage} of {loginTotalPages}</p>
+                    <p className="text-sm text-slate-500">
+                      Page {currentPage} of {loginTotalPages}
+                    </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(p - 1, 1))
+                        }
                         disabled={currentPage === 1}
                         className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                      >Previous</button>
+                      >
+                        Previous
+                      </button>
                       <button
-                        onClick={() => setCurrentPage((p) => Math.min(p + 1, loginTotalPages))}
+                        onClick={() =>
+                          setCurrentPage((p) =>
+                            Math.min(p + 1, loginTotalPages)
+                          )
+                        }
                         disabled={currentPage === loginTotalPages}
                         className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                      >Next</button>
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
                 )}
@@ -659,73 +924,151 @@ function ActivityLogPage() {
           </div>
         )}
 
+        {/* ── Unread Tab ── */}
         {activeTab === 'unread' && (
-          <div className="rounded-2xl border border-slate-200 bg-white">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <p className="text-sm text-slate-500">
-                {unreadNotifications.length} unread notification{unreadNotifications.length !== 1 ? 's' : ''}
-              </p>
-              {unreadNotifications.length > 0 && (
-                <button
-                  onClick={markAllRead}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                >
-                  Mark All Read
-                </button>
-              )}
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            {/* Unread header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <p className="text-sm font-semibold text-slate-700">
+                  {filteredUnreadItems.length} item
+                  {filteredUnreadItems.length !== 1 ? 's' : ''}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-slate-300 inline-block" />
+                    {allActivityItems.filter((i) => i.type === 'ACTIVITY').length} actions
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-blue-400 inline-block" />
+                    {allActivityItems.filter((i) => i.type === 'LOGIN').length} logins
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-indigo-400 inline-block" />
+                    {allActivityItems.filter((i) => i.type !== 'ACTIVITY' && i.type !== 'LOGIN').length} alerts
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {totalUnreadCount > 0 && (
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount} unread
+                  </span>
+                )}
+                {unreadItems.length > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
             </div>
 
-            {notifLoading && <div className="p-6 text-sm text-slate-500">Loading notifications...</div>}
+            {notifLoading && (
+              <div className="p-6 text-sm text-slate-500">
+                Loading activity...
+              </div>
+            )}
 
             {!notifLoading && (
               <div className="divide-y divide-slate-100">
-                {paginatedUnread.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => markAsRead(n.id)}
-                    className="flex items-start gap-3 px-6 py-4 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <div className="mt-1">
-                      {!n.isRead ? (
-                        <span className="h-2 w-2 rounded-full bg-indigo-600 block" />
-                      ) : (
-                        <CheckCircle2 size={14} className="text-green-500" />
-                      )}
+                {paginatedUnread.map((item) => {
+                  const { icon, className: iconClass } = getUnreadItemIcon(
+                    item.type,
+                    item.meta
+                  );
+                  const { label: badgeLabel, className: badgeClass } =
+                    getTypeBadge(item.type);
+                  const isAlert =
+                    item.type !== 'ACTIVITY' && item.type !== 'LOGIN';
+                  const isUnread = !item.isRead;
+
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => isAlert && markAsRead(item)}
+                      className={`flex items-start gap-4 px-6 py-4 transition ${
+                        isAlert ? 'hover:bg-slate-50 cursor-pointer' : ''
+                      } ${isUnread ? 'bg-indigo-50/30' : ''}`}
+                    >
+                      {/* Icon */}
+                      <div
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${iconClass}`}
+                      >
+                        {icon}
+                      </div>
+
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isUnread ? (
+                            <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
+                          ) : isAlert ? (
+                            <CheckCircle2
+                              size={13}
+                              className="text-green-500 shrink-0"
+                            />
+                          ) : null}
+                          <p className="text-sm font-semibold text-slate-900">
+                            {item.title}
+                          </p>
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}
+                          >
+                            {badgeLabel}
+                          </span>
+                        </div>
+                        {item.message && (
+                          <p className="text-xs text-slate-500 mt-1 truncate">
+                            {item.message}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-slate-400 mt-1.5">
+                          {new Date(item.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                      <p className="text-xs text-slate-500 mt-1">{n.message}</p>
-                      <p className="text-[11px] text-slate-400 mt-2">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             {!notifLoading && !paginatedUnread.length && (
               <div className="py-14 text-center">
                 <p className="text-slate-500">
-                  {search ? 'No unread notifications match your search.' : 'No unread notifications.'}
+                  {search || unreadTypeFilter !== 'ALL'
+                    ? 'No items match your filters.'
+                    : 'No recent activity.'}
                 </p>
               </div>
             )}
 
-            {unreadNotifications.length > PAGE_SIZE && (
+            {filteredUnreadItems.length > PAGE_SIZE && (
               <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
-                <p className="text-sm text-slate-500">Page {currentPage} of {unreadTotalPages}</p>
+                <p className="text-sm text-slate-500">
+                  Page {currentPage} of {unreadTotalPages} · {filteredUnreadItems.length} total
+                </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
                     className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                  >Previous</button>
+                  >
+                    Previous
+                  </button>
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, unreadTotalPages))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(p + 1, unreadTotalPages))
+                    }
                     disabled={currentPage === unreadTotalPages}
                     className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
-                  >Next</button>
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             )}
