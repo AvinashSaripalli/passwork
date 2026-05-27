@@ -1,35 +1,16 @@
+// src/features/dashboard/dashboardSlice.js
+
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
 export const fetchSecuritySummary = createAsyncThunk(
   'dashboard/fetchSecuritySummary',
-  async (_, thunkAPI) => {
-    try {
-      const token = thunkAPI.getState().auth.token;
-
-      const response = await api.get('/dashboard/security-summary', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      return response.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || 'Failed to fetch security summary'
-      );
-    }
-  }
-);
-
-export const fetchPasswordActivity = createAsyncThunk(
-  'dashboard/fetchPasswordActivity',
-  async (range = '6M', thunkAPI) => {
+  async (vaultType = 'PERSONAL', thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.token;
 
       const response = await api.get(
-        `/dashboard/password-activity?range=${range}`,
+        `/dashboard/security-summary?vaultType=${vaultType}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -40,7 +21,36 @@ export const fetchPasswordActivity = createAsyncThunk(
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.data?.message || 'Failed to fetch password activity'
+        error.response?.data?.message ||
+          'Failed to fetch security summary'
+      );
+    }
+  }
+);
+
+export const fetchPasswordActivity = createAsyncThunk(
+  'dashboard/fetchPasswordActivity',
+  async (
+    { range = '6M', vaultType = 'PERSONAL' },
+    thunkAPI
+  ) => {
+    try {
+      const token = thunkAPI.getState().auth.token;
+
+      const response = await api.get(
+        `/dashboard/password-activity?range=${range}&vaultType=${vaultType}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message ||
+          'Failed to fetch password activity'
       );
     }
   }
@@ -48,20 +58,24 @@ export const fetchPasswordActivity = createAsyncThunk(
 
 export const fetchRecentPasswords = createAsyncThunk(
   'dashboard/fetchRecentPasswords',
-  async (_, thunkAPI) => {
+  async (vaultType = 'PERSONAL', thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.token;
 
-      const response = await api.get('/dashboard/recent-passwords', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get(
+        `/dashboard/recent-passwords?vaultType=${vaultType}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.data?.message || 'Failed to fetch recent passwords'
+        error.response?.data?.message ||
+          'Failed to fetch recent passwords'
       );
     }
   }
@@ -98,19 +112,35 @@ const dashboardSlice = createSlice({
         state.summaryLoading = true;
         state.error = null;
       })
+
       .addCase(fetchSecuritySummary.fulfilled, (state, action) => {
         state.summaryLoading = false;
 
-        state.totalPasswords = action.payload.totalPasswords || 0;
-        state.companyPasswords = action.payload.companyPasswords || 0;
-        state.personalPasswords = action.payload.personalPasswords || 0;
-        state.deletedPasswords = action.payload.deletedPasswords || 0;
+        state.totalPasswords =
+          action.payload.totalPasswords || 0;
 
-        state.weakPasswords = action.payload.weakPasswords || 0;
-        state.oldPasswords = action.payload.oldPasswords || 0;
-        state.riskPasswords = action.payload.riskPasswords || 0;
-        state.securityScore = action.payload.securityScore ?? 100;
+        state.companyPasswords =
+          action.payload.companyPasswords || 0;
+
+        state.personalPasswords =
+          action.payload.personalPasswords || 0;
+
+        state.deletedPasswords =
+          action.payload.deletedPasswords || 0;
+
+        state.weakPasswords =
+          action.payload.weakPasswords || 0;
+
+        state.oldPasswords =
+          action.payload.oldPasswords || 0;
+
+        state.riskPasswords =
+          action.payload.riskPasswords || 0;
+
+        state.securityScore =
+          action.payload.securityScore ?? 100;
       })
+
       .addCase(fetchSecuritySummary.rejected, (state, action) => {
         state.summaryLoading = false;
         state.error = action.payload;
@@ -120,10 +150,13 @@ const dashboardSlice = createSlice({
         state.activityLoading = true;
         state.error = null;
       })
+
       .addCase(fetchPasswordActivity.fulfilled, (state, action) => {
         state.activityLoading = false;
-        state.passwordTrend = action.payload.passwordTrend || [];
+        state.passwordTrend =
+          action.payload.passwordTrend || [];
       })
+
       .addCase(fetchPasswordActivity.rejected, (state, action) => {
         state.activityLoading = false;
         state.error = action.payload;
@@ -133,10 +166,13 @@ const dashboardSlice = createSlice({
         state.recentLoading = true;
         state.error = null;
       })
+
       .addCase(fetchRecentPasswords.fulfilled, (state, action) => {
         state.recentLoading = false;
-        state.recentPasswords = action.payload.recentPasswords || [];
+        state.recentPasswords =
+          action.payload.recentPasswords || [];
       })
+
       .addCase(fetchRecentPasswords.rejected, (state, action) => {
         state.recentLoading = false;
         state.error = action.payload;

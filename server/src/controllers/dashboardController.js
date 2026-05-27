@@ -1,120 +1,83 @@
+// controllers/dashboardController.js
+
 const prisma = require('../config/prisma');
 
-const allowedRanges = ['7D', '30D', 'THIS_MONTH', 'LAST_MONTH', '6M'];
+const allowedRanges = [
+  '7D',
+  '30D',
+  'THIS_MONTH',
+  'LAST_MONTH',
+  '6M',
+];
 
-const getDateOnly = (date) => {
+// LOCAL DATE KEY (FIXES IST TIMEZONE ISSUE)
+const getLocalDateKey = (date) => {
   const d = new Date(date);
-  return d.toISOString().split('T')[0];
+
+  const year = d.getFullYear();
+
+  const month = String(
+    d.getMonth() + 1
+  ).padStart(2, '0');
+
+  const day = String(
+    d.getDate()
+  ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 };
 
-const getDayLabel = (date) =>
-  new Date(date).toLocaleString('en-US', {
-    day: '2-digit',
-    month: 'short',
-  });
-
-const getMonthLabel = (date) =>
-  new Date(date).toLocaleString('en-US', {
-    month: 'short',
-  });
-
-const getAccessibleVaultIds = async (user) => {
-  if (user.role === 'ADMIN') {
+const getAccessibleVaultIds = async (
+  user,
+  vaultType
+) => {
+  // ADMIN COMPANY DASHBOARD
+  if (
+    user.role === 'ADMIN' &&
+    vaultType === 'COMPANY'
+  ) {
     const vaults = await prisma.vault.findMany({
-      select: { id: true },
+      where: {
+        type: 'COMPANY',
+      },
+
+      select: {
+        id: true,
+      },
     });
 
-    return vaults.map((vault) => vault.id);
+    return vaults.map((v) => v.id);
   }
 
+  // PERSONAL DASHBOARD
   const vaults = await prisma.vault.findMany({
     where: {
       ownerId: user.id,
       type: 'PERSONAL',
     },
-    select: { id: true },
+
+    select: {
+      id: true,
+    },
   });
 
-  return vaults.map((vault) => vault.id);
+  return vaults.map((v) => v.id);
 };
 
-const getPasswordWhere = async (user) => {
-  const vaultIds = await getAccessibleVaultIds(user);
-
-  if (user.role === 'ADMIN') {
-    return {
-      vaultId: {
-        in: vaultIds,
-      },
-    };
-  }
+const getPasswordWhere = async (
+  user,
+  vaultType
+) => {
+  const vaultIds = await getAccessibleVaultIds(
+    user,
+    vaultType
+  );
 
   return {
     vaultId: {
       in: vaultIds,
     },
-    createdById: user.id,
   };
-};
-
-const buildTrendRange = (range) => {
-  const now = new Date();
-  const startDate = new Date();
-  const endDate = new Date();
-
-  if (range === '7D') {
-    startDate.setDate(now.getDate() - 6);
-  } else if (range === '30D') {
-    startDate.setDate(now.getDate() - 29);
-  } else if (range === 'THIS_MONTH') {
-    startDate.setFullYear(now.getFullYear(), now.getMonth(), 1);
-  } else if (range === 'LAST_MONTH') {
-    startDate.setFullYear(now.getFullYear(), now.getMonth() - 1, 1);
-    endDate.setFullYear(now.getFullYear(), now.getMonth(), 0);
-  } else {
-    startDate.setMonth(now.getMonth() - 5);
-    startDate.setDate(1);
-  }
-
-  startDate.setHours(0, 0, 0, 0);
-  endDate.setHours(23, 59, 59, 999);
-
-  return { startDate, endDate };
-};
-
-const buildTrendBuckets = (range, startDate, endDate) => {
-  const buckets = [];
-
-  if (range === '6M') {
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-
-      buckets.push({
-        key: `${d.getFullYear()}-${d.getMonth()}`,
-        label: getMonthLabel(d),
-        added: 0,
-        deleted: 0,
-      });
-    }
-
-    return buckets;
-  }
-
-  const current = new Date(startDate);
-
-  while (current <= endDate) {
-    buckets.push({
-      key: getDateOnly(current),
-      label: getDayLabel(current),
-      added: 0,
-      deleted: 0,
-    });
-
-    current.setDate(current.getDate() + 1);
-  }
-
-  return buckets;
 };
 
 const calculateSecurityScore = ({
@@ -125,184 +88,341 @@ const calculateSecurityScore = ({
 }) => {
   if (totalPasswords === 0) return 100;
 
-  const weakPenalty = (weakPasswords / totalPasswords) * 40;
-  const oldPenalty = (oldPasswords / totalPasswords) * 25;
-  const riskPenalty = (riskPasswords / totalPasswords) * 35;
+  const weakPenalty =
+    (weakPasswords / totalPasswords) * 40;
+
+  const oldPenalty =
+    (oldPasswords / totalPasswords) * 25;
+
+  const riskPenalty =
+    (riskPasswords / totalPasswords) * 35;
 
   return Math.max(
     0,
-    Math.round(100 - weakPenalty - oldPenalty - riskPenalty)
+    Math.round(
+      100 -
+        weakPenalty -
+        oldPenalty -
+        riskPenalty
+    )
   );
 };
 
-const getSecuritySummary = async (req, res) => {
+// SECURITY SUMMARY
+const getSecuritySummary = async (
+  req,
+  res
+) => {
   try {
-    const where = await getPasswordWhere(req.user);
+    const vaultType =
+      req.query.vaultType === 'COMPANY'
+        ? 'COMPANY'
+        : 'PERSONAL';
 
-    const passwords = await prisma.passwordEntry.findMany({
-      where,
-      select: {
-        id: true,
-        isWeak: true,
-        isOld: true,
-        isAtRisk: true,
-      },
-    });
+    const where = await getPasswordWhere(
+      req.user,
+      vaultType
+    );
 
-    const totalPasswordsForHealth = passwords.length;
-    const weakPasswords = passwords.filter((item) => item.isWeak).length;
-    const oldPasswords = passwords.filter((item) => item.isOld).length;
-    const riskPasswords = passwords.filter((item) => item.isAtRisk).length;
+    const passwords =
+      await prisma.passwordEntry.findMany({
+        where,
 
-    const securityScore = calculateSecurityScore({
-      totalPasswords: totalPasswordsForHealth,
-      weakPasswords,
-      oldPasswords,
-      riskPasswords,
-    });
-
-    const totalPasswords = await prisma.passwordEntry.count();
-
-    const companyPasswords = await prisma.passwordEntry.count({
-      where: {
-        vault: {
-          type: 'COMPANY',
+        select: {
+          isWeak: true,
+          isOld: true,
+          isAtRisk: true,
         },
-      },
-    });
+      });
 
-    const personalPasswords = await prisma.passwordEntry.count({
-      where: {
-        vault: {
-          type: 'PERSONAL',
-        },
-      },
-    });
+    const totalPasswords = passwords.length;
 
-    const deletedPasswords = await prisma.activityLog.count({
-      where: {
-        action: 'DELETE_PASSWORD',
-      },
-    });
+    const weakPasswords = passwords.filter(
+      (p) => p.isWeak
+    ).length;
+
+    const oldPasswords = passwords.filter(
+      (p) => p.isOld
+    ).length;
+
+    const riskPasswords = passwords.filter(
+      (p) => p.isAtRisk
+    ).length;
+
+    const securityScore =
+      calculateSecurityScore({
+        totalPasswords,
+        weakPasswords,
+        oldPasswords,
+        riskPasswords,
+      });
+
+    const deleteLogs =
+  await prisma.activityLog.findMany({
+    where: {
+      action: 'DELETE_PASSWORD',
+    },
+
+    select: {
+      metadata: true,
+    },
+  });
+
+const deletedPasswords =
+  deleteLogs.filter((log) => {
+    const vaultId =
+      log.metadata?.vaultId;
+
+    return where.vaultId.in.includes(
+      vaultId
+    );
+  }).length;
 
     res.json({
       totalPasswords,
-      companyPasswords,
-      personalPasswords,
+
+      companyPasswords:
+        vaultType === 'COMPANY'
+          ? totalPasswords
+          : 0,
+
+      personalPasswords:
+        vaultType === 'PERSONAL'
+          ? totalPasswords
+          : 0,
+
       deletedPasswords,
+
       weakPasswords,
       oldPasswords,
       riskPasswords,
       securityScore,
     });
   } catch (error) {
-    console.error('Security summary error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(error);
+
+    res
+      .status(500)
+      .json({ message: 'Server error' });
   }
 };
 
-const getPasswordActivityTrend = async (req, res) => {
+// PASSWORD ACTIVITY TREND
+const getPasswordActivityTrend = async (
+  req,
+  res
+) => {
   try {
-    const range = allowedRanges.includes(req.query.range)
+    const range = allowedRanges.includes(
+      req.query.range
+    )
       ? req.query.range
       : '6M';
 
-    const vaultIds = await getAccessibleVaultIds(req.user);
-    const { startDate, endDate } = buildTrendRange(range);
-    const trendBuckets = buildTrendBuckets(range, startDate, endDate);
+    const vaultType =
+      req.query.vaultType === 'COMPANY'
+        ? 'COMPANY'
+        : 'PERSONAL';
 
-    const activityLogs = await prisma.activityLog.findMany({
-      where: {
-        userId: req.user.role === 'ADMIN' ? undefined : req.user.id,
-        action: {
-          in: ['CREATE_PASSWORD', 'DELETE_PASSWORD'],
+    const vaultIds = await getAccessibleVaultIds(
+      req.user,
+      vaultType
+    );
+
+    // DATE RANGE
+    const now = new Date();
+
+    const startDate = new Date();
+
+    const endDate = new Date();
+
+    if (range === '7D') {
+      startDate.setDate(now.getDate() - 6);
+    }
+
+    else if (range === '30D') {
+      startDate.setDate(now.getDate() - 29);
+    }
+
+    else if (range === 'THIS_MONTH') {
+      startDate.setFullYear(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      );
+    }
+
+    else if (range === 'LAST_MONTH') {
+      startDate.setFullYear(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1
+      );
+
+      endDate.setFullYear(
+        now.getFullYear(),
+        now.getMonth(),
+        0
+      );
+    }
+
+    else {
+      startDate.setMonth(now.getMonth() - 5);
+
+      startDate.setDate(1);
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+
+    endDate.setHours(23, 59, 59, 999);
+
+    // FETCH PASSWORDS
+    const passwords =
+      await prisma.passwordEntry.findMany({
+        where: {
+          vaultId: {
+            in: vaultIds,
+          },
+
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
+
+        select: {
+          createdAt: true,
         },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
+      });
 
-    const filteredLogs = activityLogs.filter((log) => {
-      const vaultId = log.metadata?.vaultId;
-      return vaultIds.includes(vaultId);
-    });
+    // CREATE BUCKETS
+    const buckets = [];
 
-    filteredLogs.forEach((log) => {
+    // 6 MONTHS
+    if (range === '6M') {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+
+        d.setMonth(d.getMonth() - i);
+
+        buckets.push({
+          key: `${d.getFullYear()}-${d.getMonth()}`,
+
+          label: d.toLocaleString('en-US', {
+            month: 'short',
+          }),
+
+          added: 0,
+          deleted: 0,
+        });
+      }
+    }
+
+    // DAYS
+    else {
+      const current = new Date(startDate);
+
+      while (current <= endDate) {
+        buckets.push({
+          key: getLocalDateKey(current),
+
+          label: current.toLocaleString(
+            'en-US',
+            {
+              day: '2-digit',
+              month: 'short',
+            }
+          ),
+
+          added: 0,
+          deleted: 0,
+        });
+
+        current.setDate(
+          current.getDate() + 1
+        );
+      }
+    }
+
+    // MAP PASSWORDS
+    passwords.forEach((password) => {
+      const d = new Date(
+        password.createdAt
+      );
+
       let key;
 
       if (range === '6M') {
-        const d = new Date(log.createdAt);
         key = `${d.getFullYear()}-${d.getMonth()}`;
       } else {
-        key = getDateOnly(log.createdAt);
+        key = getLocalDateKey(d);
       }
 
-      const found = trendBuckets.find((item) => item.key === key);
+      const found = buckets.find(
+        (b) => b.key === key
+      );
+
       if (!found) return;
 
-      if (log.action === 'CREATE_PASSWORD') {
-        found.added += 1;
-      }
-
-      if (log.action === 'DELETE_PASSWORD') {
-        found.deleted += 1;
-      }
+      found.added += 1;
     });
-
-    const passwordTrend = trendBuckets.map((item) => ({
-      label: item.label,
-      added: item.added,
-      deleted: item.deleted,
-    }));
 
     res.json({
-      range,
-      passwordTrend,
+      passwordTrend: buckets.map((b) => ({
+        label: b.label,
+        added: b.added,
+        deleted: 0,
+      })),
     });
   } catch (error) {
-    console.error('Password activity trend error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(error);
+
+    res
+      .status(500)
+      .json({ message: 'Server error' });
   }
 };
 
-const getRecentPasswords = async (req, res) => {
+// RECENT PASSWORDS
+const getRecentPasswords = async (
+  req,
+  res
+) => {
   try {
-    const where = await getPasswordWhere(req.user);
+    const vaultType =
+      req.query.vaultType === 'COMPANY'
+        ? 'COMPANY'
+        : 'PERSONAL';
 
-    const recentPasswords = await prisma.passwordEntry.findMany({
-      where,
-      include: {
-        vault: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
+    const where = await getPasswordWhere(
+      req.user,
+      vaultType
+    );
+
+    const recentPasswords =
+      await prisma.passwordEntry.findMany({
+        where,
+
+        include: {
+          vault: true,
         },
-        folder: {
-          select: {
-            id: true,
-            name: true,
-          },
+
+        orderBy: {
+          updatedAt: 'desc',
         },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-      take: 10,
-    });
+
+        take: 10,
+      });
 
     res.json({
       recentPasswords,
     });
   } catch (error) {
-    console.error('Recent passwords error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(error);
+
+    res
+      .status(500)
+      .json({ message: 'Server error' });
   }
 };
 
