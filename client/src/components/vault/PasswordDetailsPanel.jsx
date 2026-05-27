@@ -216,7 +216,7 @@ function PasswordDetailsPanel() {
       setPendingAction(null);
       setActivePasswordId(null);
       setVerifyOpen(false);
-    } catch (error) {
+    } catch {
       alert('Failed to decrypt password. Please check administrator master password.');
       setPendingAction(null);
       setActivePasswordId(null);

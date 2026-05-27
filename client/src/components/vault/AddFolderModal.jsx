@@ -10,7 +10,7 @@ function AddFolderModal() {
   const {
     isAddFolderModalOpen,
     selectedVault,
-    selectedFolderId,
+    _selectedFolderId,
     actionLoading,
   } = useSelector((state) => state.vault);
 

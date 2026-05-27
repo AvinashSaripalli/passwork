@@ -102,7 +102,7 @@ export async function safeDecryptText(encryptedText, masterPassword, salt) {
     }
 
     return await decryptText(encryptedText, masterPassword, salt);
-  } catch (error) {
+  } catch {
     return encryptedText;
   }
 }

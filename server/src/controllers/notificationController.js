@@ -129,8 +129,8 @@ const getRecentActivity = async (req, res) => {
         };
       }),
       ...loginActivities.map((item) => {
-        const isRead = item.status === 'SUCCESS'
-          ? (sinceDate ? new Date(item.createdAt) <= sinceDate : false)
+        const isRead = sinceDate
+          ? new Date(item.createdAt) <= sinceDate
           : false;
 
         return {
@@ -171,9 +171,11 @@ const getRecentActivity = async (req, res) => {
       ? activityLogs.filter((l) => new Date(l.createdAt) > sinceDate).length
       : activityLogs.length;
 
-    const failedLoginCount = loginActivities.filter(
-      (l) => l.status !== 'SUCCESS'
-    ).length;
+    const failedLoginCount = sinceDate
+      ? loginActivities.filter(
+          (l) => l.status !== 'SUCCESS' && new Date(l.createdAt) > sinceDate
+        ).length
+      : loginActivities.filter((l) => l.status !== 'SUCCESS').length;
 
     const unreadCount = unreadNotifCount + unreadActivityCount + failedLoginCount;
 

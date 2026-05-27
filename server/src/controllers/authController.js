@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
 const createNotification = require('../utils/createNotification');
@@ -79,7 +80,6 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
-    const crypto = require('crypto');
     const passwordHash = await bcrypt.hash(password, 12);
     const encryptionSalt = crypto.randomBytes(16).toString('hex');
     const userId = await generateId('user');

@@ -232,7 +232,7 @@ function AddPasswordModal() {
         setLocalError(result.payload || 'Failed to create password');
         setVerifyOpen(false);
       }
-    } catch (error) {
+    } catch {
       setLocalError('Encryption failed. Please try again.');
       setVerifyOpen(false);
     }

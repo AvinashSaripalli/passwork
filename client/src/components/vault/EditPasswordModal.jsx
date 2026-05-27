@@ -258,7 +258,7 @@ function EditPasswordModal() {
         setLocalError(result.payload || 'Failed to update password');
         setVerifyOpen(false);
       }
-    } catch (error) {
+    } catch {
       setLocalError('Encryption failed. Please try again.');
       setVerifyOpen(false);
     }

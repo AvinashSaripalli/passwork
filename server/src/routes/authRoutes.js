@@ -17,7 +17,5 @@ router.get('/me', authenticate, authController.me);
 router.post('/set-master-password', authenticate, authController.setMasterPassword);
 router.post('/verify-master-password', authLimiter, authenticate, authController.verifyMasterPassword);
 router.post('/verify-admin-master-password', authLimiter, authenticate, authController.verifyAdministratorMasterPassword);
-router.post('/save-login-activity', authenticate, authController.saveLoginActivity);
-
 
 module.exports = router;

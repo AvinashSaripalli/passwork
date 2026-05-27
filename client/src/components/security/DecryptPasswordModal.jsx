@@ -79,7 +79,7 @@ import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { decryptText } from '../../utils/crypto';
 
-function DecryptPasswordModal({ open, onClose, encryptedValue, onDecrypted }) {
+function DecryptPasswordModal({ open, onClose, encryptedValue }) {
   const [masterPassword, setMasterPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -95,15 +95,15 @@ function DecryptPasswordModal({ open, onClose, encryptedValue, onDecrypted }) {
 
       console.log('encryptedValue:', encryptedValue);
 
-        const decrypted = await decryptText(
+        const _decrypted = await decryptText(
         encryptedValue,
         masterPassword,
         user?.encryptionSalt || 'vault-salt'
         );
       setMasterPassword('');
       onClose();
-    } catch (err) {
-      console.error('Decrypt error:', err);
+    } catch {
+      console.error('Decrypt error:');
       setError('Failed to decrypt. Check master password.');
     } finally {
       setLoading(false);

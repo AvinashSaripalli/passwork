@@ -80,7 +80,8 @@ function Topbar() {
       const res = await api.get('/notifications/recent-activity', { params });
       setItems(res.data?.items || []);
       setUnreadCount(res.data?.unreadCount || 0);
-    } catch {
+    } catch (err) {
+      console.error('fetchRecentActivity error:', err);
       setItems([]);
       setUnreadCount(0);
     } finally {
@@ -108,7 +109,9 @@ function Topbar() {
     if (item.type !== 'ACTIVITY' && item.type !== 'LOGIN') {
       try {
         await api.patch(`/notifications/${item.sourceId}/read`);
-      } catch {}
+      } catch (err) {
+        console.error('markAsRead error:', err);
+      }
     }
     localStorage.setItem('lastViewedAt', new Date().toISOString());
     fetchRecentActivity();
@@ -117,7 +120,9 @@ function Topbar() {
   const markAllRead = async () => {
     try {
       await api.patch('/notifications/mark-all-read');
-    } catch {}
+    } catch (err) {
+      console.error('markAllRead error:', err);
+    }
     localStorage.setItem('lastViewedAt', new Date().toISOString());
     fetchRecentActivity();
   };

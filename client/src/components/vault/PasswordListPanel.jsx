@@ -84,7 +84,7 @@ function PasswordListPanel() {
 
       <div className="space-y-3">
         {groupedPasswords.map((group) => {
-          const firstItem = group.items[0];
+          const _firstItem = group.items[0];
           const active = group.items.some(
             (item) => item.id === selectedPasswordId
           );

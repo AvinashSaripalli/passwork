@@ -7,12 +7,9 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useSelector } from 'react-redux';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
 
 function ViewSharedPasswordModal({ open, item, onClose }) {
-  const { user } = useSelector((state) => state.auth);
-
   const [showDecrypted, setShowDecrypted] = useState(false);
   const [decryptedPassword, setDecryptedPassword] = useState(null);
   const [decryptedNote, setDecryptedNote] = useState(null);

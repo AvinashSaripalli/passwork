@@ -204,26 +204,47 @@ enum ActivityAction {
   SHARE_PASSWORD
   SHARE_FOLDER
 }
+
+enum LoginStatus {
+  SUCCESS
+  FAILED
+  BLOCKED
+}
+
+enum NotificationType {
+  LOGIN
+  SECURITY
+  PASSWORD
+  SHARE_PASSWORD
+  SHARE_FOLDER
+  SHARE_VAULT
+  WEAK_PASSWORD
+}
+
 model LoginActivity {
-  id        String   @id
+  id        String      @id
   userId    String
   ipAddress String?
   userAgent String?
-  status    String   // SUCCESS / FAILED
-  createdAt DateTime @default(now())
+  status    LoginStatus
+  createdAt DateTime    @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Notification {
-  id        String   @id
+  id        String         @id
   userId    String
   title     String
   message   String
-  type      String
-  isRead    Boolean  @default(false)
+  type      NotificationType
+  isRead    Boolean        @default(false)
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

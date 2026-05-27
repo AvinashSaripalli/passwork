@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Share2, X } from 'lucide-react';
-import { useSelector } from 'react-redux';
 import api from '../../services/api';
 
 function SharePasswordModal({
@@ -11,8 +10,6 @@ function SharePasswordModal({
   onClose,
   onSubmit,
 }) {
-  const { user } = useSelector((state) => state.auth);
-
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [fetchingUsers, setFetchingUsers] = useState(false);

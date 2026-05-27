@@ -208,28 +208,17 @@ function ActivityLogPage() {
     dispatch(fetchActivityLogs());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (activeTab === 'login') fetchLoginActivities();
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'unread') {
-      fetchAllActivity();
-      const interval = setInterval(fetchAllActivity, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab]);
-
   const fetchLoginActivities = useCallback(async () => {
     setLoginLoading(true);
     try {
       const res = await api.get('/login-activity');
       setLoginActivities(res.data?.activities || []);
-    } catch {
-      setLoginActivities([]);
-    } finally {
-      setLoginLoading(false);
-    }
+      } catch (err) {
+        console.error('fetchLoginActivities error:', err);
+        setLoginActivities([]);
+      } finally {
+        setLoginLoading(false);
+      }
   }, []);
 
   const fetchAllActivity = useCallback(async () => {
@@ -243,7 +232,8 @@ function ActivityLogPage() {
       const res = await api.get('/notifications/recent-activity', { params });
       setAllActivityItems(res.data?.items || []);
       setTotalUnreadCount(res.data?.unreadCount || 0);
-    } catch {
+    } catch (err) {
+      console.error('fetchAllActivity error:', err);
       setAllActivityItems([]);
       setTotalUnreadCount(0);
     } finally {
@@ -251,11 +241,25 @@ function ActivityLogPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'login') fetchLoginActivities();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'unread') {
+      fetchAllActivity();
+      const interval = setInterval(fetchAllActivity, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
   const markAsRead = async (item) => {
     if (item.type !== 'ACTIVITY' && item.type !== 'LOGIN') {
       try {
         await api.patch(`/notifications/${item.sourceId}/read`);
-      } catch {}
+      } catch (err) {
+        console.error('markAsRead error:', err);
+      }
     }
     localStorage.setItem('lastViewedAt', new Date().toISOString());
     fetchAllActivity();
@@ -264,7 +268,9 @@ function ActivityLogPage() {
   const markAllRead = async () => {
     try {
       await api.patch('/notifications/mark-all-read');
-    } catch {}
+    } catch (err) {
+      console.error('markAllRead error:', err);
+    }
     localStorage.setItem('lastViewedAt', new Date().toISOString());
     fetchAllActivity();
   };

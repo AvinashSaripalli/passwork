@@ -21,7 +21,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const app = express();
 
 app.use(helmet());
-app.use(morgan('dev'));
+app.use(morgan(':method :url :status :response-time ms'));
 app.use(express.json());
 
 app.use(
@@ -55,4 +55,10 @@ app.use('/api/v1/my-vault', personalVaultRoutes);
 app.use('/api/v1/password-shares', passwordShareRoutes);
 app.use('/api/v1/login-activity', loginActivityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
+
 module.exports = app;

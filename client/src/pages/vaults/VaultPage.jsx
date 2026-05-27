@@ -164,7 +164,7 @@ function VaultPage() {
       );
 
       setExportVerifyOpen(false);
-    } catch (error) {
+    } catch {
       alert('Export failed. Unable to decrypt passwords.');
       setExportVerifyOpen(false);
     }

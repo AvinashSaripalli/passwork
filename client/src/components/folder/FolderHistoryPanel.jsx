@@ -148,7 +148,7 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
     fetchHistory();
   }, [open, folderId, token]);
 
-  const summary = useMemo(() => {
+  const _summary = useMemo(() => {
     return {
       members: permissions.length,
       activities: logs.length,
