@@ -59,8 +59,8 @@ function FolderMembersSummary({ onClick }) {
 
       <div className="text-sm leading-tight">
         <div className="text-indigo-600 font-medium">
-          Shared with {allMembers.length} user{allMembers.length > 1 ? 's' : ''}
-          {extraCount > 0 ? ` (+${extraCount})` : ''}
+          Shared with {allMembers.length} user
+          {allMembers.length > 1 ? 's' : ''}
         </div>
         <div className="text-slate-400 text-xs">Folder members</div>
       </div>

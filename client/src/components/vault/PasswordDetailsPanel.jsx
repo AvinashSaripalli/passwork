@@ -250,15 +250,7 @@ function PasswordDetailsPanel() {
               <div className="flex items-start justify-between gap-5 mb-5">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">
-                    {index + 1}
-                    {index === 0
-                      ? 'st'
-                      : index === 1
-                      ? 'nd'
-                      : index === 2
-                      ? 'rd'
-                      : 'th'}{' '}
-                    Account
+                    Account {index + 1}
                   </h3>
                 </div>
 
