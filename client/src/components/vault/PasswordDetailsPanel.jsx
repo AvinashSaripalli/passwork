@@ -238,7 +238,7 @@ function PasswordDetailsPanel() {
       </div>
 
       <div className="space-y-5">
-        {sameNamePasswords.map((item) => {
+        {sameNamePasswords.map((item, index) => {
           const isVisible = !!visiblePasswords[item.id];
           const tagNames = getTagNames(item);
 
@@ -249,13 +249,17 @@ function PasswordDetailsPanel() {
             >
               <div className="flex items-start justify-between gap-5 mb-5">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {item.login || 'No login'}
+                  <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                    {index + 1}
+                    {index === 0
+                      ? 'st'
+                      : index === 1
+                      ? 'nd'
+                      : index === 2
+                      ? 'rd'
+                      : 'th'}{' '}
+                    Account
                   </h3>
-
-                  <p className="text-sm text-slate-500 mt-1">
-                    {item.url || 'No URL'}
-                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -330,11 +334,32 @@ function PasswordDetailsPanel() {
 
                 <DetailRow
                   label="URL"
-                  value={item.url || 'No URL'}
+                  value={
+                    item.url ? (
+                      <a
+                        href={
+                          item.url.startsWith('http')
+                            ? item.url
+                            : `https://${item.url}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                      >
+                        {item.url}
+                      </a>
+                    ) : (
+                      'No URL'
+                    )
+                  }
                   action={
                     item.url ? (
                       <a
-                        href={item.url}
+                        href={
+                          item.url.startsWith('http')
+                            ? item.url
+                            : `https://${item.url}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="text-slate-500 hover:text-slate-900"
@@ -350,7 +375,7 @@ function PasswordDetailsPanel() {
                   value={
                     isVisible
                       ? decryptedNotes[item.id] || 'No note'
-                      : '••••••••••••'
+                      : ''
                   }
                 />
 
