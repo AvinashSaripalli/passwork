@@ -159,6 +159,25 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
               </div>
 
               <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs text-slate-500">Tags</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {password?.tags?.length
+                    ? password.tags
+                        .map((item) => item.tag?.name)
+                        .filter(Boolean)
+                        .map((name) => (
+                          <span
+                            key={name}
+                            className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+                          >
+                            {name}
+                          </span>
+                        ))
+                    : <p className="font-medium text-slate-900">No tags</p>}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-500">Note</p>
                 <p className="font-medium text-slate-900 mt-1 break-all">{displayNote}</p>
               </div>

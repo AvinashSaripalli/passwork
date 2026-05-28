@@ -6,6 +6,7 @@ import {
   updatePassword,
 } from '../../features/vault/vaultSlice';
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
+import TagInput from '../common/TagInput';
 import { encryptText } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
@@ -63,7 +64,6 @@ function EditPasswordModal() {
     tags: [],
   });
 
-  const [tagInput, setTagInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -90,7 +90,6 @@ function EditPasswordModal() {
             .filter(Boolean) || [],
       });
 
-      setTagInput('');
       setLocalError('');
       setShowPassword(false);
       setShowConfirmPassword(false);
@@ -103,7 +102,6 @@ function EditPasswordModal() {
   const handleClose = () => {
     clearCompanyPasswordEditCache(selectedPassword.id);
     setLocalError('');
-    setTagInput('');
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPendingPayload(null);
@@ -118,43 +116,6 @@ function EditPasswordModal() {
       [e.target.name]: e.target.value,
     }));
   };
-
-  const addTag = (value) => {
-    const cleanTag = value.trim();
-
-    if (!cleanTag) return;
-
-    const exists = formData.tags.some(
-      (tag) => tag.toLowerCase() === cleanTag.toLowerCase()
-    );
-
-    if (exists) {
-      setTagInput('');
-      return;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      tags: [...prev.tags, cleanTag],
-    }));
-
-    setTagInput('');
-  };
-
-  const removeTag = (tagName) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagName),
-    }));
-  };
-
-  const filteredSuggestions = SUGGESTED_TAGS.filter(
-    (tag) =>
-      tag.toLowerCase().includes(tagInput.toLowerCase()) &&
-      !formData.tags.some(
-        (selectedTag) => selectedTag.toLowerCase() === tag.toLowerCase()
-      )
-  ).slice(0, 6);
 
   const validateForm = () => {
     if (!formData.name.trim()) return 'Website / Service Name is required';
@@ -175,11 +136,6 @@ function EditPasswordModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (tagInput.trim()) {
-      addTag(tagInput);
-      return;
-    }
 
     const validationError = validateForm();
 
@@ -382,51 +338,11 @@ function EditPasswordModal() {
               className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none min-h-[90px]"
             />
 
-            <div>
-              <input
-                type="text"
-                placeholder="Add tags and press Enter"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addTag(tagInput);
-                  }
-                }}
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
-              />
-
-              {tagInput && filteredSuggestions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {filteredSuggestions.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => addTag(tag)}
-                      className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {formData.tags.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {formData.tags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs"
-                    >
-                      {tag} ×
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <TagInput
+              tags={formData.tags}
+              setTags={(newTags) => setFormData((prev) => ({ ...prev, tags: newTags }))}
+              suggestions={SUGGESTED_TAGS}
+            />
 
             <div className="flex justify-end gap-3 pt-2">
               <button

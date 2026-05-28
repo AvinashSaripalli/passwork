@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import TagInput from '../common/TagInput';
 import { decryptText, encryptText } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
@@ -21,7 +22,7 @@ function EditMyVaultPasswordModal({
     encryptedPassword: '',
     url: '',
     encryptedNote: '',
-    tags: '',
+    tags: [],
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +57,7 @@ function EditMyVaultPasswordModal({
             encryptedPassword: plainPassword,
             url: password.url || '',
             encryptedNote: plainNote,
-            tags: password.tags?.map((item) => item.tag?.name).join(', ') || '',
+            tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
           });
         } catch {
           setDecryptError('Failed to decrypt password. Your session may have expired.');
@@ -119,12 +120,6 @@ function EditMyVaultPasswordModal({
         ...formData,
         encryptedPassword,
         encryptedNote,
-        tags: formData.tags
-          ? formData.tags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean)
-          : [],
         strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
         isWeak: strength?.label === 'Weak',
         isOld: isPasswordOld(password.lastUpdatedAt, password.createdAt),
@@ -227,11 +222,9 @@ function EditMyVaultPasswordModal({
             />
           </div>
 
-          <input
-            value={formData.tags}
-            onChange={(e) => updateField('tags', e.target.value)}
-            placeholder="Tags"
-            className={inputClass}
+          <TagInput
+            tags={formData.tags}
+            setTags={(newTags) => updateField('tags', newTags)}
           />
 
           <textarea

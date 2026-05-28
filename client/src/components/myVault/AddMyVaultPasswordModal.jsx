@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyRound, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import TagInput from '../common/TagInput';
 import { encryptText } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
@@ -12,7 +13,7 @@ const initialForm = {
   encryptedPassword: '',
   url: '',
   encryptedNote: '',
-  tags: '',
+  tags: [],
 };
 
 function AddMyVaultPasswordModal({
@@ -80,9 +81,6 @@ function AddMyVaultPasswordModal({
         ...formData,
         encryptedPassword,
         encryptedNote,
-        tags: formData.tags
-          ? formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-          : [],
         strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
         isWeak: strength?.label === 'Weak',
         isOld: false,
@@ -180,12 +178,9 @@ function AddMyVaultPasswordModal({
             />
           </div>
 
-          <input
-            type="text"
-            value={formData.tags}
-            onChange={(e) => updateField('tags', e.target.value)}
-            placeholder="Tags, comma separated"
-            className={inputClass}
+          <TagInput
+            tags={formData.tags}
+            setTags={(newTags) => updateField('tags', newTags)}
           />
 
           <textarea

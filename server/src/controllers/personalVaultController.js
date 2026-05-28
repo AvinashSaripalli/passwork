@@ -417,7 +417,21 @@ const updateMyVaultPassword = async (req, res) => {
       url,
       colorTag,
       folderId,
+      tags,
     } = req.body;
+
+    const cleanTags = Array.isArray(tags)
+      ? tags
+          .map((tag) => String(tag).trim())
+          .filter(Boolean)
+          .filter((tag, index, arr) => {
+            return (
+              arr.findIndex(
+                (t) => t.toLowerCase() === tag.toLowerCase()
+              ) === index
+            );
+          })
+      : undefined;
 
     const vault = await prisma.vault.findFirst({
       where: {
@@ -469,6 +483,29 @@ const updateMyVaultPassword = async (req, res) => {
         isWeak: req.body.isWeak ?? undefined,
         isOld: req.body.isOld ?? undefined,
         isAtRisk: req.body.isAtRisk ?? undefined,
+        ...(cleanTags !== undefined && {
+          tags: {
+            deleteMany: {},
+            create: cleanTags.map((tagName) => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: {
+                    id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    name: tagName,
+                  },
+                },
+              },
+            })),
+          },
+        }),
+      },
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
     });
 

@@ -18,7 +18,6 @@ function MyVaultPasswordWorkspace({
   passwords,
   selectedPasswordId,
   onSelectPassword,
-  onViewPassword,
   onSharePassword,
   onEditPassword,
   onDeletePassword,
@@ -180,12 +179,6 @@ function MyVaultPasswordWorkspace({
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onViewPassword(selectedPassword)}
-                        className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
-                      >
-                        <Eye size={17} />
-                      </button>
-                      <button
                         onClick={() => onEditPassword(selectedPassword)}
                         className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
                       >
@@ -246,17 +239,26 @@ function MyVaultPasswordWorkspace({
                         onCopy={() => copyText(selectedPassword.url)}
                       />
 
-                      <DetailRow
-                        label="Tags"
-                        value={
-                          selectedPassword?.tags?.length
-                            ? selectedPassword.tags
-                                .map((item) => item.tag?.name)
-                                .filter(Boolean)
-                                .join(', ')
-                            : 'No tags'
-                        }
-                      />
+                      <div className="border-b border-slate-200 py-5">
+                        <div className="grid grid-cols-[140px_1fr_40px] items-start">
+                          <p className="text-slate-500">Tags</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedPassword?.tags?.length
+                              ? selectedPassword.tags
+                                  .map((item) => item.tag?.name)
+                                  .filter(Boolean)
+                                  .map((name) => (
+                                    <span
+                                      key={name}
+                                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+                                    >
+                                      {name}
+                                    </span>
+                                  ))
+                              : <span className="text-slate-900">No tags</span>}
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3 mt-7">
