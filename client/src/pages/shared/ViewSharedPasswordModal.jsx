@@ -239,12 +239,24 @@ function ViewSharedPasswordModal({ open, item, onClose }) {
 }
 
 function DetailRow({ label, value, onCopy, link }) {
+  const isUrl = link && value && value !== 'No URL';
   return (
     <div className="grid grid-cols-[110px_1fr_40px] items-center border-b border-slate-200 px-4 py-4 last:border-b-0">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className={`text-sm break-all ${link ? 'text-blue-600' : 'text-slate-900'}`}>
-        {value}
-      </p>
+      {isUrl ? (
+        <a
+          href={value.startsWith('http') ? value : `https://${value}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm break-all text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <p className={`text-sm break-all ${link ? 'text-blue-600' : 'text-slate-900'}`}>
+          {value}
+        </p>
+      )}
       {onCopy ? (
         <button
           onClick={onCopy}

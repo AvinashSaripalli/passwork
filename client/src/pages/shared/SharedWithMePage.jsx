@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Eye,
+  ExternalLink,
   Globe,
   KeyRound,
   Search,
@@ -155,10 +156,23 @@ function SharedWithMePage() {
                       <p className="lg:hidden text-xs text-slate-400 mb-1">
                         URL
                       </p>
-                      <p className="text-sm text-blue-600 truncate flex items-center gap-2">
-                        <Globe size={14} />
-                        {item.password?.url || 'No URL'}
-                      </p>
+                      {item.password?.url ? (
+                        <a
+                          href={item.password.url.startsWith('http') ? item.password.url : `https://${item.password.url}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate flex items-center gap-2"
+                        >
+                          <Globe size={14} />
+                          {item.password.url}
+                          <ExternalLink size={12} />
+                        </a>
+                      ) : (
+                        <p className="text-sm text-blue-600 truncate flex items-center gap-2">
+                          <Globe size={14} />
+                          No URL
+                        </p>
+                      )}
                     </div>
 
                     <div className="min-w-0">

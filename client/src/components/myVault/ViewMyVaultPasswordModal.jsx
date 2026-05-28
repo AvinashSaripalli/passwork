@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Eye, EyeOff, Copy } from 'lucide-react';
+import { X, Eye, EyeOff, Copy, ExternalLink } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
 
@@ -143,7 +143,19 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
 
               <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-500">URL</p>
-                <p className="font-medium text-blue-600 mt-1">{password.url || 'No URL'}</p>
+                {password.url ? (
+                  <a
+                    href={password.url.startsWith('http') ? password.url : `https://${password.url}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-flex items-center gap-1"
+                  >
+                    {password.url}
+                    <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <p className="font-medium text-slate-900 mt-1">No URL</p>
+                )}
               </div>
 
               <div className="rounded-xl border border-slate-200 p-4">

@@ -287,10 +287,22 @@ function MyVaultPasswordWorkspace({
 }
 
 function DetailRow({ label, value, onCopy, link }) {
+  const isUrl = link && value && value !== 'No URL';
   return (
     <div className="grid grid-cols-[140px_1fr_40px] items-center border-b border-slate-200 py-5 last:border-b-0">
       <p className="text-slate-500">{label}</p>
-      <p className={`truncate ${link ? 'text-blue-600' : 'text-slate-900'}`}>{value}</p>
+      {isUrl ? (
+        <a
+          href={value.startsWith('http') ? value : `https://${value}`}
+          target="_blank"
+          rel="noreferrer"
+          className="truncate text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <p className={`truncate ${link ? 'text-blue-600' : 'text-slate-900'}`}>{value}</p>
+      )}
       {onCopy ? (
         <button onClick={onCopy} className="text-slate-500 hover:text-slate-900">
           {link ? <ExternalLink size={17} /> : <Copy size={17} />}
