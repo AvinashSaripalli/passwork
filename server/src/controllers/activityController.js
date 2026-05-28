@@ -7,11 +7,7 @@ const getAllActivityLogs = async (req, res) => {
     const isAdmin = req.user.role === 'ADMIN';
 
     const logs = await prisma.activityLog.findMany({
-      where: isAdmin
-        ? {}
-        : {
-            userId: req.user.id,
-          },
+      where: isAdmin ? {} : { userId: req.user.id },
       orderBy: {
         createdAt: 'desc',
       },
@@ -27,7 +23,11 @@ const getAllActivityLogs = async (req, res) => {
       },
     });
 
-    res.json(logs);
+    const filtered = isAdmin
+      ? logs.filter((log) => !log.metadata?.personalVault)
+      : logs;
+
+    res.json(filtered);
   } catch (error) {
     console.error('Get all activity logs error:', error);
     res.status(500).json({ message: 'Server error' });

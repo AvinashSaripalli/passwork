@@ -692,16 +692,26 @@ function ActivityLogPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-700">
-                              <div>
+                              <div className="flex items-center gap-2">
                                 <p className="font-semibold">
                                   {log.metadata?.name || log.targetId || '-'}
                                 </p>
-                                {log.metadata?.name && log.targetId && (
-                                  <p className="text-xs text-slate-400">
-                                    {log.targetId}
-                                  </p>
+                                {log.metadata?.personalVault && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 shrink-0">
+                                    Personal Vault
+                                  </span>
+                                )}
+                                {log.metadata?.vaultType === 'COMPANY' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 shrink-0">
+                                    Company Vault
+                                  </span>
                                 )}
                               </div>
+                              {log.metadata?.name && log.targetId && (
+                                <p className="text-xs text-slate-400">
+                                  {log.targetId}
+                                </p>
+                              )}
                             </td>
                           </tr>
                         ))}

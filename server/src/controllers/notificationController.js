@@ -84,12 +84,17 @@ const getRecentNotifications = async (req, res) => {
 const getRecentActivity = async (req, res) => {
   try {
     const userId = req.user.id;
+    const isAdmin = req.user.role === 'ADMIN';
     const { since } = req.query;
     const sinceDate = since ? new Date(since) : null;
 
-    const [activityLogs, loginActivities, notifications] = await Promise.all([
+    const activityWhere = isAdmin ? {} : { userId };
+
+    const loginWhere = isAdmin ? {} : { userId };
+
+    let [activityLogs, loginActivities, notifications] = await Promise.all([
       prisma.activityLog.findMany({
-        where: { userId },
+        where: activityWhere,
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: {
@@ -97,7 +102,7 @@ const getRecentActivity = async (req, res) => {
         },
       }),
       prisma.loginActivity.findMany({
-        where: { userId },
+        where: loginWhere,
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: {
@@ -110,6 +115,10 @@ const getRecentActivity = async (req, res) => {
         take: 50,
       }),
     ]);
+
+    if (isAdmin) {
+      activityLogs = activityLogs.filter((log) => !log.metadata?.personalVault);
+    }
 
     const items = [
       ...activityLogs.map((log) => {
@@ -133,18 +142,20 @@ const getRecentActivity = async (req, res) => {
           ? new Date(item.createdAt) <= sinceDate
           : false;
 
+        const userName = item.user?.fullName || item.user?.email || 'Unknown';
+
         return {
           id: `login-${item.id}`,
           sourceId: item.id,
           type: 'LOGIN',
           title:
             item.status === 'SUCCESS'
-              ? 'Successful login'
-              : 'Failed login attempt',
+              ? `Login: ${userName}`
+              : `Failed login: ${userName}`,
           message: `IP: ${item.ipAddress || 'Unknown'}${item.userAgent ? ' · ' + item.userAgent.split(' ')[0] : ''}`,
           isRead,
           createdAt: item.createdAt,
-          meta: { status: item.status, ipAddress: item.ipAddress, userAgent: item.userAgent },
+          meta: { status: item.status, ipAddress: item.ipAddress, userAgent: item.userAgent, user: userName },
         };
       }),
       ...notifications.map((n) => ({
@@ -171,13 +182,11 @@ const getRecentActivity = async (req, res) => {
       ? activityLogs.filter((l) => new Date(l.createdAt) > sinceDate).length
       : activityLogs.length;
 
-    const failedLoginCount = sinceDate
-      ? loginActivities.filter(
-          (l) => l.status !== 'SUCCESS' && new Date(l.createdAt) > sinceDate
-        ).length
-      : loginActivities.filter((l) => l.status !== 'SUCCESS').length;
+    const loginCount = sinceDate
+      ? loginActivities.filter((l) => new Date(l.createdAt) > sinceDate).length
+      : loginActivities.length;
 
-    const unreadCount = unreadNotifCount + unreadActivityCount + failedLoginCount;
+    const unreadCount = unreadNotifCount + unreadActivityCount + loginCount;
 
     res.json({ items: recent, unreadCount });
   } catch (error) {

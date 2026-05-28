@@ -326,6 +326,22 @@ const updateMyVaultFolder = async (req, res) => {
       data: { name },
     });
 
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'UPDATE_FOLDER',
+        targetType: 'Folder',
+        targetId: folder.id,
+        metadata: {
+          name: updatedFolder.name,
+          vaultId: vault.id,
+          folderId: folder.id,
+          personalVault: true,
+        },
+      },
+    });
+
     res.json(updatedFolder);
   } catch (error) {
     console.error('Update my vault folder error:', error);
@@ -364,6 +380,22 @@ const deleteMyVaultFolder = async (req, res) => {
 
     await prisma.folder.delete({
       where: { id: folderId },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'DELETE_FOLDER',
+        targetType: 'Folder',
+        targetId: folder.id,
+        metadata: {
+          name: folder.name,
+          vaultId: vault.id,
+          folderId: folder.id,
+          personalVault: true,
+        },
+      },
     });
 
     res.json({ message: 'Folder deleted successfully' });
@@ -440,6 +472,22 @@ const updateMyVaultPassword = async (req, res) => {
       },
     });
 
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'UPDATE_PASSWORD',
+        targetType: 'PasswordEntry',
+        targetId: password.id,
+        metadata: {
+          name: updatedPassword.name,
+          vaultId: vault.id,
+          folderId,
+          personalVault: true,
+        },
+      },
+    });
+
     res.json(updatedPassword);
   } catch (error) {
     console.error('Update my vault password error:', error);
@@ -473,8 +521,24 @@ const deleteMyVaultPassword = async (req, res) => {
       return res.status(404).json({ message: 'Password not found' });
     }
 
-    await prisma.passwordEntry.delete({
+    const deletedPassword = await prisma.passwordEntry.delete({
       where: { id: passwordId },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'DELETE_PASSWORD',
+        targetType: 'PasswordEntry',
+        targetId: passwordId,
+        metadata: {
+          name: deletedPassword.name,
+          vaultId: vault.id,
+          folderId: deletedPassword.folderId,
+          personalVault: true,
+        },
+      },
     });
 
     res.json({ message: 'Password deleted successfully' });

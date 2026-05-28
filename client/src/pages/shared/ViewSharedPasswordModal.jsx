@@ -6,8 +6,9 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import api from '../../services/api';
 
 function ViewSharedPasswordModal({ open, item, onClose }) {
   const [showDecrypted, setShowDecrypted] = useState(false);
@@ -60,6 +61,8 @@ function ViewSharedPasswordModal({ open, item, onClose }) {
       setDecryptedNote(noteText);
       setShowDecrypted(true);
       setMasterPassword('');
+
+      api.post(`/passwords/${password.id}/view-log`).catch(() => {});
     } catch (err) {
       setDecryptError('Wrong master password');
     } finally {
@@ -70,6 +73,7 @@ function ViewSharedPasswordModal({ open, item, onClose }) {
   const handleCopy = (value) => {
     if (!value) return;
     navigator.clipboard.writeText(value);
+    api.post(`/passwords/${password.id}/copy-log`).catch(() => {});
   };
 
   const handleClose = () => {

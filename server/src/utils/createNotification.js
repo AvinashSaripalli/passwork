@@ -1,5 +1,4 @@
 const prisma = require('../config/prisma');
-const generateId = require('./generateId');
 
 const createNotification = async ({
   userId,
@@ -9,7 +8,7 @@ const createNotification = async ({
   metadata = {},
 }) => {
   try {
-    const id = await generateId('notification');
+    const id = `NOTIF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
     await prisma.notification.create({
       data: {

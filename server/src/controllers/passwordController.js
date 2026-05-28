@@ -3,6 +3,18 @@ const { getFolderAccess, isAdminUser } = require('../utils/permissions');
 const XLSX = require('xlsx');
 const generateId = require('../utils/generateId');
 
+const getVaultType = async (vaultId) => {
+  try {
+    const vault = await prisma.vault.findUnique({
+      where: { id: vaultId },
+      select: { type: true },
+    });
+    return vault?.type || null;
+  } catch {
+    return null;
+  }
+};
+
 const createPassword = async (req, res) => {
   try {
     const {
@@ -71,6 +83,8 @@ const createPassword = async (req, res) => {
       },
     });
 
+    const vaultType = await getVaultType(vaultId);
+
     await prisma.activityLog.create({
       data: {
         id: await generateId('activityLog'),
@@ -82,6 +96,7 @@ const createPassword = async (req, res) => {
           name: passwordEntry.name,
           vaultId,
           folderId,
+          vaultType,
         },
       },
     });
@@ -232,6 +247,8 @@ const getPasswordById = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    const vaultType = await getVaultType(password.vaultId);
+
     await prisma.activityLog.create({
       data: {
         id: await generateId('activityLog'),
@@ -243,6 +260,7 @@ const getPasswordById = async (req, res) => {
           name: password.name,
           folderId: password.folderId,
           vaultId: password.vaultId,
+          vaultType,
         },
       },
     });
@@ -345,6 +363,8 @@ const updatePassword = async (req, res) => {
       },
     });
 
+    const vaultType = await getVaultType(updatedPassword.vaultId);
+
     await prisma.activityLog.create({
       data: {
         id: await generateId('activityLog'),
@@ -357,6 +377,7 @@ const updatePassword = async (req, res) => {
           folderId: updatedPassword.folderId,
           vaultId: updatedPassword.vaultId,
           tags: cleanTags || undefined,
+          vaultType,
         },
       },
     });
@@ -387,6 +408,8 @@ const deletePassword = async (req, res) => {
       where: { id: req.params.id },
     });
 
+    const vaultType = await getVaultType(password.vaultId);
+
     await prisma.activityLog.create({
       data: {
         id: await generateId('activityLog'),
@@ -398,6 +421,7 @@ const deletePassword = async (req, res) => {
           name: password.name,
           folderId: password.folderId,
           vaultId: password.vaultId,
+          vaultType,
         },
       },
     });
@@ -419,13 +443,21 @@ const logCopyPassword = async (req, res) => {
       return res.status(404).json({ message: 'Password not found' });
     }
 
-    const access = await getFolderAccess(password.folderId, req.user.id);
-    if (
-      !access ||
-      !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(access)
-    ) {
+    const hasFolderAccess = await getFolderAccess(password.folderId, req.user.id);
+    const hasShare = await prisma.passwordShare.findFirst({
+      where: {
+        passwordId: password.id,
+        sharedWithId: req.user.id,
+      },
+    });
+
+    const hasAccessViaFolder = hasFolderAccess && ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(hasFolderAccess);
+
+    if (!hasAccessViaFolder && !hasShare) {
       return res.status(403).json({ message: 'Access denied' });
     }
+
+    const vaultType = await getVaultType(password.vaultId);
 
     await prisma.activityLog.create({
       data: {
@@ -438,6 +470,7 @@ const logCopyPassword = async (req, res) => {
           name: password.name,
           folderId: password.folderId,
           vaultId: password.vaultId,
+          vaultType,
         },
       },
     });
@@ -459,12 +492,17 @@ const logViewPassword = async (req, res) => {
       return res.status(404).json({ message: 'Password not found' });
     }
 
-    const access = await getFolderAccess(password.folderId, req.user.id);
+    const hasFolderAccess = await getFolderAccess(password.folderId, req.user.id);
+    const hasShare = await prisma.passwordShare.findFirst({
+      where: {
+        passwordId: password.id,
+        sharedWithId: req.user.id,
+      },
+    });
 
-    if (
-      !access ||
-      !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(access)
-    ) {
+    const hasAccessViaFolder = hasFolderAccess && ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(hasFolderAccess);
+
+    if (!hasAccessViaFolder && !hasShare) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -474,6 +512,8 @@ const logViewPassword = async (req, res) => {
         lastViewedAt: new Date(),
       },
     });
+
+    const vaultType = await getVaultType(password.vaultId);
 
     await prisma.activityLog.create({
       data: {
@@ -486,6 +526,7 @@ const logViewPassword = async (req, res) => {
           name: password.name,
           folderId: password.folderId,
           vaultId: password.vaultId,
+          vaultType,
         },
       },
     });

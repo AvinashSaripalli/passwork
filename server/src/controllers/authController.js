@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
-const createNotification = require('../utils/createNotification');
 
 const signToken = (user) => {
   return jwt.sign(
@@ -29,7 +28,7 @@ const getClientIp = (req) => {
 
 const saveLoginActivity = async ({ req, userId, status }) => {
   try {
-    const loginActivityId = await generateId('loginActivity');
+    const loginActivityId = `LOGIN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
     await prisma.loginActivity.create({
       data: {
@@ -45,24 +44,7 @@ const saveLoginActivity = async ({ req, userId, status }) => {
   }
 };
 
-const createLoginNotification = async ({ req, userId, status }) => {
-  try {
-    if (status !== 'SUCCESS') return;
 
-    await createNotification({
-      userId,
-      title: 'New Login Detected',
-      message: `Your account was logged in from IP ${getClientIp(req)}`,
-      type: 'LOGIN',
-      metadata: {
-        ipAddress: getClientIp(req),
-        userAgent: req.headers['user-agent'] || '',
-      },
-    });
-  } catch (error) {
-    console.error('Create login notification error:', error);
-  }
-};
 
 const register = async (req, res) => {
   try {
@@ -98,12 +80,6 @@ const register = async (req, res) => {
     const token = signToken(user);
 
     await saveLoginActivity({
-      req,
-      userId: user.id,
-      status: 'SUCCESS',
-    });
-
-    await createLoginNotification({
       req,
       userId: user.id,
       status: 'SUCCESS',
@@ -170,12 +146,6 @@ const login = async (req, res) => {
     const token = signToken(user);
 
     await saveLoginActivity({
-      req,
-      userId: user.id,
-      status: 'SUCCESS',
-    });
-
-    await createLoginNotification({
       req,
       userId: user.id,
       status: 'SUCCESS',
