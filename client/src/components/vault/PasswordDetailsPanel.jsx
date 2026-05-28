@@ -15,6 +15,7 @@ import {
   selectPassword,
 } from '../../features/vault/vaultSlice';
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
+import ConfirmModal from '../common/ConfirmModal';
 import { safeDecryptText } from '../../utils/crypto';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
@@ -68,6 +69,7 @@ function PasswordDetailsPanel() {
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [activePasswordId, setActivePasswordId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, name: '', passwordId: null });
 
   const sameNamePasswords = useMemo(() => {
     if (!selectedPassword) return [];
@@ -132,21 +134,7 @@ function PasswordDetailsPanel() {
       }
 
       if (pendingAction === 'delete' && canDelete) {
-        const confirmed = window.confirm(
-          `Delete password "${activePassword.name}"?`
-        );
-
-        if (confirmed) {
-          const result = await dispatch(deletePassword(activePassword.id));
-
-          if (deletePassword.fulfilled.match(result)) {
-            dispatch(selectPassword(null));
-          }
-        }
-
-        setPendingAction(null);
-        setActivePasswordId(null);
-        setVerifyOpen(false);
+        setConfirmDelete({ open: true, name: activePassword.name, passwordId: activePassword.id });
         return;
       }
 
@@ -404,6 +392,29 @@ function PasswordDetailsPanel() {
           setActivePasswordId(null);
         }}
         onVerified={handleVerified}
+      />
+
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete Password"
+        message={`Are you sure you want to delete "${confirmDelete.name}"? This action cannot be undone.`}
+        onConfirm={async () => {
+          if (!confirmDelete.passwordId) return;
+          const result = await dispatch(deletePassword(confirmDelete.passwordId));
+          if (deletePassword.fulfilled.match(result)) {
+            dispatch(selectPassword(null));
+          }
+          setConfirmDelete({ open: false, name: '', passwordId: null });
+          setPendingAction(null);
+          setActivePasswordId(null);
+          setVerifyOpen(false);
+        }}
+        onCancel={() => {
+          setConfirmDelete({ open: false, name: '', passwordId: null });
+          setPendingAction(null);
+          setActivePasswordId(null);
+          setVerifyOpen(false);
+        }}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Search,
   Folder,
@@ -13,6 +14,7 @@ import {
   deleteFolder,
   clearVaultError,
 } from '../../features/vault/vaultSlice';
+import ConfirmModal from '../common/ConfirmModal';
 
 function VaultSidebar() {
   const dispatch = useDispatch();
@@ -44,22 +46,21 @@ function VaultSidebar() {
   const canDeleteFolder =
     user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR';
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const handleDeleteFolder = async () => {
     if (!selectedFolder) return;
-
     dispatch(clearVaultError());
+    setConfirmDelete(true);
+  };
 
-    const confirmed = window.confirm(
-      `Delete folder "${selectedFolder.name}"?`
-    );
-
-    if (!confirmed) return;
-
+  const executeDeleteFolder = async () => {
+    if (!selectedFolder) return;
     const result = await dispatch(deleteFolder(selectedFolder.id));
-
     if (deleteFolder.rejected.match(result)) {
       alert(result.payload || 'Failed to delete folder');
     }
+    setConfirmDelete(false);
   };
 
   return (
@@ -155,6 +156,16 @@ function VaultSidebar() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete}
+        title="Delete Folder"
+        message={`Are you sure you want to delete "${selectedFolder?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={executeDeleteFolder}
+        onCancel={() => setConfirmDelete(false)}
+        loading={actionLoading}
+      />
     </div>
   );
 }

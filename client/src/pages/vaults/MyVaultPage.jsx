@@ -15,6 +15,7 @@ import EditMyVaultPasswordModal from '../../components/myVault/EditMyVaultPasswo
 import SharePasswordModal from '../../components/myVault/SharePasswordModal';
 import ManagePasswordSharesModal from '../../components/myVault/ManagePasswordSharesModal';
 import ViewMyVaultPasswordModal from '../../components/myVault/ViewMyVaultPasswordModal';
+import ConfirmModal from '../../components/common/ConfirmModal';
 
 import {
   createMyVaultFolder,
@@ -59,6 +60,7 @@ function MyVaultPage() {
   const [viewPasswordOpen, setViewPasswordOpen] = useState(false);
   const [selectedPasswordForView, setSelectedPasswordForView] = useState(null);
   const [selectedPasswordId, setSelectedPasswordId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, type: '', item: null });
 
   useEffect(() => {
     dispatch(fetchMyVault());
@@ -107,10 +109,7 @@ function MyVaultPage() {
   };
 
   const handleDeleteFolder = async (folder) => {
-    const confirmed = window.confirm(`Delete folder "${folder.name}"?`);
-    if (!confirmed) return;
-
-    await dispatch(deleteMyVaultFolder(folder.id));
+    setConfirmDelete({ open: true, type: 'folder', item: folder });
   };
 
   const handleCreatePassword = async (payload) => {
@@ -143,10 +142,20 @@ function MyVaultPage() {
   };
 
   const handleDeletePassword = async (password) => {
-    const confirmed = window.confirm(`Delete password "${password.name}"?`);
-    if (!confirmed) return;
+    setConfirmDelete({ open: true, type: 'password', item: password });
+  };
 
-    await dispatch(deleteMyVaultPassword(password.id));
+  const executeDelete = async () => {
+    const { type, item } = confirmDelete;
+    if (!item) return;
+
+    if (type === 'folder') {
+      await dispatch(deleteMyVaultFolder(item.id));
+    } else if (type === 'password') {
+      await dispatch(deleteMyVaultPassword(item.id));
+    }
+
+    setConfirmDelete({ open: false, type: '', item: null });
   };
 
   const handleOpenShare = (password) => {
@@ -274,6 +283,19 @@ function MyVaultPage() {
             setViewPasswordOpen(false);
             setSelectedPasswordForView(null);
           }}
+        />
+
+        <ConfirmModal
+          open={confirmDelete.open}
+          title={confirmDelete.type === 'folder' ? 'Delete Folder' : 'Delete Password'}
+          message={
+            confirmDelete.type === 'folder'
+              ? `Are you sure you want to delete "${confirmDelete.item?.name}"? This action cannot be undone.`
+              : `Are you sure you want to delete "${confirmDelete.item?.name}"? This action cannot be undone.`
+          }
+          confirmLabel="Delete"
+          onConfirm={executeDelete}
+          onCancel={() => setConfirmDelete({ open: false, type: '', item: null })}
         />
       </div>
     </AppLayout>

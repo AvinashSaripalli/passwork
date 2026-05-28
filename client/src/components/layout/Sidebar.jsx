@@ -27,6 +27,7 @@ import {
 import ShareFolderModal from '../folder/ShareFolderModal';
 import RenameFolderModal from '../folder/RenameFolderModal';
 import FolderActionsMenu from '../folder/FolderActionsMenu';
+import ConfirmModal from '../common/ConfirmModal';
 import logo from '../../assets/Vaultix1.png';
 
 function Sidebar() {
@@ -52,6 +53,7 @@ function Sidebar() {
   const [shareOpen, setShareOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [actionFolder, setActionFolder] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, folder: null });
 
   useEffect(() => {
     dispatch(fetchVaults());
@@ -142,15 +144,16 @@ function Sidebar() {
 
   const handleDeleteFolder = async (folder) => {
     dispatch(clearVaultError());
+    setConfirmDelete({ open: true, folder });
+  };
 
-    const confirmed = window.confirm(`Delete folder "${folder.name}"?`);
-    if (!confirmed) return;
-
-    const result = await dispatch(deleteFolder(folder.id));
-
+  const executeDeleteFolder = async () => {
+    if (!confirmDelete.folder) return;
+    const result = await dispatch(deleteFolder(confirmDelete.folder.id));
     if (deleteFolder.rejected.match(result)) {
       alert(result.payload || 'Failed to delete folder');
     }
+    setConfirmDelete({ open: false, folder: null });
   };
 
   const renderMenuSection = (title, items) => {
@@ -390,6 +393,15 @@ function Sidebar() {
         }}
         folder={actionFolder}
         vaultId={currentVaultId}
+      />
+
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete Folder"
+        message={`Are you sure you want to delete "${confirmDelete.folder?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={executeDeleteFolder}
+        onCancel={() => setConfirmDelete({ open: false, folder: null })}
       />
     </>
   );

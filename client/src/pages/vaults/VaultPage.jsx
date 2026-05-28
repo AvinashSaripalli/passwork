@@ -13,6 +13,7 @@ import FolderHistoryPanel from '../../components/folder/FolderHistoryPanel';
 import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import VerifyAdminMasterPasswordModal from '../../components/security/VerifyAdminMasterPasswordModal';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import { safeDecryptText, encryptText } from '../../utils/crypto';
 
 import * as XLSX from 'xlsx';
@@ -46,6 +47,7 @@ function VaultPage() {
   const [exportVerifyOpen, setExportVerifyOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importVerifyOpen, setImportVerifyOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { user, token } = useSelector((state) => state.auth);
 
@@ -374,14 +376,7 @@ function VaultPage() {
                     {canDeleteFolder && (
                       <button
                         onClick={() => {
-                          const confirmed = window.confirm(
-                            `Delete folder "${selectedFolder.name}"?`
-                          );
-
-                          if (confirmed) {
-                            dispatch(deleteFolder(selectedFolder.id));
-                          }
-
+                          setConfirmDelete(true);
                           setMenuOpen(false);
                         }}
                         className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -466,6 +461,18 @@ function VaultPage() {
         open={exportVerifyOpen}
         onClose={() => setExportVerifyOpen(false)}
         onVerified={handleExportVerified}
+      />
+
+      <ConfirmModal
+        open={confirmDelete}
+        title="Delete Folder"
+        message={`Are you sure you want to delete "${selectedFolder?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          dispatch(deleteFolder(selectedFolder.id));
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
       />
 
       <AddFolderModal />
