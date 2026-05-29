@@ -16,7 +16,7 @@ function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loading, error, isAuthenticated } = useSelector(
+  const { loading, error, isAuthenticated, userLoaded } = useSelector(
     (state) => state.auth
   );
 
@@ -29,8 +29,8 @@ function RegisterPage() {
   });
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/set-master-password');
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated && userLoaded) navigate('/set-master-password');
+  }, [isAuthenticated, userLoaded, navigate]);
 
   useEffect(() => {
     return () => dispatch(clearError());

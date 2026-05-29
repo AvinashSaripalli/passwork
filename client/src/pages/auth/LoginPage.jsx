@@ -10,7 +10,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, loading, error, isAuthenticated } = useSelector(
+  const { user, loading, error, isAuthenticated, userLoaded } = useSelector(
     (state) => state.auth
   );
 
@@ -18,14 +18,14 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && userLoaded) {
       navigate(
         user.hasMasterPassword || user.masterPasswordHint
           ? '/enter-master-password'
           : '/set-master-password'
       );
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, userLoaded, navigate]);
 
   useEffect(() => {
     return () => dispatch(clearError());

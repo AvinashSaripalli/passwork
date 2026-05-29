@@ -2,6 +2,21 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
 const getSavedToken = () => localStorage.getItem('token');
+const getSavedUser = () => {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+const saveUser = (user) => {
+  if (user) {
+    localStorage.setItem('user', JSON.stringify(user));
+  } else {
+    localStorage.removeItem('user');
+  }
+};
 
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
@@ -74,15 +89,17 @@ export const setMasterPassword = createAsyncThunk(
 );
 
 const savedToken = getSavedToken();
+const savedUser = getSavedUser();
 
 const initialState = {
   token: savedToken,
-  user: null,
+  user: savedUser,
   isAuthenticated: !!savedToken,
   loading: false,
   error: null,
-  isMasterVerified: false,
-  sessionMasterPassword: null,
+  isMasterVerified: sessionStorage.getItem('isMasterVerified') === 'true',
+  sessionMasterPassword: sessionStorage.getItem('sessionMasterPassword'),
+  userLoaded: !savedToken,
 };
 
 const authSlice = createSlice({
@@ -91,10 +108,23 @@ const authSlice = createSlice({
   reducers: {
     setMasterVerified: (state, action) => {
       state.isMasterVerified = action.payload;
+      if (action.payload) {
+        sessionStorage.setItem('isMasterVerified', 'true');
+      }
     },
 
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload;
+      if (action.payload) {
+        sessionStorage.setItem('sessionMasterPassword', action.payload);
+      } else {
+        sessionStorage.removeItem('sessionMasterPassword');
+      }
+    },
+
+    setUser: (state, action) => {
+      state.user = action.payload;
+      saveUser(action.payload);
     },
 
     logout: (state) => {
@@ -105,8 +135,12 @@ const authSlice = createSlice({
       state.error = null;
       state.isMasterVerified = false;
       state.sessionMasterPassword = null;
+      state.userLoaded = true;
 
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('isMasterVerified');
+      sessionStorage.removeItem('sessionMasterPassword');
     },
 
     clearError: (state) => {
@@ -127,7 +161,9 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+        state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
+        saveUser(action.payload.user);
       })
 
       .addCase(registerUser.rejected, (state, action) => {
@@ -146,7 +182,9 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+        state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
+        saveUser(action.payload.user);
       })
 
       .addCase(loginUser.rejected, (state, action) => {
@@ -157,6 +195,8 @@ const authSlice = createSlice({
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.user = action.payload;
         state.isAuthenticated = true;
+        state.userLoaded = true;
+        saveUser(action.payload);
       })
 
       .addCase(fetchMe.rejected, (state) => {
@@ -164,8 +204,12 @@ const authSlice = createSlice({
         state.user = null;
         state.isAuthenticated = false;
         state.isMasterVerified = false;
+        state.userLoaded = true;
 
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('isMasterVerified');
+        sessionStorage.removeItem('sessionMasterPassword');
       })
 
       .addCase(setMasterPassword.pending, (state) => {
@@ -181,6 +225,7 @@ const authSlice = createSlice({
           hasMasterPassword: true,
         };
         state.isMasterVerified = true;
+        saveUser(state.user);
       })
 
       .addCase(setMasterPassword.rejected, (state, action) => {
@@ -190,5 +235,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setMasterVerified, setSessionMasterPassword } = authSlice.actions;
+export const { logout, clearError, setMasterVerified, setSessionMasterPassword, setUser } = authSlice.actions;
 export default authSlice.reducer;

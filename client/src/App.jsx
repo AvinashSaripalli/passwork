@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchMe } from './features/auth/authSlice';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -15,6 +18,29 @@ import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
 
 function App() {
+  const dispatch = useDispatch();
+  const { token, userLoaded } = useSelector((state) => state.auth);
+  const [initDone, setInitDone] = useState(false);
+
+  useEffect(() => {
+    if (token && !userLoaded) {
+      dispatch(fetchMe()).finally(() => setInitDone(true));
+    } else {
+      setInitDone(true);
+    }
+  }, []);
+
+  if (!initDone) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#f4f6f8]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-slate-500 font-medium">Loading Vaultix...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

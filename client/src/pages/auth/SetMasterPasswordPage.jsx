@@ -45,7 +45,7 @@ function SetMasterPasswordPage() {
     if (user?.hasMasterPassword || user?.masterPasswordHint) {
       navigate('/enter-master-password');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user?.id, navigate]);
 
   useEffect(() => {
     return () => dispatch(clearError());

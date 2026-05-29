@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setMasterVerified } from '../../features/auth/authSlice';
+import { logout } from '../../features/auth/authSlice';
 
-const INACTIVITY_LIMIT = 5 * 60 * 1000;
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 function VaultAutoLock() {
   const dispatch = useDispatch();
@@ -16,9 +16,9 @@ function VaultAutoLock() {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        dispatch(setMasterVerified(false));
-        alert('Vault locked due to inactivity');
-      }, INACTIVITY_LIMIT);
+        dispatch(logout());
+        alert('Session expired due to inactivity. Please log in again.');
+      }, SESSION_TIMEOUT);
     };
 
     const events = ['mousemove', 'keydown', 'click', 'scroll'];
