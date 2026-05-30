@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Shield, Users, Activity, Folder, FolderOpen,
-  LogOut, Plus, ChevronDown, LockKeyhole, Share2,
+  LogOut, Plus, ChevronDown, LockKeyhole, Share2, User,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -66,6 +66,8 @@ function Sidebar() {
   const adminMenu = user?.role === 'ADMIN'
     ? [{ name: 'Team Management', path: '/team-management', icon: Users }]
     : [];
+
+  const accountMenu = [{ name: 'Profile', path: '/profile', icon: User }];
 
   const handleLogout = () => { dispatch(logout()); navigate('/login'); };
   const openRename = (folder) => { setActionFolder(folder); setRenameOpen(true); };
@@ -243,6 +245,7 @@ function Sidebar() {
 
           {renderMenuSection('Security', securityMenu)}
           {renderMenuSection('Administration', adminMenu)}
+          {renderMenuSection('Account', accountMenu)}
 
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">

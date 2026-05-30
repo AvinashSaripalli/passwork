@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { setMasterVerified } from '../../features/auth/authSlice';
+import { logout, setMasterVerified } from '../../features/auth/authSlice';
 import api from '../../services/api';
 
 function getItemIcon(type, meta) {
@@ -64,10 +64,12 @@ function Topbar() {
   const { user, isMasterVerified } = useSelector((state) => state.auth);
 
   const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const userMenuRef = useRef(null);
 
   const fetchRecentActivity = useCallback(async () => {
     setLoading(true);
@@ -99,6 +101,9 @@ function Topbar() {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -289,17 +294,47 @@ function Topbar() {
           )}
         </div>
 
-        {/* User avatar */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
-            {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-900">
-              {user?.fullName || 'User'}
-            </p>
-            <p className="text-xs text-slate-500">{user?.email || ''}</p>
-          </div>
+        {/* User avatar with dropdown */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            className="flex items-center gap-3 hover:bg-slate-50 rounded-xl px-2 py-1.5 transition"
+          >
+            <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
+              {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="leading-tight text-left">
+              <p className="text-sm font-semibold text-slate-900">
+                {user?.fullName || 'User'}
+              </p>
+              <p className="text-xs text-slate-500">{user?.email || ''}</p>
+            </div>
+          </button>
+
+          {userMenuOpen && (
+            <div className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  navigate('/profile');
+                }}
+                className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition font-medium"
+              >
+                Profile
+              </button>
+              <div className="border-t border-slate-100" />
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  dispatch(logout());
+                  navigate('/login');
+                }}
+                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition font-medium"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

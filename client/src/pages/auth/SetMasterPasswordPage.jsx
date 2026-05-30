@@ -184,6 +184,7 @@ function SetMasterPasswordPage() {
                       e.target.value
                     )
                   }
+                  required
                   className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
                     errors.masterPassword
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
@@ -231,6 +232,7 @@ function SetMasterPasswordPage() {
                       e.target.value
                     )
                   }
+                  required
                   className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
                     errors.confirmMasterPassword
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
@@ -262,7 +264,7 @@ function SetMasterPasswordPage() {
             <div>
               <input
                 type="text"
-                placeholder="Password hint (optional)"
+                placeholder="Password hint (optional — not required)"
                 value={formData.hint}
                 onChange={(e) =>
                   updateField(

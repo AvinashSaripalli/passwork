@@ -64,6 +64,48 @@ export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, thunkAPI) => {
   }
 });
 
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (formData, thunkAPI) => {
+    try {
+      const response = await api.put('/auth/me', formData);
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to update profile'
+      );
+    }
+  }
+);
+
+export const changePassword = createAsyncThunk(
+  'auth/changePassword',
+  async (formData, thunkAPI) => {
+    try {
+      const response = await api.put('/auth/change-password', formData);
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to change password'
+      );
+    }
+  }
+);
+
+export const changeMasterPassword = createAsyncThunk(
+  'auth/changeMasterPassword',
+  async (formData, thunkAPI) => {
+    try {
+      const response = await api.put('/auth/change-master-password', formData);
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to change master password'
+      );
+    }
+  }
+);
+
 export const setMasterPassword = createAsyncThunk(
   'auth/setMasterPassword',
   async (formData, thunkAPI) => {
@@ -210,6 +252,53 @@ const authSlice = createSlice({
         localStorage.removeItem('user');
         sessionStorage.removeItem('isMasterVerified');
         sessionStorage.removeItem('sessionMasterPassword');
+      })
+
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = {
+          ...state.user,
+          ...action.payload.user,
+        };
+        saveUser(state.user);
+      })
+
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(changePassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(changePassword.fulfilled, (state) => {
+        state.loading = false;
+      })
+
+      .addCase(changePassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(changeMasterPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(changeMasterPassword.fulfilled, (state) => {
+        state.loading = false;
+      })
+
+      .addCase(changeMasterPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       .addCase(setMasterPassword.pending, (state) => {

@@ -359,6 +359,152 @@ const verifyAdministratorMasterPassword = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const { fullName, email } = req.body;
+    const userId = req.user.id;
+
+    if (!fullName || !email) {
+      return res.status(400).json({ message: 'Full name and email are required' });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
+    }
+
+    if (fullName.trim().length < 2) {
+      return res.status(400).json({ message: 'Name must be at least 2 characters' });
+    }
+
+    if (email !== req.user.email) {
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { fullName: fullName.trim(), email },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        masterPasswordHash: true,
+        masterPasswordHint: true,
+        encryptionSalt: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        ...updated,
+        hasMasterPassword: !!updated.masterPasswordHash,
+        masterPasswordHint: updated.masterPasswordHint,
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(newPassword)) {
+      return res.status(400).json({
+        message: 'New password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const changeMasterPassword = async (req, res) => {
+  try {
+    const { currentMasterPassword, newMasterPassword, hint } = req.body;
+    const userId = req.user.id;
+
+    if (!currentMasterPassword || !newMasterPassword) {
+      return res.status(400).json({ message: 'Current and new master password are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.masterPasswordHash) {
+      return res.status(400).json({ message: 'Master password not set' });
+    }
+
+    const isMatch = await bcrypt.compare(currentMasterPassword, user.masterPasswordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current master password is incorrect' });
+    }
+
+    if (newMasterPassword.length < 8) {
+      return res.status(400).json({ message: 'New master password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(newMasterPassword)) {
+      return res.status(400).json({
+        message: 'New master password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    const masterPasswordHash = await bcrypt.hash(newMasterPassword, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        masterPasswordHash,
+        masterPasswordHint: hint || null,
+      },
+    });
+
+    res.json({ message: 'Master password changed successfully' });
+  } catch (error) {
+    console.error('Change master password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   register,
   saveLoginActivity,
@@ -367,4 +513,7 @@ module.exports = {
   setMasterPassword,
   verifyMasterPassword,
   verifyAdministratorMasterPassword,
+  updateProfile,
+  changePassword,
+  changeMasterPassword,
 };

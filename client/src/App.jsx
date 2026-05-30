@@ -16,6 +16,7 @@ import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
+import ProfilePage from './pages/profile/ProfilePage';
 
 function App() {
   const dispatch = useDispatch();
@@ -105,6 +106,15 @@ function App() {
         element={
           <MasterProtectedRoute>
             <ActivityLogPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <MasterProtectedRoute>
+            <ProfilePage />
           </MasterProtectedRoute>
         }
       />
