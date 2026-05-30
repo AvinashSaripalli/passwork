@@ -444,16 +444,28 @@ function DashboardPage() {
                     <ArrowRight size={16} className="text-slate-400 group-hover:text-amber-600 transition shrink-0" />
                   </button>
                   {user?.role === 'ADMIN' && (
-                    <button onClick={() => navigate('/team-management')} className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50/40 transition group text-left">
-                      <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition shrink-0">
-                        <Users size={18} className="text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900">Team Management</p>
-                        <p className="text-xs text-slate-500">Manage users & invitations</p>
-                      </div>
-                      <ArrowRight size={16} className="text-slate-400 group-hover:text-purple-600 transition shrink-0" />
-                    </button>
+                    <>
+                      <button onClick={() => firstCompanyVaultSlug ? navigate(`/vaults/${firstCompanyVaultSlug}`) : null} className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition group text-left">
+                        <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition shrink-0">
+                          <Shield size={18} className="text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900">Company Vault</p>
+                          <p className="text-xs text-slate-500">Manage company passwords</p>
+                        </div>
+                        <ArrowRight size={16} className="text-slate-400 group-hover:text-emerald-600 transition shrink-0" />
+                      </button>
+                      <button onClick={() => navigate('/team-management')} className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50/40 transition group text-left">
+                        <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition shrink-0">
+                          <Users size={18} className="text-purple-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900">Team Management</p>
+                          <p className="text-xs text-slate-500">Manage users & invitations</p>
+                        </div>
+                        <ArrowRight size={16} className="text-slate-400 group-hover:text-purple-600 transition shrink-0" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
