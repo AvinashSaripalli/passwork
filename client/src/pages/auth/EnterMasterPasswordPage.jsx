@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   Eye,
   EyeOff,
   KeyRound,
@@ -10,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
-import { setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
+import { logout, setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -91,7 +92,14 @@ function EnterMasterPasswordPage() {
           </div>
         </div>
 
-        <AuthCard title="Unlock vault" subtitle="Enter your master password to continue.">
+        <AuthCard
+          title="Unlock vault"
+          subtitle="Enter your master password to continue."
+          onBack={() => {
+            dispatch(logout());
+            navigate('/login');
+          }}
+        >
           {user?.masterPasswordHint && (
             <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
               Hint: {user.masterPasswordHint}
@@ -138,9 +146,17 @@ function EnterMasterPasswordPage() {
   );
 }
 
-function AuthCard({ title, subtitle, children }) {
+function AuthCard({ title, subtitle, children, onBack }) {
   return (
     <div className="bg-white/88 backdrop-blur-md rounded-[32px] shadow-[0_20px_60px_rgba(37,99,235,0.14)] border border-white p-9 w-full max-w-[430px]">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 mb-6 transition-colors"
+      >
+        <ArrowLeft size={17} />
+        Back
+      </button>
       <h2 className="text-4xl font-black text-slate-950">{title}</h2>
       <p className="text-slate-500 mt-2 mb-7">{subtitle}</p>
       {children}

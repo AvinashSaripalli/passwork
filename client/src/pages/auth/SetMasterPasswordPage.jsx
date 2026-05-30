@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -11,9 +12,15 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import {
   clearError,
+  logout,
   setMasterPassword,
   setMasterVerified,
 } from '../../features/auth/authSlice';
+import {
+  validateMasterPassword,
+  validateConfirmPassword,
+  validateHint,
+} from '../../utils/validation';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -34,7 +41,7 @@ function SetMasterPasswordPage() {
     hint: '',
   });
 
-  const [localError, setLocalError] = useState('');
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -52,7 +59,7 @@ function SetMasterPasswordPage() {
   }, [dispatch]);
 
   const updateField = (field, value) => {
-    setLocalError('');
+    setErrors((prev) => ({ ...prev, [field]: '' }));
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -62,20 +69,23 @@ function SetMasterPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (formData.masterPassword.length < 6) {
-      setLocalError(
-        'Master password must be at least 6 characters.'
-      );
+    const masterError = validateMasterPassword(formData.masterPassword);
+    const confirmError = validateConfirmPassword(
+      formData.masterPassword,
+      formData.confirmMasterPassword
+    );
+    const hintError = validateHint(formData.hint);
+
+    if (masterError || confirmError || hintError) {
+      setErrors({
+        masterPassword: masterError,
+        confirmMasterPassword: confirmError,
+        hint: hintError,
+      });
       return;
     }
 
-    if (
-      formData.masterPassword !==
-      formData.confirmMasterPassword
-    ) {
-      setLocalError('Master passwords do not match.');
-      return;
-    }
+    setErrors({});
 
     const result = await dispatch(
       setMasterPassword({
@@ -146,105 +156,130 @@ function SetMasterPasswordPage() {
         <AuthCard
           title="Set master password"
           subtitle="Create a strong password to unlock your workspace."
+          onBack={() => {
+            dispatch(logout());
+            navigate('/register');
+          }}
         >
-          {(error || localError) && (
-            <ErrorBox
-              message={localError || error}
-            />
-          )}
+          {error && <ErrorBox message={error} />}
 
           <form
             onSubmit={handleSubmit}
             className="space-y-4"
           >
             {/* Master Password */}
-            <div className="relative">
-              <input
-                type={
-                  showMasterPassword
-                    ? 'text'
-                    : 'password'
-                }
-                placeholder="Master password"
-                value={formData.masterPassword}
-                onChange={(e) =>
-                  updateField(
-                    'masterPassword',
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                required
-              />
+            <div>
+              <div className="relative">
+                <input
+                  type={
+                    showMasterPassword
+                      ? 'text'
+                      : 'password'
+                  }
+                  placeholder="Master password"
+                  value={formData.masterPassword}
+                  onChange={(e) =>
+                    updateField(
+                      'masterPassword',
+                      e.target.value
+                    )
+                  }
+                  className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+                    errors.masterPassword
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                      : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+                  }`}
+                />
 
-              <button
-                type="button"
-                onClick={() =>
-                  setShowMasterPassword(
-                    !showMasterPassword
-                  )
-                }
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              >
-                {showMasterPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowMasterPassword(
+                      !showMasterPassword
+                    )
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  {showMasterPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+              {errors.masterPassword && (
+                <p className="mt-1.5 text-sm text-red-500">{errors.masterPassword}</p>
+              )}
             </div>
 
             {/* Confirm Password */}
-            <div className="relative">
+            <div>
+              <div className="relative">
+                <input
+                  type={
+                    showConfirmPassword
+                      ? 'text'
+                      : 'password'
+                  }
+                  placeholder="Confirm master password"
+                  value={
+                    formData.confirmMasterPassword
+                  }
+                  onChange={(e) =>
+                    updateField(
+                      'confirmMasterPassword',
+                      e.target.value
+                    )
+                  }
+                  className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+                    errors.confirmMasterPassword
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                      : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+                  }`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      !showConfirmPassword
+                    )
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+              {errors.confirmMasterPassword && (
+                <p className="mt-1.5 text-sm text-red-500">{errors.confirmMasterPassword}</p>
+              )}
+            </div>
+
+            <div>
               <input
-                type={
-                  showConfirmPassword
-                    ? 'text'
-                    : 'password'
-                }
-                placeholder="Confirm master password"
-                value={
-                  formData.confirmMasterPassword
-                }
+                type="text"
+                placeholder="Password hint (optional)"
+                value={formData.hint}
                 onChange={(e) =>
                   updateField(
-                    'confirmMasterPassword',
+                    'hint',
                     e.target.value
                   )
                 }
-                className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                required
+                className={`w-full rounded-2xl border bg-white/90 px-5 py-4 outline-none transition-all focus:ring-4 ${
+                  errors.hint
+                    ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                    : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+                }`}
               />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowConfirmPassword(
-                    !showConfirmPassword
-                  )
-                }
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              >
-                {showConfirmPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
-              </button>
+              {errors.hint && (
+                <p className="mt-1.5 text-sm text-red-500">{errors.hint}</p>
+              )}
             </div>
-
-            <input
-              type="text"
-              placeholder="Password hint (optional)"
-              value={formData.hint}
-              onChange={(e) =>
-                updateField(
-                  'hint',
-                  e.target.value
-                )
-              }
-              className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            />
 
             <div className="rounded-2xl bg-blue-50/80 border border-blue-100 p-4 text-sm text-blue-700">
               Use a password you can remember.
@@ -272,9 +307,19 @@ function AuthCard({
   title,
   subtitle,
   children,
+  onBack,
 }) {
   return (
     <div className="bg-white/88 backdrop-blur-md rounded-[32px] shadow-[0_20px_60px_rgba(37,99,235,0.14)] border border-white p-9 w-full max-w-[440px]">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 mb-6 transition-colors"
+      >
+        <ArrowLeft size={17} />
+        Back
+      </button>
+
       <h2 className="text-4xl font-black text-slate-950">
         {title}
       </h2>

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearError, registerUser } from '../../features/auth/authSlice';
+import { validateEmail, validatePassword, validateFullName } from '../../utils/validation';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -21,6 +22,7 @@ function RegisterPage() {
   );
 
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -38,6 +40,14 @@ function RegisterPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const nameError = validateFullName(formData.fullName);
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
+    if (nameError || emailError || passwordError) {
+      setErrors({ fullName: nameError, email: emailError, password: passwordError });
+      return;
+    }
+    setErrors({});
     dispatch(registerUser(formData));
   };
 
@@ -93,53 +103,57 @@ function RegisterPage() {
               type="text"
               placeholder="Full name"
               value={formData.fullName}
-              onChange={(value) =>
-                setFormData((p) => ({
-                  ...p,
-                  fullName: value,
-                }))
-              }
+              error={errors.fullName}
+              onChange={(value) => {
+                setErrors((p) => ({ ...p, fullName: '' }));
+                setFormData((p) => ({ ...p, fullName: value }));
+              }}
             />
 
             <Input
               type="email"
               placeholder="Email address"
               value={formData.email}
-              onChange={(value) =>
-                setFormData((p) => ({
-                  ...p,
-                  email: value,
-                }))
-              }
+              error={errors.email}
+              onChange={(value) => {
+                setErrors((p) => ({ ...p, email: '' }));
+                setFormData((p) => ({ ...p, email: value }));
+              }}
             />
 
             {/* Password Field With Eye Icon */}
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    password: e.target.value,
-                  }))
-                }
-                className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                required
-              />
+            <div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={(e) => {
+                    setErrors((p) => ({ ...p, password: '' }));
+                    setFormData((p) => ({ ...p, password: e.target.value }));
+                  }}
+                  className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+                    errors.password
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                      : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+                  }`}
+                />
 
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              >
-                {showPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1.5 text-sm text-red-500">{errors.password}</p>
+              )}
             </div>
 
             <button
@@ -173,16 +187,22 @@ function AuthCard({ title, subtitle, children }) {
   );
 }
 
-function Input({ type, placeholder, value, onChange }) {
+function Input({ type, placeholder, value, onChange, error }) {
   return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-      required
-    />
+    <div>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full rounded-2xl border bg-white/90 px-5 py-4 outline-none transition-all focus:ring-4 ${
+          error
+            ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+            : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+        }`}
+      />
+      {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
+    </div>
   );
 }
 

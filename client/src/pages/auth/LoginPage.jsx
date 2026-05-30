@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, Users } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearError, loginUser, logout } from '../../features/auth/authSlice';
+import { validateEmail, validatePassword } from '../../utils/validation';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -16,6 +17,7 @@ function LoginPage() {
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (isAuthenticated && user && userLoaded) {
@@ -33,6 +35,13 @@ function LoginPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
+    if (emailError || passwordError) {
+      setErrors({ email: emailError, password: passwordError });
+      return;
+    }
+    setErrors({});
     dispatch(loginUser(formData));
   };
 
@@ -71,16 +80,22 @@ function LoginPage() {
               type="email"
               placeholder="Email address"
               value={formData.email}
-              onChange={(value) => setFormData((p) => ({ ...p, email: value }))}
+              error={errors.email}
+              onChange={(value) => {
+                setErrors((p) => ({ ...p, email: '' }));
+                setFormData((p) => ({ ...p, email: value }));
+              }}
             />
 
             <PasswordInput
               value={formData.password}
               showPassword={showPassword}
+              error={errors.password}
               onToggle={() => setShowPassword((prev) => !prev)}
-              onChange={(value) =>
-                setFormData((p) => ({ ...p, password: value }))
-              }
+              onChange={(value) => {
+                setErrors((p) => ({ ...p, password: '' }));
+                setFormData((p) => ({ ...p, password: value }));
+              }}
             />
 
             <button
@@ -111,25 +126,31 @@ function LoginPage() {
   );
 }
 
-function PasswordInput({ value, onChange, showPassword, onToggle }) {
+function PasswordInput({ value, onChange, showPassword, onToggle, error }) {
   return (
-    <div className="relative">
-      <input
-        type={showPassword ? 'text' : 'password'}
-        placeholder="Password"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-        required
-      />
+    <div>
+      <div className="relative">
+        <input
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Password"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full rounded-2xl border bg-white/90 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+            error
+              ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+              : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+          }`}
+        />
 
-      <button
-        type="button"
-        onClick={onToggle}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-      >
-        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-      </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+        >
+          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+      {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -144,16 +165,22 @@ function AuthCard({ title, subtitle, children }) {
   );
 }
 
-function Input({ type, placeholder, value, onChange }) {
+function Input({ type, placeholder, value, onChange, error }) {
   return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-2xl border border-slate-300 bg-white/90 px-5 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-      required
-    />
+    <div>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full rounded-2xl border bg-white/90 px-5 py-4 outline-none transition-all focus:ring-4 ${
+          error
+            ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
+            : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+        }`}
+      />
+      {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
+    </div>
   );
 }
 

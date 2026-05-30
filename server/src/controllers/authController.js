@@ -4,6 +4,33 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=<>?/{}[\]|~`])/;
+
+const validateEmail = (email) => {
+  if (!email) return 'Email is required';
+  const trimmed = email.trim();
+  if (trimmed !== email) return 'Email must not contain leading or trailing spaces';
+  if (trimmed.length > 254) return 'Email is too long (max 254 characters)';
+
+  const atIndex = email.indexOf('@');
+  if (atIndex < 1) return 'Email must have characters before the @';
+
+  const localPart = email.slice(0, atIndex);
+  const domainPart = email.slice(atIndex + 1);
+
+  if (localPart.length > 64) return 'Email local part is too long (max 64 characters)';
+  if (!domainPart) return 'Email must contain a domain after the @';
+  if (!domainPart.includes('.')) return 'Email domain must include a dot (e.g., gmail.com)';
+  if (domainPart.startsWith('.')) return 'Email domain must not start with a dot';
+  if (domainPart.endsWith('.')) return 'Email domain must not end with a dot';
+  if (domainPart.includes('..')) return 'Email must not contain consecutive dots';
+
+  const tld = domainPart.split('.').pop();
+  if (tld.length < 2) return 'Email top-level domain must be at least 2 characters (e.g., .com, .org)';
+
+  return null;
+};
+
 const signToken = (user) => {
   return jwt.sign(
     {
@@ -52,6 +79,23 @@ const register = async (req, res) => {
 
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (fullName.trim().length < 2) {
+      return res.status(400).json({ message: 'Name must be at least 2 characters' });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({ message: 'Password must include uppercase, lowercase, number, and special character' });
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -111,6 +155,11 @@ const login = async (req, res) => {
       return res.status(400).json({
         message: 'Email and password are required',
       });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
     }
 
     const user = await prisma.user.findUnique({
@@ -201,6 +250,20 @@ const setMasterPassword = async (req, res) => {
 
     if (!masterPassword) {
       return res.status(400).json({ message: 'Master password is required' });
+    }
+
+    if (masterPassword.length < 8) {
+      return res.status(400).json({ message: 'Master password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(masterPassword)) {
+      return res.status(400).json({
+        message: 'Master password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    if (hint && hint.length > 100) {
+      return res.status(400).json({ message: 'Hint must be under 100 characters' });
     }
 
     const masterPasswordHash = await bcrypt.hash(masterPassword, 12);
