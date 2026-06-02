@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Shield, Users, Activity, Folder, FolderOpen,
-  LogOut, Plus, ChevronDown, LockKeyhole, Share2, User,
+  LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -15,6 +15,7 @@ import ShareFolderModal from '../folder/ShareFolderModal';
 import RenameFolderModal from '../folder/RenameFolderModal';
 import FolderActionsMenu from '../folder/FolderActionsMenu';
 import ConfirmModal from '../common/ConfirmModal';
+import PasswordGeneratorModal from '../tools/PasswordGeneratorModal';
 import logo from '../../assets/Vaultix1.png';
 
 function Sidebar() {
@@ -35,6 +36,7 @@ function Sidebar() {
   const [actionFolder, setActionFolder] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ open: false, folder: null });
   const [unreadCount, setUnreadCount] = useState(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   useEffect(() => { dispatch(fetchVaults()); }, [dispatch]);
 
@@ -63,6 +65,7 @@ function Sidebar() {
     { name: 'Shared With Me', path: '/shared-with-me', icon: Share2 },
   ];
   const securityMenu = [{ name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount }];
+  const toolsMenu = [{ name: 'Password Generator', icon: Sparkles }];
   const adminMenu = user?.role === 'ADMIN'
     ? [{ name: 'Team Management', path: '/team-management', icon: Users }]
     : [];
@@ -244,6 +247,29 @@ function Sidebar() {
           </div>
 
           {renderMenuSection('Security', securityMenu)}
+
+          {/* Tools */}
+          <div>
+            <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-slate-400">
+              Tools
+            </p>
+            <div className="space-y-0.5">
+              {toolsMenu.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => setToolsOpen(true)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                  >
+                    <Icon size={16} className="text-slate-400" />
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {renderMenuSection('Administration', adminMenu)}
           {renderMenuSection('Account', accountMenu)}
 
@@ -285,6 +311,11 @@ function Sidebar() {
         confirmLabel="Delete"
         onConfirm={executeDeleteFolder}
         onCancel={() => setConfirmDelete({ open: false, folder: null })}
+      />
+
+      <PasswordGeneratorModal
+        open={toolsOpen}
+        onClose={() => setToolsOpen(false)}
       />
     </>
   );
