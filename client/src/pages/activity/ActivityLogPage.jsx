@@ -172,6 +172,114 @@ function downloadCSV(filename, rows, headers) {
   URL.revokeObjectURL(url);
 }
 
+function renderPageButtons(current, total, onPageChange) {
+  if (total <= 10) {
+    return Array.from({ length: total }, (_, i) => i + 1).map((page) => (
+      <button
+        key={page}
+        onClick={() => onPageChange(page)}
+        className={`h-10 w-10 rounded-xl text-sm font-semibold ${
+          current === page
+            ? 'bg-indigo-600 text-white'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        {page}
+      </button>
+    ));
+  }
+
+  const pages = [];
+  const windowStart = Math.max(2, current - 2);
+  const windowEnd = Math.min(total - 1, current + 2);
+
+  pages.push(1);
+
+  if (windowStart > 2) pages.push('...');
+
+  for (let i = windowStart; i <= windowEnd; i++) {
+    pages.push(i);
+  }
+
+  if (windowEnd < total - 1) pages.push('...');
+
+  if (total > 1) pages.push(total);
+
+  return pages.map((page, idx) => {
+    if (page === '...') {
+      return (
+        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400">
+          ...
+        </span>
+      );
+    }
+    return (
+      <button
+        key={page}
+        onClick={() => onPageChange(page)}
+        className={`h-10 w-10 rounded-xl text-sm font-semibold ${
+          current === page
+            ? 'bg-indigo-600 text-white'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        {page}
+      </button>
+    );
+  });
+}
+
+function renderSimplePageButtons(current, total, onPageChange) {
+  if (total <= 4) {
+    return Array.from({ length: total }, (_, i) => i + 1).map((page) => (
+      <button
+        key={page}
+        onClick={() => onPageChange(page)}
+        className={`h-10 w-10 rounded-xl text-sm font-semibold ${
+          current === page
+            ? 'bg-indigo-600 text-white'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        {page}
+      </button>
+    ));
+  }
+
+  const pages = [];
+
+  for (let i = 1; i <= 3; i++) {
+    pages.push(i);
+  }
+
+  pages.push('...');
+
+  pages.push(total);
+
+  return pages.map((page, idx) => {
+    if (page === '...') {
+      return (
+        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400">
+          ...
+        </span>
+      );
+    }
+    return (
+      <button
+        key={page}
+        onClick={() => onPageChange(page)}
+        className={`h-10 w-10 rounded-xl text-sm font-semibold ${
+          current === page
+            ? 'bg-indigo-600 text-white'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        {page}
+      </button>
+    );
+  });
+}
+
 function ActivityLogPage() {
   const dispatch = useDispatch();
 
@@ -741,22 +849,7 @@ function ActivityLogPage() {
                       >
                         Previous
                       </button>
-                      {Array.from({ length: totalPages }, (_, index) => {
-                        const page = index + 1;
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`h-10 w-10 rounded-xl text-sm font-semibold ${
-                              currentPage === page
-                                ? 'bg-indigo-600 text-white'
-                                : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      })}
+                      {renderPageButtons(currentPage, totalPages, setCurrentPage)}
                       <button
                         onClick={() =>
                           setCurrentPage((p) => Math.min(p + 1, totalPages))
@@ -907,11 +1000,11 @@ function ActivityLogPage() {
                 )}
 
                 {filteredLogin.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+                  <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-sm text-slate-500">
                       Page {currentPage} of {loginTotalPages}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() =>
                           setCurrentPage((p) => Math.max(p - 1, 1))
@@ -921,6 +1014,7 @@ function ActivityLogPage() {
                       >
                         Previous
                       </button>
+                      {renderSimplePageButtons(currentPage, loginTotalPages, setCurrentPage)}
                       <button
                         onClick={() =>
                           setCurrentPage((p) =>
@@ -1064,11 +1158,11 @@ function ActivityLogPage() {
             )}
 
             {filteredUnreadItems.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+              <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
                 <p className="text-sm text-slate-500">
                   Page {currentPage} of {unreadTotalPages} · {filteredUnreadItems.length} total
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
@@ -1076,6 +1170,7 @@ function ActivityLogPage() {
                   >
                     Previous
                   </button>
+                  {renderSimplePageButtons(currentPage, unreadTotalPages, setCurrentPage)}
                   <button
                     onClick={() =>
                       setCurrentPage((p) => Math.min(p + 1, unreadTotalPages))
