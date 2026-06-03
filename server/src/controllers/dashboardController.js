@@ -295,6 +295,31 @@ const getPasswordActivityTrend = async (
         },
       });
 
+    // FETCH DELETED PASSWORD LOGS
+    const deleteLogs =
+      await prisma.activityLog.findMany({
+        where: {
+          action: 'DELETE_PASSWORD',
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+
+        select: {
+          createdAt: true,
+          metadata: true,
+        },
+      });
+
+    const relevantDeletes = deleteLogs.filter(
+      (log) => {
+        const vaultId =
+          log.metadata?.vaultId;
+        return vaultIds.includes(vaultId);
+      }
+    );
+
     // CREATE BUCKETS
     const buckets = [];
 
@@ -367,11 +392,32 @@ const getPasswordActivityTrend = async (
       found.added += 1;
     });
 
+    // MAP DELETES
+    relevantDeletes.forEach((log) => {
+      const d = new Date(log.createdAt);
+
+      let key;
+
+      if (range === '6M') {
+        key = `${d.getFullYear()}-${d.getMonth()}`;
+      } else {
+        key = getLocalDateKey(d);
+      }
+
+      const found = buckets.find(
+        (b) => b.key === key
+      );
+
+      if (!found) return;
+
+      found.deleted += 1;
+    });
+
     res.json({
       passwordTrend: buckets.map((b) => ({
         label: b.label,
         added: b.added,
-        deleted: 0,
+        deleted: b.deleted,
       })),
     });
   } catch (error) {
