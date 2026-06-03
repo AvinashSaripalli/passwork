@@ -1,74 +1,15 @@
-import {
-  Copy,
-  ExternalLink,
-  Lock,
-  X,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import { Copy, ExternalLink, X, Eye, EyeOff, Globe, User, Folder, KeyRound } from 'lucide-react';
+import { useState } from 'react';
 import api from '../../services/api';
 
-function ViewSharedPasswordModal({ open, item, onClose }) {
-  const [showDecrypted, setShowDecrypted] = useState(false);
-  const [decryptedPassword, setDecryptedPassword] = useState(null);
-  const [decryptedNote, setDecryptedNote] = useState(null);
-  const [masterPassword, setMasterPassword] = useState('');
-  const [showMasterPassword, setShowMasterPassword] = useState(false);
-  const [decrypting, setDecrypting] = useState(false);
-  const [decryptError, setDecryptError] = useState('');
+function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
+  const [showPw, setShowPw] = useState(false);
 
   if (!open || !item) return null;
 
   const password = item.password;
-  const isEncrypted = isEncryptedFormat(password?.encryptedPassword);
-  const isNoteEncrypted = isEncryptedFormat(password?.encryptedNote);
-  const displayPassword = isEncrypted ? decryptedPassword : password?.encryptedPassword;
-  const displayNote = isNoteEncrypted ? decryptedNote : password?.encryptedNote;
-
-  const handleDecrypt = async () => {
-    if (!masterPassword) {
-      setDecryptError('Owner master password is required');
-      return;
-    }
-    try {
-      setDecrypting(true);
-      setDecryptError('');
-
-      const ownerSalt = password?.vault?.owner?.encryptionSalt;
-      if (!ownerSalt) {
-        setDecryptError('Owner encryption salt not available');
-        return;
-      }
-
-      const decrypted = await decryptText(
-        password.encryptedPassword,
-        masterPassword,
-        ownerSalt
-      );
-
-      let noteText = null;
-      if (password.encryptedNote && isEncryptedFormat(password.encryptedNote)) {
-        noteText = await decryptText(
-          password.encryptedNote,
-          masterPassword,
-          ownerSalt
-        );
-      }
-
-      setDecryptedPassword(decrypted);
-      setDecryptedNote(noteText);
-      setShowDecrypted(true);
-      setMasterPassword('');
-
-      api.post(`/passwords/${password.id}/view-log`).catch(() => {});
-    } catch (err) {
-      setDecryptError('Wrong master password');
-    } finally {
-      setDecrypting(false);
-    }
-  };
+  const displayPassword = decryptedData?.password || password?.encryptedPassword;
+  const displayNote = decryptedData?.note || password?.encryptedNote || 'No note';
 
   const handleCopy = (value) => {
     if (!value) return;
@@ -76,198 +17,114 @@ function ViewSharedPasswordModal({ open, item, onClose }) {
     api.post(`/passwords/${password.id}/copy-log`).catch(() => {});
   };
 
-  const handleClose = () => {
-    setShowDecrypted(false);
-    setDecryptedPassword(null);
-    setDecryptedNote(null);
-    setMasterPassword('');
-    setDecryptError('');
-    onClose();
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
-              Website / Service Name
-            </p>
-            <h2 className="text-2xl font-bold text-slate-900 mt-1">
-              {password?.name}
-            </h2>
-            <p className="text-sm text-slate-500">Shared password details</p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
-          >
-            <X size={20} className="text-slate-500" />
-          </button>
-        </div>
-
-        {/* Shared Info */}
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 mb-5 text-sm text-slate-600">
-          <p>
-            Shared by:{' '}
-            <span className="font-semibold text-slate-900">{item.sharedBy?.fullName}</span>
-          </p>
-          <p className="mt-1">
-            Vault:{' '}
-            <span className="font-semibold text-slate-900">{password?.vault?.name || '-'}</span>
-          </p>
-          <p className="mt-1">
-            Folder:{' '}
-            <span className="font-semibold text-slate-900">{password?.folder?.name || '-'}</span>
-          </p>
-          <p className="mt-1">
-            Owner:{' '}
-            <span className="font-semibold text-slate-900">
-              {password?.vault?.owner?.fullName || 'Unknown'}
-            </span>
-          </p>
-        </div>
-
-        {/* Decrypt prompt (only for encrypted passwords not yet decrypted) */}
-        {isEncrypted && !decryptedPassword && (
-          <div className="rounded-xl border border-slate-200 p-5 mb-4 space-y-3">
-            <p className="text-sm font-semibold text-slate-700">
-              Enter the owner's master password to decrypt &amp; view
-            </p>
-            <p className="text-xs text-slate-500">
-              Owner: {password?.vault?.owner?.fullName || 'Unknown'}
-            </p>
-
-            {decryptError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-600">{decryptError}</p>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="px-8 pt-6 pb-5 border-b border-slate-100">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                <KeyRound size={22} />
               </div>
-            )}
-
-            <div className="relative">
-              <input
-                type={showMasterPassword ? 'text' : 'password'}
-                value={masterPassword}
-                onChange={(e) => {
-                  setMasterPassword(e.target.value);
-                  setDecryptError('');
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleDecrypt()}
-                placeholder="Owner's master password"
-                autoFocus
-                className="w-full border border-slate-300 rounded-lg px-4 pr-11 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-              />
-              <button
-                type="button"
-                onClick={() => setShowMasterPassword(!showMasterPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              >
-                {showMasterPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Shared Password</p>
+                <h2 className="text-xl font-bold text-slate-900">{password?.name}</h2>
+                <p className="text-sm text-slate-500">
+                  Shared by <span className="font-medium text-slate-700">{item.sharedBy?.fullName || 'a user'}</span>
+                </p>
+              </div>
             </div>
-
-            <button
-              onClick={handleDecrypt}
-              disabled={decrypting || !masterPassword}
-              className="w-full py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {decrypting ? (
-                <><Lock size={16} className="animate-spin" /> Decrypting...</>
-              ) : (
-                <><Lock size={16} /> Decrypt</>
-              )}
+            <button onClick={onClose} className="h-9 w-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors shrink-0">
+              <X size={19} />
             </button>
           </div>
-        )}
+        </div>
 
-        {/* Details */}
-        <div className="rounded-xl border border-slate-200 overflow-hidden">
-          <DetailRow
-            label="Login"
-            value={password?.login}
-            onCopy={() => handleCopy(password?.login)}
-          />
-
-          {/* Password Row */}
-          <div className="grid grid-cols-[110px_1fr_70px] items-center border-b border-slate-200 px-4 py-4">
-            <p className="text-sm text-slate-500">Password</p>
-            <p className="text-sm text-slate-900 break-all font-mono">
-              {showDecrypted ? (displayPassword || '••••••••••••') : '••••••••••••'}
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => decryptedPassword && setShowDecrypted(!showDecrypted)}
-                className={`text-slate-500 ${decryptedPassword ? 'hover:text-slate-900' : 'opacity-40 cursor-not-allowed'}`}
-              >
-                {showDecrypted ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-              <button
-                onClick={() => decryptedPassword && handleCopy(displayPassword)}
-                className={`text-slate-500 ${decryptedPassword ? 'hover:text-slate-900' : 'opacity-40 cursor-not-allowed'}`}
-              >
-                <Copy size={16} />
-              </button>
+        <div className="px-8 py-5 space-y-5">
+          <div className="rounded-xl bg-slate-50 border border-slate-200 overflow-hidden">
+            <div className="grid grid-cols-2 divide-x divide-slate-200">
+              <div className="p-4 space-y-3">
+                <MetaItem icon={User} label="Shared by" value={item.sharedBy?.fullName} />
+                <MetaItem icon={User} label="Owner" value={password?.vault?.owner?.fullName || 'Unknown'} />
+              </div>
+              <div className="p-4 space-y-3">
+                <MetaItem icon={Folder} label="Vault" value={password?.vault?.name || '-'} />
+                <MetaItem icon={Folder} label="Folder" value={password?.folder?.name || '-'} />
+              </div>
             </div>
           </div>
 
-          <DetailRow
-            label="URL"
-            value={password?.url || 'No URL'}
-            link
-            onCopy={() => handleCopy(password?.url)}
-          />
+          <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <Row label="Login" value={password?.login} onCopy={() => handleCopy(password?.login)} copyIcon />
 
-          <DetailRow
-            label="Note"
-            value={isNoteEncrypted && !decryptedNote ? '••••••••••••' : (displayNote || 'No note')}
-          />
+            <Row label="Password" value={showPw ? (displayPassword || '') : '••••••••••••'} mono>
+              <IconBtn onClick={() => setShowPw((p) => !p)}>
+                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+              </IconBtn>
+              <IconBtn onClick={() => handleCopy(displayPassword)}>
+                <Copy size={15} />
+              </IconBtn>
+            </Row>
 
-          <DetailRow
-            label="Tags"
-            value={
-              password?.tags?.length
-                ? password.tags.map((item) => item.tag?.name).filter(Boolean).join(', ')
-                : 'No tags'
-            }
-          />
+            <Row label="URL" value={password?.url || 'No URL'} link onCopy={() => handleCopy(password?.url)} external />
+
+            <Row label="Note" value={displayNote || 'No note'} />
+
+            <Row label="Tags" value={password?.tags?.length ? password.tags.map((t) => t.tag?.name).filter(Boolean).join(', ') : 'No tags'} />
+          </div>
+        </div>
+
+        <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <p className="text-xs text-slate-400">Securely shared via Vaultix</p>
+          <button onClick={onClose} className="h-9 px-4 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-colors">Close</button>
         </div>
       </div>
     </div>
   );
 }
 
-function DetailRow({ label, value, onCopy, link }) {
+function MetaItem({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon size={14} className="text-slate-400 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-sm font-medium text-slate-800 truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, children, link, mono, onCopy, copyIcon, external }) {
   const isUrl = link && value && value !== 'No URL';
   return (
-    <div className="grid grid-cols-[110px_1fr_40px] items-center border-b border-slate-200 px-4 py-4 last:border-b-0">
-      <p className="text-sm text-slate-500">{label}</p>
-      {isUrl ? (
-        <a
-          href={value.startsWith('http') ? value : `https://${value}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm break-all text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <p className={`text-sm break-all ${link ? 'text-blue-600' : 'text-slate-900'}`}>
-          {value}
-        </p>
-      )}
-      {onCopy ? (
-        <button
-          onClick={onCopy}
-          className="text-slate-500 hover:text-slate-900 flex justify-end"
-        >
-          {link ? <ExternalLink size={16} /> : <Copy size={16} />}
-        </button>
-      ) : (
-        <div />
-      )}
+    <div className="flex items-center justify-between px-5 py-4 min-h-[52px]">
+      <p className="text-sm text-slate-500 shrink-0 w-20">{label}</p>
+      <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+        {children}
+        {isUrl ? (
+          <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[240px] flex items-center gap-1">
+            <Globe size={13} className="shrink-0" />
+            <span className="truncate">{value}</span>
+          </a>
+        ) : (
+          <span className={`text-sm truncate max-w-[240px] ${mono ? 'font-mono tracking-wider' : 'text-slate-900'}`}>{value}</span>
+        )}
+        {onCopy ? (
+          <IconBtn onClick={onCopy}>
+            {external ? <ExternalLink size={15} /> : <Copy size={15} />}
+          </IconBtn>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+function IconBtn({ onClick, children, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${disabled ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}>
+      {children}
+    </button>
   );
 }
 
