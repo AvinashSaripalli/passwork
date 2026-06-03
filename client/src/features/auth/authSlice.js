@@ -235,10 +235,10 @@ const authSlice = createSlice({
       })
 
       .addCase(fetchMe.fulfilled, (state, action) => {
-        state.user = action.payload;
+        state.user = { ...state.user, ...action.payload };
         state.isAuthenticated = true;
         state.userLoaded = true;
-        saveUser(action.payload);
+        saveUser(state.user);
       })
 
       .addCase(fetchMe.rejected, (state) => {

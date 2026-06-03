@@ -117,7 +117,7 @@ const getRecentActivity = async (req, res) => {
     ]);
 
     if (isAdmin) {
-      activityLogs = activityLogs.filter((log) => !log.metadata?.personalVault);
+      activityLogs = activityLogs.filter((log) => !(log.metadata?.personalVault && log.userId !== userId));
     }
 
     const items = [

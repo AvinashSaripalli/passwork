@@ -30,46 +30,70 @@ function EditMyVaultPasswordModal({
   const [decryptError, setDecryptError] = useState('');
 
   useEffect(() => {
-    if (password && sessionMasterPassword) {
-      const initForm = async () => {
-        setDecrypting(true);
-        setDecryptError('');
+    if (!password) return;
 
-        try {
-          const plainPassword = await decryptText(
-            password.encryptedPassword,
-            sessionMasterPassword,
-            user?.encryptionSalt
-          );
+    setDecryptError('');
 
-          const plainNote = password.encryptedNote
-            ? await decryptText(
-                password.encryptedNote,
-                sessionMasterPassword,
-                user?.encryptionSalt
-              )
-            : '';
-
-          setFormData({
-            folderId: password.folderId || '',
-            name: password.name || '',
-            login: password.login || '',
-            encryptedPassword: plainPassword,
-            url: password.url || '',
-            encryptedNote: plainNote,
-            tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
-          });
-        } catch {
-          setDecryptError('Failed to decrypt password. Your session may have expired.');
-        } finally {
-          setDecrypting(false);
-        }
-      };
-
-      initForm();
-
-      setShowPassword(false);
+    if (!sessionMasterPassword) {
+      setFormData({
+        folderId: password.folderId || '',
+        name: password.name || '',
+        login: password.login || '',
+        encryptedPassword: '',
+        url: password.url || '',
+        encryptedNote: '',
+        tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+      });
+      setDecryptError('Session expired. Re-enter your master password to access encrypted fields, or type new values below.');
+      return;
     }
+
+    const initForm = async () => {
+      setDecrypting(true);
+
+      try {
+        const plainPassword = await decryptText(
+          password.encryptedPassword,
+          sessionMasterPassword,
+          user?.encryptionSalt
+        );
+
+        const plainNote = password.encryptedNote
+          ? await decryptText(
+              password.encryptedNote,
+              sessionMasterPassword,
+              user?.encryptionSalt
+            )
+          : '';
+
+        setFormData({
+          folderId: password.folderId || '',
+          name: password.name || '',
+          login: password.login || '',
+          encryptedPassword: plainPassword,
+          url: password.url || '',
+          encryptedNote: plainNote,
+          tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+        });
+      } catch {
+        setFormData({
+          folderId: password.folderId || '',
+          name: password.name || '',
+          login: password.login || '',
+          encryptedPassword: '',
+          url: password.url || '',
+          encryptedNote: '',
+          tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+        });
+        setDecryptError('Could not decrypt. Your session may have expired. Type new values below.');
+      } finally {
+        setDecrypting(false);
+      }
+    };
+
+    initForm();
+
+    setShowPassword(false);
   }, [password, sessionMasterPassword, user?.encryptionSalt]);
 
   if (!open) return null;
@@ -161,8 +185,8 @@ function EditMyVaultPasswordModal({
         )}
 
         {decryptError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-            <p className="text-sm text-red-600">{decryptError}</p>
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-700">{decryptError}</p>
           </div>
         )}
 
