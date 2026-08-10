@@ -23,6 +23,7 @@ function EditMyVaultPasswordModal({
     url: '',
     encryptedNote: '',
     tags: [],
+    isSensitive: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +44,7 @@ function EditMyVaultPasswordModal({
         url: password.url || '',
         encryptedNote: '',
         tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+        isSensitive: password.isSensitive || false,
       });
       setDecryptError('Session expired. Re-enter your master password to access encrypted fields, or type new values below.');
       return;
@@ -74,6 +76,7 @@ function EditMyVaultPasswordModal({
           url: password.url || '',
           encryptedNote: plainNote,
           tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+          isSensitive: password.isSensitive || false,
         });
       } catch {
         setFormData({
@@ -84,6 +87,7 @@ function EditMyVaultPasswordModal({
           url: password.url || '',
           encryptedNote: '',
           tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+          isSensitive: password.isSensitive || false,
         });
         setDecryptError('Could not decrypt. Your session may have expired. Type new values below.');
       } finally {
@@ -148,6 +152,7 @@ function EditMyVaultPasswordModal({
         isWeak: strength?.label === 'Weak',
         isOld: isPasswordOld(password.lastUpdatedAt, password.createdAt),
         isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
+        isSensitive: formData.isSensitive,
       });
 
       setShowPassword(false);
@@ -258,6 +263,18 @@ function EditMyVaultPasswordModal({
             placeholder="Note"
             className={`${inputClass} resize-none`}
           />
+
+          <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
+            <input
+              type="checkbox"
+              checked={formData.isSensitive}
+              onChange={(e) => updateField('isSensitive', e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-slate-700 dark:text-slate-300">
+              Secure — always ask master password before revealing this password
+            </span>
+          </label>
 
           <div className="flex justify-end gap-3 pt-2">
             <button

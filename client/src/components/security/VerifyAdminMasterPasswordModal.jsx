@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
+import { setSessionAdminMasterPassword } from '../../features/auth/authSlice';
 
 function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
+  const dispatch = useDispatch();
   const { token } = useSelector((state) => state.auth);
 
   const [masterPassword, setMasterPassword] = useState('');
@@ -38,6 +40,8 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
       );
 
       const verifiedPassword = masterPassword;
+
+      dispatch(setSessionAdminMasterPassword(verifiedPassword));
 
       setMasterPassword('');
       setShowPassword(false);

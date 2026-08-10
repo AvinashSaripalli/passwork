@@ -15,6 +15,7 @@ import {
   clearVaultError,
 } from '../../features/vault/vaultSlice';
 import ConfirmModal from '../common/ConfirmModal';
+import { showToast } from '../../utils/toast';
 
 function VaultSidebar() {
   const dispatch = useDispatch();
@@ -58,7 +59,7 @@ function VaultSidebar() {
     if (!selectedFolder) return;
     const result = await dispatch(deleteFolder(selectedFolder.id));
     if (deleteFolder.rejected.match(result)) {
-      alert(result.payload || 'Failed to delete folder');
+      showToast(result.payload || 'Failed to delete folder', 'error');
     }
     setConfirmDelete(false);
   };

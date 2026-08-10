@@ -4,6 +4,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import api from '../../services/api';
 import PendingInvitationsModal from './PendingInvitationsModal';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import { showToast } from '../../utils/toast';
 
 const USERS_PER_PAGE = 10;
 
@@ -17,6 +19,8 @@ function TeamManagementPage() {
   const [search, setSearch] = useState('');
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteUser, setDeleteUser] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'ADMIN') return;
@@ -71,18 +75,28 @@ function TeamManagementPage() {
 
   const endItem = Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length);
 
-  const handleDelete = async (id, name) => {
-    const confirmed = window.confirm(`Delete user "${name}"?`);
-    if (!confirmed) return;
+  const handleDelete = (id, name) => {
+    setDeleteUser({ id, name });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteUser) return;
 
     try {
-      await api.delete(`/users/${id}`, {
+      setDeleting(true);
+
+      await api.delete(`/users/${deleteUser.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setUsers((prev) => prev.filter((item) => item.id !== id));
+      setUsers((prev) => prev.filter((item) => item.id !== deleteUser.id));
+      showToast('User deleted');
+      setDeleteUser(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Delete failed');
+      showToast(err.response?.data?.message || 'Delete failed', 'error');
+      setDeleteUser(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -316,6 +330,16 @@ function TeamManagementPage() {
       <PendingInvitationsModal
         open={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
+      />
+
+      <ConfirmModal
+        open={!!deleteUser}
+        title="Delete User"
+        message={`Delete user "${deleteUser?.name}"?`}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setDeleteUser(null)}
+        loading={deleting}
       />
     </AppLayout>
   );

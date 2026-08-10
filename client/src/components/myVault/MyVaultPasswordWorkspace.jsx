@@ -6,12 +6,15 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  Lock,
   Share2,
   Trash2,
   Users,
 } from 'lucide-react';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import { showToast } from '../../utils/toast';
 import DecryptDialog from '../common/DecryptDialog';
+import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 
 function MyVaultPasswordWorkspace({
   loading,
@@ -23,13 +26,15 @@ function MyVaultPasswordWorkspace({
   onDeletePassword,
   onManageShares,
 }) {
-  const { user } = useSelector((state) => state.auth);
+  const { user, sessionMasterPassword } = useSelector((state) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
   const [decryptedPassword, setDecryptedPassword] = useState(null);
   const [showDecryptDialog, setShowDecryptDialog] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState('');
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
   const [search, setSearch] = useState('');
 
   const filteredPasswords = passwords.filter((item) => {
@@ -49,6 +54,11 @@ function MyVaultPasswordWorkspace({
     navigator.clipboard.writeText(value);
   };
 
+  const revealDecrypted = (decrypted) => {
+    setDecryptedPassword(decrypted);
+    setShowPassword(true);
+  };
+
   const handleDecryptPassword = async (masterPassword) => {
     try {
       setDecrypting(true);
@@ -60,14 +70,40 @@ function MyVaultPasswordWorkspace({
         user?.encryptionSalt
       );
 
-      setDecryptedPassword(decrypted);
-      setShowPassword(true);
+      revealDecrypted(decrypted);
       setShowDecryptDialog(false);
+
+      if (pendingAction === 'copy') {
+        copyText(decrypted);
+      }
+
+      setPendingAction(null);
     } catch {
       setDecryptError('Wrong master password');
       throw new Error('Wrong master password');
     } finally {
       setDecrypting(false);
+    }
+  };
+
+  const handleVerified = async (masterPassword) => {
+    try {
+      const decrypted = await decryptText(
+        selectedPassword.encryptedPassword,
+        masterPassword,
+        user?.encryptionSalt
+      );
+
+      revealDecrypted(decrypted);
+
+      if (pendingAction === 'copy') {
+        copyText(decrypted);
+      }
+    } catch {
+      showToast('Failed to decrypt. Wrong master password.', 'error');
+    } finally {
+      setPendingAction(null);
+      setVerifyOpen(false);
     }
   };
 
@@ -79,9 +115,25 @@ function MyVaultPasswordWorkspace({
       return;
     }
 
+    if (selectedPassword.isSensitive && !sessionMasterPassword) {
+      setPendingAction('reveal');
+      setVerifyOpen(true);
+      return;
+    }
+
     if (isEncryptedFormat(selectedPassword.encryptedPassword)) {
       if (decryptedPassword) {
         setShowPassword(true);
+      } else if (sessionMasterPassword) {
+        setDecrypting(true);
+        decryptText(
+          selectedPassword.encryptedPassword,
+          sessionMasterPassword,
+          user?.encryptionSalt
+        )
+          .then((decrypted) => revealDecrypted(decrypted))
+          .catch(() => setShowDecryptDialog(true))
+          .finally(() => setDecrypting(false));
       } else {
         setShowDecryptDialog(true);
       }
@@ -90,11 +142,50 @@ function MyVaultPasswordWorkspace({
     }
   };
 
+  const handleCopyPassword = async () => {
+    if (!selectedPassword) return;
+
+    if (selectedPassword.isSensitive && !sessionMasterPassword) {
+      setPendingAction('copy');
+      setVerifyOpen(true);
+      return;
+    }
+
+    if (decryptedPassword) {
+      copyText(decryptedPassword);
+      return;
+    }
+
+    if (isEncryptedFormat(selectedPassword.encryptedPassword)) {
+      if (sessionMasterPassword) {
+        try {
+          const decrypted = await decryptText(
+            selectedPassword.encryptedPassword,
+            sessionMasterPassword,
+            user?.encryptionSalt
+          );
+          setDecryptedPassword(decrypted);
+          copyText(decrypted);
+        } catch {
+          setPendingAction('copy');
+          setShowDecryptDialog(true);
+        }
+      } else {
+        setPendingAction('copy');
+        setShowDecryptDialog(true);
+      }
+    } else {
+      copyText(selectedPassword.encryptedPassword);
+    }
+  };
+
   useEffect(() => {
     setShowPassword(false);
     setDecryptedPassword(null);
     setShowDecryptDialog(false);
     setDecryptError('');
+    setVerifyOpen(false);
+    setPendingAction(null);
   }, [selectedPassword?.id]);
 
   const displayValue = decryptedPassword || selectedPassword?.encryptedPassword;
@@ -107,9 +198,18 @@ function MyVaultPasswordWorkspace({
         onClose={() => {
           setShowDecryptDialog(false);
           setDecryptError('');
+          setPendingAction(null);
         }}
         error={decryptError}
         decrypting={decrypting}
+      />
+      <VerifyMasterPasswordModal
+        open={verifyOpen}
+        onClose={() => {
+          setVerifyOpen(false);
+          setPendingAction(null);
+        }}
+        onVerified={handleVerified}
       />
       <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden dark:bg-slate-800 dark:border-slate-700">
         {loading ? (
@@ -149,7 +249,12 @@ function MyVaultPasswordWorkspace({
                         : 'bg-white border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <h3 className="font-semibold text-slate-900 truncate dark:text-slate-100">{item.name}</h3>
+                    <h3 className="font-semibold text-slate-900 truncate flex items-center gap-1.5 dark:text-slate-100">
+                      {item.name}
+                      {item.isSensitive && (
+                        <Lock size={12} className="text-emerald-600 shrink-0 dark:text-emerald-400" />
+                      )}
+                    </h3>
                     <p className="text-sm text-slate-500 truncate mt-1 dark:text-slate-400">{item.login}</p>
                   </button>
                 ))}
@@ -173,6 +278,12 @@ function MyVaultPasswordWorkspace({
                         <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium dark:bg-indigo-900/20 dark:text-indigo-400">
                           Personal Vault
                         </span>
+                        {selectedPassword.isSensitive && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium dark:bg-emerald-900/20 dark:text-emerald-400">
+                            <Lock size={12} />
+                            Secure
+                          </span>
+                        )}
                       </div>
                       <p className="text-slate-500 mt-2 text-sm dark:text-slate-400">Personal password details</p>
                     </div>
@@ -223,7 +334,7 @@ function MyVaultPasswordWorkspace({
                               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                             <button
-                              onClick={() => copyText(displayValue)}
+                              onClick={handleCopyPassword}
                               className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                             >
                               <Copy size={17} />

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { showToast } from '../../utils/toast';
 import {
   Copy,
   Eye,
   EyeOff,
   ExternalLink,
+  Lock,
   Trash2,
   Pencil,
 } from 'lucide-react';
@@ -30,7 +32,12 @@ function PasswordDetailsPanel() {
     selectedFolderId,
   } = useSelector((state) => state.vault);
 
-  const { user, token } = useSelector((state) => state.auth);
+  const {
+    user,
+    token,
+    sessionMasterPassword,
+    sessionAdminMasterPassword,
+  } = useSelector((state) => state.auth);
 
   const selectedPassword = passwords.find(
     (item) => item.id === selectedPasswordId
@@ -63,6 +70,14 @@ function PasswordDetailsPanel() {
     user?.role === 'ADMIN' ||
     ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
 
+  const isFolderAdministrator =
+    user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR';
+
+  const getDecryptionKey = () =>
+    isFolderAdministrator
+      ? sessionAdminMasterPassword || sessionMasterPassword
+      : sessionAdminMasterPassword;
+
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [decryptedPasswords, setDecryptedPasswords] = useState({});
   const [decryptedNotes, setDecryptedNotes] = useState({});
@@ -90,10 +105,48 @@ function PasswordDetailsPanel() {
     );
   }
 
-  const requestAdminVerification = (actionName, passwordId) => {
-    setPendingAction(actionName);
-    setActivePasswordId(passwordId);
-    setVerifyOpen(true);
+  const requireVerify = (item, actionName) => {
+    if (isFolderAdministrator) return false;
+
+    if (item.isSensitive) return true;
+
+    if (['view', 'copy-password', 'edit'].includes(actionName)) {
+      return !sessionAdminMasterPassword;
+    }
+
+    return false;
+  };
+
+  const handleAction = (actionName, item) => {
+    if (!item) return;
+
+    if (actionName === 'view' && visiblePasswords[item.id]) {
+      setVisiblePasswords((prev) => ({
+        ...prev,
+        [item.id]: false,
+      }));
+      return;
+    }
+
+    if (actionName === 'copy-login' && (!item.isSensitive || isFolderAdministrator)) {
+      navigator.clipboard.writeText(item.login || '');
+      showToast('Login copied');
+      return;
+    }
+
+    if (actionName === 'delete' && !item.isSensitive) {
+      setConfirmDelete({ open: true, name: item.name, passwordId: item.id });
+      return;
+    }
+
+    if (requireVerify(item, actionName)) {
+      setPendingAction(actionName);
+      setActivePasswordId(item.id);
+      setVerifyOpen(true);
+      return;
+    }
+
+    executeAction(actionName, item.id, getDecryptionKey());
   };
 
   const getPasswordById = (passwordId) =>
@@ -122,9 +175,9 @@ function PasswordDetailsPanel() {
     };
   };
 
-  const handleVerified = async (adminMasterPassword) => {
+  const executeAction = async (actionName, passwordId, masterPassword) => {
     try {
-      const activePassword = getPasswordById(activePasswordId);
+      const activePassword = getPasswordById(passwordId);
 
       if (!activePassword) {
         setPendingAction(null);
@@ -133,17 +186,23 @@ function PasswordDetailsPanel() {
         return;
       }
 
-      if (pendingAction === 'delete' && canDelete) {
+      if (actionName === 'delete' && canDelete) {
         setConfirmDelete({ open: true, name: activePassword.name, passwordId: activePassword.id });
+        return;
+      }
+
+      if (actionName === 'copy-login' && canView) {
+        await navigator.clipboard.writeText(activePassword.login || '');
+        showToast('Login copied');
         return;
       }
 
       const { originalPassword, originalNote } = await decryptPasswordItem(
         activePassword,
-        adminMasterPassword
+        masterPassword
       );
 
-      if (pendingAction === 'view' && canView) {
+      if (actionName === 'view' && canView) {
         setDecryptedPasswords((prev) => ({
           ...prev,
           [activePassword.id]: originalPassword,
@@ -170,12 +229,7 @@ function PasswordDetailsPanel() {
         );
       }
 
-      if (pendingAction === 'copy-login' && canView) {
-        await navigator.clipboard.writeText(activePassword.login || '');
-        alert('Login copied');
-      }
-
-      if (pendingAction === 'copy-password' && canView) {
+      if (actionName === 'copy-password' && canView) {
         await navigator.clipboard.writeText(originalPassword);
 
         await api.post(
@@ -188,10 +242,10 @@ function PasswordDetailsPanel() {
           }
         );
 
-        alert('Password copied');
+        showToast('Password copied');
       }
 
-      if (pendingAction === 'edit' && canEdit) {
+      if (actionName === 'edit' && canEdit) {
         setCompanyPasswordEditCache(activePassword.id, {
           password: originalPassword,
           note: originalNote,
@@ -205,11 +259,21 @@ function PasswordDetailsPanel() {
       setActivePasswordId(null);
       setVerifyOpen(false);
     } catch {
-      alert('Failed to decrypt password. Please check administrator master password.');
+      showToast(
+        'Failed to decrypt password. Please check administrator master password.',
+        'error'
+      );
       setPendingAction(null);
       setActivePasswordId(null);
       setVerifyOpen(false);
     }
+  };
+
+  const handleVerified = async (adminMasterPassword) => {
+    await executeAction(pendingAction, activePasswordId, adminMasterPassword);
+    setPendingAction(null);
+    setActivePasswordId(null);
+    setVerifyOpen(false);
   };
 
   return (
@@ -240,12 +304,18 @@ function PasswordDetailsPanel() {
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight dark:text-slate-100">
                     Account {index + 1}
                   </h3>
+                  {item.isSensitive && (
+                    <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-medium dark:bg-emerald-900/20 dark:text-emerald-400">
+                      <Lock size={12} className="mr-1" />
+                      Secure
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   {canEdit && (
                     <button
-                      onClick={() => requestAdminVerification('edit', item.id)}
+                      onClick={() => handleAction('edit', item)}
                       className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
                       title="Edit"
                     >
@@ -255,7 +325,7 @@ function PasswordDetailsPanel() {
 
                   {canDelete && (
                     <button
-                      onClick={() => requestAdminVerification('delete', item.id)}
+                      onClick={() => handleAction('delete', item)}
                       disabled={actionLoading}
                       className="w-9 h-9 rounded-xl border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                       title="Delete"
@@ -273,7 +343,7 @@ function PasswordDetailsPanel() {
                   action={
                     <button
                       onClick={() =>
-                        requestAdminVerification('copy-login', item.id)
+                        handleAction('copy-login', item)
                       }
                       className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                     >
@@ -293,7 +363,7 @@ function PasswordDetailsPanel() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() =>
-                          requestAdminVerification('view', item.id)
+                          handleAction('view', item)
                         }
                         className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >
@@ -302,7 +372,7 @@ function PasswordDetailsPanel() {
 
                       <button
                         onClick={() =>
-                          requestAdminVerification('copy-password', item.id)
+                          handleAction('copy-password', item)
                         }
                         className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >

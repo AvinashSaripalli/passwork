@@ -43,6 +43,7 @@ const createPassword = async (req, res) => {
     const isWeak = req.body.isWeak ?? false;
     const isOld = req.body.isOld ?? false;
     const isAtRisk = req.body.isAtRisk ?? false;
+    const isSensitive = req.body.isSensitive ?? false;
     const strengthScore = req.body.strengthScore ?? 40;
 
     const passwordEntry = await prisma.passwordEntry.create({
@@ -60,6 +61,7 @@ const createPassword = async (req, res) => {
         isWeak,
         isOld,
         isAtRisk,
+        isSensitive,
         strengthScore,
         lastUpdatedAt: new Date(),
         tags: {
@@ -150,6 +152,7 @@ const importPasswordsFromExcel = async (req, res) => {
           isWeak: row.isWeak ?? false,
           isOld: row.isOld ?? false,
           isAtRisk: row.isAtRisk ?? false,
+          isSensitive: row.isSensitive ?? false,
           tags: {
             create: Array.isArray(row.tags)
               ? row.tags.map((tagName) => ({
@@ -341,6 +344,7 @@ const updatePassword = async (req, res) => {
         isWeak: req.body.isWeak ?? undefined,
         isOld: req.body.isOld ?? undefined,
         isAtRisk: req.body.isAtRisk ?? undefined,
+        isSensitive: req.body.isSensitive ?? undefined,
 
         ...(cleanTags !== undefined && {
           tags: {

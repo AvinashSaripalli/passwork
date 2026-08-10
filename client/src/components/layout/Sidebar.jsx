@@ -16,6 +16,7 @@ import RenameFolderModal from '../folder/RenameFolderModal';
 import FolderActionsMenu from '../folder/FolderActionsMenu';
 import ConfirmModal from '../common/ConfirmModal';
 import PasswordGeneratorModal from '../tools/PasswordGeneratorModal';
+import { showToast } from '../../utils/toast';
 import logo from '../../assets/Vaultix1.png';
 
 function Sidebar() {
@@ -79,7 +80,9 @@ function Sidebar() {
   const executeDeleteFolder = async () => {
     if (!confirmDelete.folder) return;
     const result = await dispatch(deleteFolder(confirmDelete.folder.id));
-    if (deleteFolder.rejected.match(result)) alert(result.payload || 'Failed to delete folder');
+    if (deleteFolder.rejected.match(result)) {
+      showToast(result.payload || 'Failed to delete folder', 'error');
+    }
     setConfirmDelete({ open: false, folder: null });
   };
 

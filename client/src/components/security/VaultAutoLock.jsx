@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
+import { showToast } from '../../utils/toast';
 
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 
@@ -17,7 +18,7 @@ function VaultAutoLock() {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         dispatch(logout());
-        alert('Session expired due to inactivity. Please log in again.');
+        showToast('Session expired due to inactivity. Please log in again.', 'warning');
       }, SESSION_TIMEOUT);
     };
 

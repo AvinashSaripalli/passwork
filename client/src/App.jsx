@@ -18,6 +18,7 @@ import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
 import ProfilePage from './pages/profile/ProfilePage';
+import StatusBar from './components/common/StatusBar';
 
 function App() {
   const dispatch = useDispatch();
@@ -55,7 +56,9 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <StatusBar />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
@@ -159,7 +162,8 @@ function App() {
       />
 
       <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 

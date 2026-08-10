@@ -43,7 +43,9 @@ function AddPasswordModal() {
     folders,
   } = useSelector((state) => state.vault);
 
-  const { user } = useSelector((state) => state.auth);
+  const { user, sessionMasterPassword } = useSelector((state) => state.auth);
+
+  const isAdminUser = user?.role === 'ADMIN';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -53,6 +55,7 @@ function AddPasswordModal() {
     confirmPassword: '',
     url: '',
     tags: [],
+    isSensitive: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -74,6 +77,7 @@ function AddPasswordModal() {
       confirmPassword: '',
       url: '',
       tags: [],
+      isSensitive: false,
     });
 
     setShowPassword(false);
@@ -135,7 +139,13 @@ function AddPasswordModal() {
       vaultId: selectedVault?.id,
       folderId: selectedFolderId,
       tags: formData.tags,
+      isSensitive: formData.isSensitive,
     });
+
+    if (isAdminUser && sessionMasterPassword) {
+      await handleAdminVerified(sessionMasterPassword);
+      return;
+    }
 
     setVerifyOpen(true);
   };
@@ -170,6 +180,7 @@ function AddPasswordModal() {
           vaultId: pendingPayload.vaultId,
           folderId: pendingPayload.folderId,
           tags: pendingPayload.tags,
+          isSensitive: pendingPayload.isSensitive,
           strengthScore:
             strength?.label === 'Strong'
               ? 90
@@ -303,6 +314,20 @@ function AddPasswordModal() {
               setTags={(newTags) => setFormData((prev) => ({ ...prev, tags: newTags }))}
               suggestions={SUGGESTED_TAGS}
             />
+
+            <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-300 px-4 py-3 dark:border-slate-600">
+              <input
+                type="checkbox"
+                checked={formData.isSensitive}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, isSensitive: e.target.checked }))
+                }
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-slate-700 dark:text-slate-300">
+                Secure — always ask master password before revealing this password
+              </span>
+            </label>
 
             <div className="flex justify-end gap-3 pt-2">
               <button

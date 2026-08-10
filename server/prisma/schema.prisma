@@ -101,6 +101,7 @@ model PasswordEntry {
   isWeak            Boolean       @default(false)
   isOld             Boolean       @default(false)
   isAtRisk          Boolean       @default(false)
+  isSensitive       Boolean       @default(false)
   createdBy         User          @relation("PasswordCreatedBy", fields: [createdById], references: [id])
   folder            Folder?       @relation(fields: [folderId], references: [id])
   vault             Vault         @relation(fields: [vaultId], references: [id], onDelete: Cascade)

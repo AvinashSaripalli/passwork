@@ -3,6 +3,8 @@ import api from '../../services/api';
 import { encryptText, decryptText } from '../../utils/crypto';
 
 const getSavedToken = () => localStorage.getItem('token');
+const getSavedMasterPassword = () =>
+  sessionStorage.getItem('sessionMasterPassword');
 const getSavedUser = () => {
   try {
     const raw = localStorage.getItem('user');
@@ -171,7 +173,10 @@ const initialState = {
   loading: false,
   error: null,
   isMasterVerified: sessionStorage.getItem('isMasterVerified') === 'true',
-  sessionMasterPassword: null,
+  sessionMasterPassword: getSavedMasterPassword(),
+  sessionAdminMasterPassword: sessionStorage.getItem(
+    'sessionAdminMasterPassword'
+  ),
   userLoaded: !savedToken,
 };
 
@@ -188,6 +193,20 @@ const authSlice = createSlice({
 
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
+      if (action.payload) {
+        sessionStorage.setItem('sessionMasterPassword', action.payload);
+      } else {
+        sessionStorage.removeItem('sessionMasterPassword');
+      }
+    },
+
+    setSessionAdminMasterPassword: (state, action) => {
+      state.sessionAdminMasterPassword = action.payload || null;
+      if (action.payload) {
+        sessionStorage.setItem('sessionAdminMasterPassword', action.payload);
+      } else {
+        sessionStorage.removeItem('sessionAdminMasterPassword');
+      }
     },
 
     setUser: (state, action) => {
@@ -203,11 +222,14 @@ const authSlice = createSlice({
       state.error = null;
       state.isMasterVerified = false;
       state.sessionMasterPassword = null;
+      state.sessionAdminMasterPassword = null;
       state.userLoaded = true;
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('isMasterVerified');
+      sessionStorage.removeItem('sessionMasterPassword');
+      sessionStorage.removeItem('sessionAdminMasterPassword');
     },
 
     clearError: (state) => {
@@ -272,11 +294,14 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.isMasterVerified = false;
         state.sessionMasterPassword = null;
+        state.sessionAdminMasterPassword = null;
         state.userLoaded = true;
 
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('isMasterVerified');
+        sessionStorage.removeItem('sessionMasterPassword');
+        sessionStorage.removeItem('sessionAdminMasterPassword');
       })
 
       .addCase(updateProfile.pending, (state) => {
@@ -349,5 +374,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setMasterVerified, setSessionMasterPassword, setUser } = authSlice.actions;
+export const { logout, clearError, setMasterVerified, setSessionMasterPassword, setSessionAdminMasterPassword, setUser } = authSlice.actions;
 export default authSlice.reducer;

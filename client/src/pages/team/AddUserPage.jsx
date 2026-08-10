@@ -3,6 +3,8 @@ import { useSelector } from 'react-redux';
 import { useNavigate, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import api from '../../services/api';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import { showToast } from '../../utils/toast';
 
 function AddUserPage() {
   const { token, user } = useSelector((state) => state.auth);
@@ -21,6 +23,8 @@ function AddUserPage() {
   const [tableLoading, setTableLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [deleteUser, setDeleteUser] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (user?.role !== 'ADMIN') {
     return <Navigate to="/dashboard" replace />;
@@ -47,18 +51,28 @@ function AddUserPage() {
     loadUsers();
   }, [token]);
 
-  const handleDelete = async (id, fullName) => {
-    const confirmDelete = window.confirm(`Delete user "${fullName}"?`);
-    if (!confirmDelete) return;
+  const handleDelete = (id, fullName) => {
+    setDeleteUser({ id, fullName });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteUser) return;
 
     try {
-      await api.delete(`/users/${id}`, {
+      setDeleting(true);
+
+      await api.delete(`/users/${deleteUser.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
+      showToast('User deleted');
+      setDeleteUser(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Delete failed');
+      showToast(err.response?.data?.message || 'Delete failed', 'error');
+      setDeleteUser(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -322,6 +336,16 @@ function AddUserPage() {
             </form>
           </div>
         </div>
+
+        <ConfirmModal
+          open={!!deleteUser}
+          title="Delete User"
+          message={`Delete user "${deleteUser?.fullName}"?`}
+          confirmLabel="Delete"
+          onConfirm={confirmDeleteUser}
+          onCancel={() => setDeleteUser(null)}
+          loading={deleting}
+        />
       </div>
     </AppLayout>
   );

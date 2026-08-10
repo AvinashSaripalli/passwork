@@ -65,6 +65,10 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
     if (!userEmail) return setError('Select a user');
 
     setError('');
+    if (user?.role === 'ADMIN') {
+      handleVerified();
+      return;
+    }
     setVerifyOpen(true);
   };
 

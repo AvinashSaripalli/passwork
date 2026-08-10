@@ -15,6 +15,7 @@ import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import VerifyAdminMasterPasswordModal from '../../components/security/VerifyAdminMasterPasswordModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { safeDecryptText, encryptText } from '../../utils/crypto';
+import { showToast } from '../../utils/toast';
 
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -49,7 +50,11 @@ function VaultPage() {
   const [importVerifyOpen, setImportVerifyOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { user, token } = useSelector((state) => state.auth);
+  const { user, token, sessionMasterPassword } = useSelector(
+    (state) => state.auth
+  );
+
+  const isAdminUser = user?.role === 'ADMIN';
 
   const {
     selectedVault,
@@ -105,17 +110,22 @@ function VaultPage() {
 
   const handleExportExcel = () => {
     if (!selectedVault?.id) {
-      alert('Vault not loaded');
+      showToast('Vault not loaded', 'error');
       return;
     }
 
     if (!selectedFolder?.id) {
-      alert('Please select a folder first');
+      showToast('Please select a folder first', 'error');
       return;
     }
 
     if (!folderPasswords.length) {
-      alert('No passwords found in this folder');
+      showToast('No passwords found in this folder', 'error');
+      return;
+    }
+
+    if (isAdminUser && sessionMasterPassword) {
+      handleExportVerified(sessionMasterPassword);
       return;
     }
 
@@ -167,7 +177,7 @@ function VaultPage() {
 
       setExportVerifyOpen(false);
     } catch {
-      alert('Export failed. Unable to decrypt passwords.');
+      showToast('Export failed. Unable to decrypt passwords.', 'error');
       setExportVerifyOpen(false);
     }
   };
@@ -179,16 +189,22 @@ function VaultPage() {
     if (!file) return;
 
     if (!selectedVault?.id) {
-      alert('Vault not loaded');
+      showToast('Vault not loaded', 'error');
       return;
     }
 
     if (!selectedFolder?.id) {
-      alert('Please select a folder first');
+      showToast('Please select a folder first', 'error');
       return;
     }
 
     setImportFile(file);
+
+    if (isAdminUser && sessionMasterPassword) {
+      handleImportVerified(sessionMasterPassword);
+      return;
+    }
+
     setImportVerifyOpen(true);
   };
 
@@ -245,7 +261,7 @@ function VaultPage() {
       }
 
       if (!encryptedRows.length) {
-        alert('No valid rows found. Required columns: Name, Login, Password');
+        showToast('No valid rows found. Required columns: Name, Login, Password', 'error');
         setImportVerifyOpen(false);
         setImportFile(null);
         return;
@@ -266,12 +282,12 @@ function VaultPage() {
       );
 
       dispatch(fetchPasswordsByVault(selectedVault.id));
-      alert(`${encryptedRows.length} passwords imported successfully`);
+      showToast(`${encryptedRows.length} passwords imported successfully`);
 
       setImportVerifyOpen(false);
       setImportFile(null);
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to import Excel');
+      showToast(error.response?.data?.message || 'Failed to import Excel', 'error');
       setImportVerifyOpen(false);
     }
   };

@@ -206,6 +206,7 @@ const createMyVaultPassword = async (req, res) => {
         lastUpdatedAt: new Date(),
         strengthScore: req.body.strengthScore ?? 40,
         isWeak: req.body.isWeak ?? false,
+        isSensitive: req.body.isSensitive ?? false,
         tags: {
           create: tags.map((tagName) => ({
             tag: {
@@ -483,6 +484,7 @@ const updateMyVaultPassword = async (req, res) => {
         isWeak: req.body.isWeak ?? undefined,
         isOld: req.body.isOld ?? undefined,
         isAtRisk: req.body.isAtRisk ?? undefined,
+        isSensitive: req.body.isSensitive ?? undefined,
         ...(cleanTags !== undefined && {
           tags: {
             deleteMany: {},

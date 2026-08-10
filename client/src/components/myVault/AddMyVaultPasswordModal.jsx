@@ -14,6 +14,7 @@ const initialForm = {
   url: '',
   encryptedNote: '',
   tags: [],
+  isSensitive: false,
 };
 
 function AddMyVaultPasswordModal({
@@ -85,6 +86,7 @@ function AddMyVaultPasswordModal({
         isWeak: strength?.label === 'Weak',
         isOld: false,
         isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
+        isSensitive: formData.isSensitive,
       };
 
       onSubmit(payload);
@@ -190,6 +192,18 @@ function AddMyVaultPasswordModal({
             placeholder="Note"
             className={`${inputClass} resize-none`}
           />
+
+          <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
+            <input
+              type="checkbox"
+              checked={formData.isSensitive}
+              onChange={(e) => updateField('isSensitive', e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-slate-700 dark:text-slate-300">
+              Secure — always ask master password before revealing this password
+            </span>
+          </label>
 
           {masterError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
