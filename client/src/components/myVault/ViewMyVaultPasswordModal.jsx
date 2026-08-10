@@ -81,85 +81,85 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl">
+      <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl dark:bg-slate-800">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-semibold text-slate-900">View Password</h2>
-          <button onClick={handleClose} className="text-slate-500 hover:text-slate-900">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">View Password</h2>
+          <button onClick={handleClose} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
             <X size={20} />
           </button>
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">Name</p>
-            <p className="font-semibold text-slate-900 mt-1">{password.name}</p>
+          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Name</p>
+            <p className="font-semibold text-slate-900 mt-1 dark:text-slate-100">{password.name}</p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+          <div className="rounded-xl border border-slate-200 p-4 flex items-center justify-between dark:border-slate-700">
             <div>
-              <p className="text-xs text-slate-500">Login</p>
-              <p className="font-medium text-slate-900 mt-1">{password.login}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Login</p>
+              <p className="font-medium text-slate-900 mt-1 dark:text-slate-100">{password.login}</p>
             </div>
             <button
               onClick={() => handleCopy(password.login)}
-              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200"
+              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
             >
               <Copy size={16} />
             </button>
           </div>
 
           {loading ? (
-            <div className="rounded-xl border border-slate-200 p-6 text-center">
-              <p className="text-sm text-slate-500">Decrypting...</p>
+            <div className="rounded-xl border border-slate-200 p-6 text-center dark:border-slate-700">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Decrypting...</p>
             </div>
           ) : error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+              <div className="rounded-xl border border-slate-200 p-4 flex items-center justify-between dark:border-slate-700">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Password</p>
-                  <p className="font-medium text-slate-900 mt-1 break-all">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Password</p>
+                  <p className="font-medium text-slate-900 mt-1 break-all dark:text-slate-100">
                     {showDecrypted ? displayPassword : '••••••••••••'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-3 shrink-0">
                   <button
                     onClick={() => setShowDecrypted(!showDecrypted)}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200"
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
                   >
                     {showDecrypted ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                   <button
                     onClick={() => decryptedPassword && handleCopy(displayPassword)}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200"
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
                   >
                     <Copy size={16} />
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-500">URL</p>
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">URL</p>
                 {password.url ? (
                   <a
                     href={password.url.startsWith('http') ? password.url : `https://${password.url}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-flex items-center gap-1"
+                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-flex items-center gap-1 dark:text-blue-400 dark:hover:text-blue-400"
                   >
                     {password.url}
                     <ExternalLink size={14} />
                   </a>
                 ) : (
-                  <p className="font-medium text-slate-900 mt-1">No URL</p>
+                  <p className="font-medium text-slate-900 mt-1 dark:text-slate-100">No URL</p>
                 )}
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-500">Tags</p>
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tags</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {password?.tags?.length
                     ? password.tags
@@ -168,18 +168,18 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
                         .map((name) => (
                           <span
                             key={name}
-                            className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+                            className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium dark:bg-indigo-900/20 dark:text-indigo-400"
                           >
                             {name}
                           </span>
                         ))
-                    : <p className="font-medium text-slate-900">No tags</p>}
+                    : <p className="font-medium text-slate-900 dark:text-slate-100">No tags</p>}
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-500">Note</p>
-                <p className="font-medium text-slate-900 mt-1 break-all">{displayNote}</p>
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Note</p>
+                <p className="font-medium text-slate-900 mt-1 break-all dark:text-slate-100">{displayNote}</p>
               </div>
             </>
           )}

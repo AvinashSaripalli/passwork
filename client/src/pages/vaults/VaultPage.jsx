@@ -278,15 +278,15 @@ function VaultPage() {
 
   return (
     <AppLayout>
-      <div className="bg-white rounded-[30px] border border-slate-200 overflow-hidden">
-        <div className="px-8 py-6 border-b border-slate-200 bg-white">
+      <div className="bg-white rounded-[30px] border border-slate-200 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+        <div className="px-8 py-6 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-center justify-between gap-6">
             <div>
-              <p className="text-sm font-semibold text-slate-700">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 Company Vault
               </p>
 
-              <h1 className="text-[44px] leading-none font-bold text-slate-900 mt-1">
+              <h1 className="text-[44px] leading-none font-bold text-slate-900 mt-1 dark:text-slate-100">
                 {selectedFolder?.name || selectedVault?.name || 'Company Vault'}
               </h1>
 
@@ -297,7 +297,7 @@ function VaultPage() {
               {selectedFolder && canShareFolder && (
                 <button
                   onClick={() => setShareOpen(true)}
-                  className="h-[46px] px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold"
+                  className="h-[46px] px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
                 >
                   Share Folder
                 </button>
@@ -315,21 +315,21 @@ function VaultPage() {
               <div className="relative">
                 <button
                   onClick={() => setMenuOpen((prev) => !prev)}
-                  className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center"
+                  className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center dark:hover:bg-slate-700"
                 >
                   <MoreVertical size={20} />
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-20">
+                  <div className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-20 dark:bg-slate-800 dark:border-slate-600">
                     <button
                       onClick={() => {
                         setHistoryOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50"
+                      className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
-                      <History size={16} className="text-slate-500" />
+                      <History size={16} className="text-slate-500 dark:text-slate-400" />
                       History
                     </button>
 
@@ -338,9 +338,9 @@ function VaultPage() {
                         setUsersOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50"
+                      className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
-                      <Users size={16} className="text-slate-500" />
+                      <Users size={16} className="text-slate-500 dark:text-slate-400" />
                       Members
                     </button>
 
@@ -351,14 +351,14 @@ function VaultPage() {
                             handleExportExcel();
                             setMenuOpen(false);
                           }}
-                          className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50"
+                          className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
                         >
-                          <Download size={16} className="text-slate-500" />
+                          <Download size={16} className="text-slate-500 dark:text-slate-400" />
                           Export
                         </button>
 
-                        <label className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-                          <Upload size={16} className="text-slate-500" />
+                        <label className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer dark:hover:bg-slate-700">
+                          <Upload size={16} className="text-slate-500 dark:text-slate-400" />
                           Import
                           <input
                             type="file"
@@ -379,7 +379,7 @@ function VaultPage() {
                           setConfirmDelete(true);
                           setMenuOpen(false);
                         }}
-                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={16} />
                         Delete Folder
@@ -393,24 +393,24 @@ function VaultPage() {
         </div>
 
         {(vaultsLoading || passwordsLoading) && (
-          <div className="p-8 text-slate-500">Loading vault...</div>
+          <div className="p-8 text-slate-500 dark:text-slate-400">Loading vault...</div>
         )}
 
-        {error && <div className="p-8 text-red-600">{error}</div>}
+        {error && <div className="p-8 text-red-600 dark:text-red-400">{error}</div>}
 
         {!vaultsLoading && !passwordsLoading && !error && (
           <>
             {!selectedFolderId ? (
               <div className="min-h-[640px] flex flex-col items-center justify-center text-center px-6">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 dark:bg-indigo-900/40 dark:text-indigo-300">
                   <Users size={28} />
                 </div>
 
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                   Select a folder
                 </h2>
 
-                <p className="text-slate-500 mt-2 text-sm">
+                <p className="text-slate-500 mt-2 text-sm dark:text-slate-400">
                   Click a folder from the left sidebar to view your passwords.
                 </p>
               </div>

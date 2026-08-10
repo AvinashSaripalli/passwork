@@ -33,7 +33,7 @@ function AddMyVaultPasswordModal({
   if (!open) return null;
 
   const inputClass =
-    'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition';
+    'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600';
 
   const updateField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -100,23 +100,23 @@ function AddMyVaultPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-xl border border-slate-200">
+      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Add Password</h2>
-            <p className="text-sm text-slate-500 mt-1">Create a new password in Personal Vault</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Add Password</h2>
+            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">Create a new password in Personal Vault</p>
           </div>
           <button
             onClick={handleClose}
-            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
+            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center dark:hover:bg-slate-700"
           >
-            <X size={19} className="text-slate-500" />
+            <X size={19} className="text-slate-500 dark:text-slate-400" />
           </button>
         </div>
 
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-4">
-          <p className="text-xs text-slate-500">Selected Folder</p>
-          <p className="text-sm font-semibold text-slate-800 mt-1">
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-4 dark:bg-slate-800/50 dark:border-slate-700">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Selected Folder</p>
+          <p className="text-sm font-semibold text-slate-800 mt-1 dark:text-slate-200">
             {selectedFolder?.name || 'Select Folder'}
           </p>
         </div>
@@ -163,7 +163,7 @@ function AddMyVaultPasswordModal({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -192,15 +192,15 @@ function AddMyVaultPasswordModal({
           />
 
           {masterError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-              <p className="text-sm text-red-600">{masterError}</p>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-600 dark:text-red-400">{masterError}</p>
             </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleClose}
-              className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+              className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

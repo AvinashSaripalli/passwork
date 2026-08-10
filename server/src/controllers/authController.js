@@ -228,6 +228,10 @@ const me = async (req, res) => {
       where: { id: req.user.id },
     });
 
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     res.json({
       id: user.id,
       fullName: user.fullName,
@@ -505,6 +509,37 @@ const changeMasterPassword = async (req, res) => {
   }
 };
 
+const reencryptPasswords = async (req, res) => {
+  try {
+    const { passwords } = req.body;
+
+    if (!passwords || !Array.isArray(passwords) || passwords.length === 0) {
+      return res.status(400).json({ message: 'passwords array is required' });
+    }
+
+    if (passwords.length > 1000) {
+      return res.status(400).json({ message: 'Cannot re-encrypt more than 1000 passwords at once' });
+    }
+
+    const updates = passwords.map((pw) =>
+      prisma.passwordEntry.update({
+        where: { id: pw.id, createdById: req.user.id },
+        data: {
+          encryptedPassword: pw.encryptedPassword,
+          ...(pw.encryptedNote !== undefined && { encryptedNote: pw.encryptedNote }),
+        },
+      })
+    );
+
+    await prisma.$transaction(updates);
+
+    res.json({ message: 'Passwords re-encrypted successfully' });
+  } catch (error) {
+    console.error('Re-encrypt passwords error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   register,
   saveLoginActivity,
@@ -516,4 +551,5 @@ module.exports = {
   updateProfile,
   changePassword,
   changeMasterPassword,
+  reencryptPasswords,
 };

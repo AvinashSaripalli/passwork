@@ -35,12 +35,12 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-xl p-8">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 dark:bg-slate-800">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Create Folder</h2>
+          <h2 className="text-2xl font-bold dark:text-slate-100">Create Folder</h2>
           <button
             onClick={() => dispatch(closeAddFolderModal())}
-            className="text-slate-500 text-xl"
+            className="text-slate-500 text-xl dark:text-slate-400"
           >
             ×
           </button>
@@ -52,7 +52,7 @@ const handleSubmit = async (e) => {
             placeholder="Folder name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
             required
           />
 
@@ -60,14 +60,14 @@ const handleSubmit = async (e) => {
             <button
               type="button"
               onClick={() => dispatch(closeAddFolderModal())}
-              className="px-5 py-3 rounded-xl border border-slate-300"
+              className="px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-600"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={actionLoading}
-              className="px-6 py-3 rounded-xl bg-blue-500 text-white font-medium"
+              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700"
             >
               {actionLoading ? 'Creating...' : 'Create Folder'}
             </button>

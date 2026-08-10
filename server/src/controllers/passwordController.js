@@ -68,7 +68,7 @@ const createPassword = async (req, res) => {
               connectOrCreate: {
                 where: { name: tagName },
                 create: {
-                  id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  id: generateId('tag'),
                   name: tagName,
                 },
               },
@@ -116,6 +116,14 @@ const importPasswordsFromExcel = async (req, res) => {
       return res.status(400).json({ message: 'vaultId and folderId required' });
     }
 
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'rows array is required' });
+    }
+
+    if (rows.length > 500) {
+      return res.status(400).json({ message: 'Cannot import more than 500 passwords at once' });
+    }
+
     const access = await getFolderAccess(folderId, req.user.id);
     if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
@@ -149,7 +157,7 @@ const importPasswordsFromExcel = async (req, res) => {
                     connectOrCreate: {
                       where: { name: tagName },
                       create: {
-                        id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        id: generateId('tag'),
                         name: tagName,
                       },
                     },
@@ -342,9 +350,7 @@ const updatePassword = async (req, res) => {
                 connectOrCreate: {
                   where: { name: tagName },
                   create: {
-                    id: `TAG-${Date.now()}-${Math.floor(
-                      Math.random() * 1000
-                    )}`,
+                    id: generateId('tag'),
                     name: tagName,
                   },
                 },
@@ -538,58 +544,20 @@ const logViewPassword = async (req, res) => {
   }
 };
 
-const exportPasswordsToExcel = async (req, res) => {
+const getPasswordsOwnedByUser = async (req, res) => {
   try {
-    const { vaultId, folderId } = req.query;
-
-    if (!vaultId) {
-      return res.status(400).json({ message: 'vaultId is required' });
-    }
-
-    let where = { vaultId };
-
-    if (folderId) {
-      const access = await getFolderAccess(folderId, req.user.id);
-      if (!access) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-      where.folderId = folderId;
-    }
-
     const passwords = await prisma.passwordEntry.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
+      where: { createdById: req.user.id },
+      select: {
+        id: true,
+        encryptedPassword: true,
+        encryptedNote: true,
+      },
     });
 
-    // ✅ ONLY REQUIRED FIELDS
-    const rows = passwords.map((item) => ({
-      name: item.name || '',
-      login: item.login || '',
-      password: item.encryptedPassword || '', // you can decrypt if needed
-      url: item.url || '',
-    }));
-
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Passwords');
-
-    const buffer = XLSX.write(workbook, {
-      type: 'buffer',
-      bookType: 'xlsx',
-    });
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="passwords.xlsx"`
-    );
-
-    res.send(buffer);
+    res.json(passwords);
   } catch (error) {
-    console.error('Export error:', error);
+    console.error('Get passwords owned by user error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -603,5 +571,5 @@ module.exports = {
   logCopyPassword,
   logViewPassword,
   importPasswordsFromExcel,
-  exportPasswordsToExcel,
+  getPasswordsOwnedByUser,
 };

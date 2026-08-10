@@ -157,26 +157,15 @@ const getSecuritySummary = async (
         riskPasswords,
       });
 
-    const deleteLogs =
-  await prisma.activityLog.findMany({
-    where: {
-      action: 'DELETE_PASSWORD',
-    },
+    const deleteLogs = await prisma.activityLog.findMany({
+      where: { action: 'DELETE_PASSWORD' },
+      select: { metadata: true },
+    });
 
-    select: {
-      metadata: true,
-    },
-  });
-
-const deletedPasswords =
-  deleteLogs.filter((log) => {
-    const vaultId =
-      log.metadata?.vaultId;
-
-    return where.vaultId.in.includes(
-      vaultId
-    );
-  }).length;
+    const deletedPasswords = deleteLogs.filter((log) => {
+      const vaultId = log.metadata?.vaultId;
+      return where.vaultId.in.includes(vaultId);
+    }).length;
 
     res.json({
       totalPasswords,
@@ -450,7 +439,9 @@ const getRecentPasswords = async (
         where,
 
         include: {
-          vault: true,
+          vault: {
+            select: { id: true, name: true, type: true },
+          },
         },
 
         orderBy: {

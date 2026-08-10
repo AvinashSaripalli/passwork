@@ -7,7 +7,7 @@ const MIN_LENGTH = 8;
 const MAX_LENGTH = 64;
 
 const inputClass =
-  'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition';
+  'w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:focus:ring-indigo-500/30';
 
 function PasswordGeneratorModal({ open, onClose }) {
   const [password, setPassword] = useState('');
@@ -41,9 +41,9 @@ function PasswordGeneratorModal({ open, onClose }) {
   const strength = hasSelection ? getPasswordStrength(password) : null;
 
   const strengthConfig = {
-    Weak: { bar: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', label: 'Weak' },
-    Medium: { bar: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', label: 'Medium' },
-    Strong: { bar: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', label: 'Strong' },
+    Weak: { bar: 'bg-red-500', text: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200', label: 'Weak' },
+    Medium: { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200', label: 'Medium' },
+    Strong: { bar: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200', label: 'Strong' },
   };
 
   const strengthPercent = strength
@@ -60,28 +60,28 @@ function PasswordGeneratorModal({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-xl border border-slate-200">
+      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Sparkles size={20} className="text-indigo-600" />
+            <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center dark:bg-indigo-900/50">
+              <Sparkles size={20} className="text-indigo-600 dark:text-indigo-300" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Password Generator</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Create strong, secure passwords instantly</p>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Password Generator</h2>
+              <p className="text-sm text-slate-500 mt-0.5 dark:text-slate-400">Create strong, secure passwords instantly</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
+            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center dark:hover:bg-slate-700"
           >
-            <X size={19} className="text-slate-500" />
+            <X size={19} className="text-slate-500 dark:text-slate-400" />
           </button>
         </div>
 
         {!hasSelection && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4">
-            <p className="text-sm text-amber-700">Select at least one character type</p>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4 dark:border-amber-800 dark:bg-amber-900/20">
+            <p className="text-sm text-amber-700 dark:text-amber-400">Select at least one character type</p>
           </div>
         )}
 
@@ -98,7 +98,7 @@ function PasswordGeneratorModal({ open, onClose }) {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
@@ -106,7 +106,7 @@ function PasswordGeneratorModal({ open, onClose }) {
               <button
                 onClick={handleCopy}
                 className={`h-[42px] w-[42px] rounded-lg flex items-center justify-center transition shrink-0 ${
-                  copied ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  copied ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
                 }`}
                 title="Copy to clipboard"
               >
@@ -114,7 +114,7 @@ function PasswordGeneratorModal({ open, onClose }) {
               </button>
               <button
                 onClick={generate}
-                className="h-[42px] w-[42px] rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center shrink-0"
+                className="h-[42px] w-[42px] rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center shrink-0 dark:bg-indigo-900/50 dark:text-indigo-300 dark:hover:bg-indigo-800/50"
                 title="Generate new password"
               >
                 <RefreshCw size={18} />
@@ -123,7 +123,7 @@ function PasswordGeneratorModal({ open, onClose }) {
 
             {strength && (
               <div className="flex items-center gap-3 mt-3">
-                <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden dark:bg-slate-700">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${strengthConfig[strength.label].bar}`}
                     style={{ width: `${strengthPercent}%` }}
@@ -136,10 +136,10 @@ function PasswordGeneratorModal({ open, onClose }) {
             )}
           </div>
 
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 dark:bg-slate-700/50 dark:border-slate-600">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-slate-700">Password length</label>
-              <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md">{length}</span>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password length</label>
+              <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md dark:text-indigo-300 dark:bg-indigo-900/50">{length}</span>
             </div>
             <input
               type="range"
@@ -147,16 +147,16 @@ function PasswordGeneratorModal({ open, onClose }) {
               max={MAX_LENGTH}
               value={length}
               onChange={(e) => setLength(Number(e.target.value))}
-              className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600"
+              className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600 dark:bg-slate-600"
             />
-            <div className="flex justify-between text-xs text-slate-400 mt-1">
+            <div className="flex justify-between text-xs text-slate-400 mt-1 dark:text-slate-500">
               <span>{MIN_LENGTH}</span>
               <span>{MAX_LENGTH}</span>
             </div>
           </div>
 
           <div>
-            <p className="text-sm font-medium text-slate-700 mb-2.5">Character types</p>
+            <p className="text-sm font-medium text-slate-700 mb-2.5 dark:text-slate-300">Character types</p>
             <div className="grid grid-cols-2 gap-2.5">
               <CharToggle checked={useUppercase} onChange={setUseUppercase} label="A-Z" sub="Uppercase" />
               <CharToggle checked={useLowercase} onChange={setUseLowercase} label="a-z" sub="Lowercase" />
@@ -169,7 +169,7 @@ function PasswordGeneratorModal({ open, onClose }) {
             <div
               onClick={() => setExcludeAmbiguous(!excludeAmbiguous)}
               className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-                excludeAmbiguous ? 'bg-indigo-600' : 'bg-slate-300'
+                excludeAmbiguous ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
               }`}
             >
               <div
@@ -179,15 +179,15 @@ function PasswordGeneratorModal({ open, onClose }) {
               />
             </div>
             <div>
-              <span className="text-sm text-slate-700 group-hover:text-slate-900">Exclude ambiguous characters</span>
-              <p className="text-xs text-slate-400">i, l, 1, L, o, 0, O</p>
+              <span className="text-sm text-slate-700 group-hover:text-slate-900 dark:text-slate-300 dark:group-hover:text-slate-100">Exclude ambiguous characters</span>
+              <p className="text-xs text-slate-400 dark:text-slate-500">i, l, 1, L, o, 0, O</p>
             </div>
           </label>
 
           <div className="flex justify-end gap-3 pt-1">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+              className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Close
             </button>
@@ -214,19 +214,19 @@ function CharToggle({ checked, onChange, label, sub }) {
     <label
       onClick={() => onChange(!checked)}
       className={`flex items-center gap-3 px-3.5 py-3 rounded-lg border cursor-pointer transition select-none ${
-        checked ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+        checked ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20' : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700'
       }`}
     >
       <div
         className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition shrink-0 ${
-          checked ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'
+          checked ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 dark:border-slate-500'
         }`}
       >
         {checked && <Check size={11} className="text-white" />}
       </div>
       <div>
-        <p className="text-sm font-medium text-slate-800 leading-tight">{label}</p>
-        <p className="text-xs text-slate-400">{sub}</p>
+        <p className="text-sm font-medium text-slate-800 leading-tight dark:text-slate-100">{label}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">{sub}</p>
       </div>
     </label>
   );

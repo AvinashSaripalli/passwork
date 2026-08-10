@@ -99,7 +99,7 @@ function EditMyVaultPasswordModal({
   if (!open) return null;
 
   const inputClass =
-    'w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100';
+    'w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600';
 
   const updateField = (field, value) => {
     setFormData((prev) => ({
@@ -158,35 +158,35 @@ function EditMyVaultPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-xl">
+      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl dark:bg-slate-800">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               Edit Password
             </h2>
 
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
               Update password details in Personal Vault
             </p>
           </div>
 
           <button
             onClick={handleClose}
-            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900"
+            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:bg-slate-700 dark:text-slate-400 dark:hover:text-slate-100"
           >
             <X size={20} />
           </button>
         </div>
 
         {decrypting && (
-          <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
-            <p className="text-sm text-indigo-600">Decrypting password…</p>
+          <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-900/20">
+            <p className="text-sm text-indigo-600 dark:text-indigo-400">Decrypting password…</p>
           </div>
         )}
 
         {decryptError && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-700">{decryptError}</p>
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+            <p className="text-sm text-amber-700 dark:text-amber-400">{decryptError}</p>
           </div>
         )}
 
@@ -232,7 +232,7 @@ function EditMyVaultPasswordModal({
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -262,7 +262,7 @@ function EditMyVaultPasswordModal({
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleClose}
-              className="px-5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50"
+              className="px-5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

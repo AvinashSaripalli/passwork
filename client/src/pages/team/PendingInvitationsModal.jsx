@@ -67,34 +67,34 @@ function PendingInvitationsModal({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[80] px-4">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden dark:bg-slate-800">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 dark:border-slate-700">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               Send Invitation
             </h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
               Send registration link and view pending invitations
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+            className="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
           >
             ×
           </button>
         </div>
 
-        <div className="p-8">
+        <div className="p-6">
           {message && (
-            <div className="mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+            <div className="mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
               {message}
             </div>
           )}
 
           {error && (
-            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
               {error}
             </div>
           )}
@@ -108,14 +108,14 @@ function PendingInvitationsModal({ open, onClose }) {
               placeholder="Enter user email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12 border border-slate-300 rounded-xl px-4 outline-none focus:border-indigo-500"
+              className="h-12 border border-slate-300 rounded-xl px-4 outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               required
             />
 
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="h-12 border border-slate-300 rounded-xl px-4 outline-none focus:border-indigo-500"
+              className="h-12 border border-slate-300 rounded-xl px-4 outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             >
               <option value="USER">USER</option>
               <option value="ADMIN">ADMIN</option>
@@ -133,29 +133,29 @@ function PendingInvitationsModal({ open, onClose }) {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                   Pending Invitations
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Users invited but not registered yet
                 </p>
               </div>
 
               <button
                 onClick={fetchInvitations}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-sm text-slate-700 hover:bg-slate-50"
+                className="px-4 py-2 rounded-xl border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Refresh
               </button>
             </div>
 
             {loading ? (
-              <p className="text-slate-500 text-sm">Loading invitations...</p>
+              <p className="text-slate-500 text-sm dark:text-slate-400">Loading invitations...</p>
             ) : (
-              <div className="max-h-[360px] overflow-y-auto border border-slate-200 rounded-2xl">
+              <div className="max-h-[360px] overflow-y-auto border border-slate-200 rounded-2xl dark:border-slate-700">
                 <table className="w-full">
-                  <thead className="bg-slate-50 sticky top-0">
-                    <tr className="text-left text-slate-600">
+                  <thead className="bg-slate-50 sticky top-0 dark:bg-slate-700/50">
+                    <tr className="text-left text-slate-600 dark:text-slate-400">
                       <th className="px-5 py-4 font-semibold">Email</th>
                       <th className="px-5 py-4 font-semibold">Role</th>
                       <th className="px-5 py-4 font-semibold">Invited By</th>
@@ -168,9 +168,9 @@ function PendingInvitationsModal({ open, onClose }) {
                     {invitations.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-t border-slate-200 hover:bg-slate-50"
+                        className="border-t border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50"
                       >
-                        <td className="px-5 py-4 font-medium text-slate-900">
+                        <td className="px-5 py-4 font-medium text-slate-900 dark:text-slate-100">
                           {item.email}
                         </td>
 
@@ -178,28 +178,28 @@ function PendingInvitationsModal({ open, onClose }) {
                           <span
                             className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                               item.role === 'ADMIN'
-                                ? 'bg-indigo-50 text-indigo-700'
-                                : 'bg-slate-100 text-slate-700'
+                                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                             }`}
                           >
                             {item.role}
                           </span>
                         </td>
 
-                        <td className="px-5 py-4 text-slate-600">
+                        <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                           {item.inviter?.fullName ||
                             item.inviter?.email ||
                             '-'}
                         </td>
 
-                        <td className="px-5 py-4 text-slate-600">
+                        <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                           {item.expiresAt
                             ? new Date(item.expiresAt).toLocaleDateString()
                             : '-'}
                         </td>
 
                         <td className="px-5 py-4">
-                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
                             Pending
                           </span>
                         </td>
@@ -210,7 +210,7 @@ function PendingInvitationsModal({ open, onClose }) {
                       <tr>
                         <td
                           colSpan="5"
-                          className="px-5 py-10 text-center text-slate-500"
+                          className="px-5 py-10 text-center text-slate-500 dark:text-slate-400"
                         >
                           No pending invitations.
                         </td>
@@ -223,10 +223,10 @@ function PendingInvitationsModal({ open, onClose }) {
           </div>
         </div>
 
-        <div className="px-8 py-5 border-t border-slate-200 flex justify-end">
+        <div className="px-6 py-4 border-t border-slate-200 flex justify-end dark:border-slate-700">
           <button
             onClick={onClose}
-            className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Close
           </button>

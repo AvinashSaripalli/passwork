@@ -213,7 +213,7 @@ const removePasswordShare = async (req, res) => {
       userId: share.sharedWithId,
       title: 'Password Access Removed',
       message: `Your access to "${share.password.name}" was removed`,
-      type: 'ACCESS_REVOKED',
+      type: 'SHARE_PASSWORD',
       metadata: {
         passwordId: share.passwordId,
         shareId,

@@ -19,10 +19,10 @@ function EditFolderModal({ open, folder, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl p-5">
+      <div className="w-full max-w-sm bg-white rounded-2xl p-5 dark:bg-slate-800">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Edit Folder</h2>
-          <button onClick={onClose}>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Edit Folder</h2>
+          <button onClick={onClose} className="text-slate-500 dark:text-slate-400">
             <X size={20} />
           </button>
         </div>
@@ -30,13 +30,13 @@ function EditFolderModal({ open, folder, onClose, onSubmit }) {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none"
+          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
         />
 
         <div className="flex justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border text-sm"
+            className="px-5 py-2.5 rounded-xl border text-sm border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
           >
             Cancel
           </button>

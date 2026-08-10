@@ -111,28 +111,28 @@ function MyVaultPasswordWorkspace({
         error={decryptError}
         decrypting={decrypting}
       />
-      <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden dark:bg-slate-800 dark:border-slate-700">
         {loading ? (
-          <div className="p-6 text-slate-500">Loading...</div>
+          <div className="p-6 text-slate-500 dark:text-slate-400">Loading...</div>
         ) : passwords.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-slate-400">
+          <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
             No passwords found
           </div>
         ) : (
           <div className="grid grid-cols-[320px_1fr] min-h-[600px]">
 
             {/* Left Side */}
-            <div className="border-r border-slate-200 p-5 bg-slate-50/50">
+            <div className="border-r border-slate-200 p-5 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search passwords..."
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none bg-white mb-5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none bg-white mb-5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
               />
 
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900">Passwords</h2>
-                <span className="text-sm text-slate-500">{filteredPasswords.length}</span>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Passwords</h2>
+                <span className="text-sm text-slate-500 dark:text-slate-400">{filteredPasswords.length}</span>
               </div>
 
               <div className="space-y-2">
@@ -145,12 +145,12 @@ function MyVaultPasswordWorkspace({
                     }}
                     className={`w-full text-left rounded-xl border p-4 transition ${
                       selectedPassword?.id === item.id
-                        ? 'bg-indigo-50 border-indigo-200'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                        ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <h3 className="font-semibold text-slate-900 truncate">{item.name}</h3>
-                    <p className="text-sm text-slate-500 truncate mt-1">{item.login}</p>
+                    <h3 className="font-semibold text-slate-900 truncate dark:text-slate-100">{item.name}</h3>
+                    <p className="text-sm text-slate-500 truncate mt-1 dark:text-slate-400">{item.login}</p>
                   </button>
                 ))}
               </div>
@@ -159,7 +159,7 @@ function MyVaultPasswordWorkspace({
             {/* Right Side */}
             <div className="p-8">
               {!selectedPassword ? (
-                <div className="h-full flex items-center justify-center text-slate-400">
+                <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
                   Select a password
                 </div>
               ) : (
@@ -167,38 +167,38 @@ function MyVaultPasswordWorkspace({
                   <div className="flex items-start justify-between mb-6">
                     <div>
                       <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold text-slate-900">
+                        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
                           {selectedPassword.name}
                         </h1>
-                        <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
+                        <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium dark:bg-indigo-900/20 dark:text-indigo-400">
                           Personal Vault
                         </span>
                       </div>
-                      <p className="text-slate-500 mt-2 text-sm">Personal password details</p>
+                      <p className="text-slate-500 mt-2 text-sm dark:text-slate-400">Personal password details</p>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onEditPassword(selectedPassword)}
-                        className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                        className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
                       >
                         <Edit2 size={17} />
                       </button>
                       <button
                         onClick={() => onDeletePassword(selectedPassword)}
-                        className="w-10 h-10 rounded-full border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
+                        className="w-10 h-10 rounded-full border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={17} />
                       </button>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 p-6 bg-white">
+                  <div className="rounded-2xl border border-slate-200 p-6 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <div className="mb-6">
-                      <h2 className="text-xl font-semibold text-slate-900">
+                      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                         {selectedPassword.login}
                       </h2>
-                      <p className="text-sm text-slate-500 mt-1">Account details</p>
+                      <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">Account details</p>
                     </div>
 
                     <div className="space-y-0">
@@ -209,22 +209,22 @@ function MyVaultPasswordWorkspace({
                       />
 
                       {/* Password */}
-                      <div className="border-b border-slate-200 py-5">
+                      <div className="border-b border-slate-200 py-5 dark:border-slate-700">
                         <div className="grid grid-cols-[140px_1fr_80px] items-center">
-                          <p className="text-slate-500">Password</p>
-                          <p className="text-slate-900 truncate">
+                          <p className="text-slate-500 dark:text-slate-400">Password</p>
+                          <p className="text-slate-900 truncate dark:text-slate-100">
                             {showPassword ? displayValue : '••••••••••••'}
                           </p>
                           <div className="flex justify-end items-center gap-3">
                             <button
                               onClick={handleEyeClick}
-                              className="text-slate-500 hover:text-indigo-600"
+                              className="text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
                             >
                               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                             <button
                               onClick={() => copyText(displayValue)}
-                              className="text-slate-500 hover:text-slate-900"
+                              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                             >
                               <Copy size={17} />
                             </button>
@@ -239,9 +239,9 @@ function MyVaultPasswordWorkspace({
                         onCopy={() => copyText(selectedPassword.url)}
                       />
 
-                      <div className="border-b border-slate-200 py-5">
+                      <div className="border-b border-slate-200 py-5 dark:border-slate-700">
                         <div className="grid grid-cols-[140px_1fr_40px] items-start">
-                          <p className="text-slate-500">Tags</p>
+                          <p className="text-slate-500 dark:text-slate-400">Tags</p>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedPassword?.tags?.length
                               ? selectedPassword.tags
@@ -250,12 +250,12 @@ function MyVaultPasswordWorkspace({
                                   .map((name) => (
                                     <span
                                       key={name}
-                                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+                                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium dark:bg-indigo-900/20 dark:text-indigo-400"
                                     >
                                       {name}
                                     </span>
                                   ))
-                              : <span className="text-slate-900">No tags</span>}
+                              : <span className="text-slate-900 dark:text-slate-100">No tags</span>}
                           </div>
                         </div>
                       </div>
@@ -264,14 +264,14 @@ function MyVaultPasswordWorkspace({
                     <div className="flex flex-wrap gap-3 mt-7">
                       <button
                         onClick={() => onSharePassword(selectedPassword)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm hover:bg-indigo-100"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-800"
                       >
                         <Share2 size={16} />
                         Share Password
                       </button>
                       <button
                         onClick={() => onManageShares(selectedPassword)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                       >
                         <Users size={16} />
                         Manage Access
@@ -291,22 +291,22 @@ function MyVaultPasswordWorkspace({
 function DetailRow({ label, value, onCopy, link }) {
   const isUrl = link && value && value !== 'No URL';
   return (
-    <div className="grid grid-cols-[140px_1fr_40px] items-center border-b border-slate-200 py-5 last:border-b-0">
-      <p className="text-slate-500">{label}</p>
+    <div className="grid grid-cols-[140px_1fr_40px] items-center border-b border-slate-200 py-5 dark:border-slate-700 last:border-b-0">
+      <p className="text-slate-500 dark:text-slate-400">{label}</p>
       {isUrl ? (
         <a
           href={value.startsWith('http') ? value : `https://${value}`}
           target="_blank"
           rel="noreferrer"
-          className="truncate text-blue-600 hover:text-blue-800 hover:underline"
+          className="truncate text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-400"
         >
           {value}
         </a>
       ) : (
-        <p className={`truncate ${link ? 'text-blue-600' : 'text-slate-900'}`}>{value}</p>
+        <p className={`truncate ${link ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-slate-100'}`}>{value}</p>
       )}
       {onCopy ? (
-        <button onClick={onCopy} className="text-slate-500 hover:text-slate-900">
+        <button onClick={onCopy} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
           {link ? <ExternalLink size={17} /> : <Copy size={17} />}
         </button>
       ) : (

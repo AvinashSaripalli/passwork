@@ -60,12 +60,15 @@ const getUsers = async (req, res) => {
   }
 };
 
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+
+const VALID_ROLES = ['ADMIN', 'USER'];
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=<>?/{}[\]|~`])/;
+
 const createUserByAdmin = async (req, res) => {
   try {
     if (requireAdmin(req, res)) return;
-
-    const bcrypt = require('bcrypt');
-    const crypto = require('crypto');
 
     const { fullName, email, password, role = 'USER' } = req.body;
 
@@ -73,6 +76,29 @@ const createUserByAdmin = async (req, res) => {
       return res.status(400).json({
         message: 'fullName, email and password are required',
       });
+    }
+
+    if (fullName.trim().length < 2) {
+      return res.status(400).json({ message: 'fullName must be at least 2 characters' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({
+        message: 'Password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    if (!VALID_ROLES.includes(role)) {
+      return res.status(400).json({ message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -120,6 +146,14 @@ const updateUser = async (req, res) => {
     if (requireAdmin(req, res)) return;
 
     const { fullName, role, isActive } = req.body;
+
+    if (role && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+    }
+
+    if (fullName !== undefined && fullName.trim().length < 2) {
+      return res.status(400).json({ message: 'fullName must be at least 2 characters' });
+    }
 
     const updatedUser = await prisma.user.update({
       where: {

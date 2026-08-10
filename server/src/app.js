@@ -20,22 +20,27 @@ const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+}));
 app.use(morgan(':method :url :status :response-time ms'));
-app.use(express.json());
 
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   })
 );
+
+app.use(express.json({ limit: '2mb' }));
 
 app.use(
   '/api',
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 500,
   })
 );
 
@@ -55,6 +60,10 @@ app.use('/api/v1/my-vault', personalVaultRoutes);
 app.use('/api/v1/password-shares', passwordShareRoutes);
 app.use('/api/v1/login-activity', loginActivityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ message: 'API endpoint not found' });
+});
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

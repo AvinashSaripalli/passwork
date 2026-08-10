@@ -91,19 +91,19 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
+        <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
           
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-semibold">Share Folder</h2>
-            <button onClick={handleClose} className="text-slate-400">
+            <button onClick={handleClose} className="text-slate-400 dark:text-slate-500">
               <X size={20} />
             </button>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="mb-4 bg-red-50 text-red-600 text-sm px-3 py-2 rounded-md">
+            <div className="mb-4 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-sm px-3 py-2 rounded-md">
               {error}
             </div>
           )}
@@ -113,13 +113,13 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
             
             {/* User Select */}
             <div>
-              <label className="text-sm text-slate-600 mb-1 block">
+              <label className="text-sm text-slate-600 dark:text-slate-300 mb-1 block">
                 Select user
               </label>
               <select
                 value={userEmail}
                 onChange={(e) => setUserEmail(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">
                   {fetchingUsers ? 'Loading...' : 'Choose user'}
@@ -134,13 +134,13 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
             {/* Access Level */}
             <div>
-              <label className="text-sm text-slate-600 mb-1 block">
+              <label className="text-sm text-slate-600 dark:text-slate-300 mb-1 block">
                 Access level
               </label>
               <select
                 value={accessLevel}
                 onChange={(e) => setAccessLevel(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="READ_ONLY">Read Only</option>
                 <option value="EDIT_ONLY">Edit Only</option>

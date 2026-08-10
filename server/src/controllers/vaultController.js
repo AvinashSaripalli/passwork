@@ -1,5 +1,8 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
+const { getVaultAccess } = require('../utils/permissions');
+
+const ALLOWED_VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
 
 const makeSlug = (name) =>
   name
@@ -301,9 +304,101 @@ const getVaultBySlug = async (req, res) => {
 };
 
 const shareVault = async (req, res) => {
-  return res.status(400).json({
-    message: 'Use folder sharing instead of vault sharing in this version',
-  });
+  try {
+    const vaultId = req.params.id;
+    const { userEmail, accessLevel } = req.body;
+
+    if (!vaultId) {
+      return res.status(400).json({ message: 'Vault id is required' });
+    }
+
+    if (!userEmail || !accessLevel) {
+      return res.status(400).json({ message: 'userEmail and accessLevel are required' });
+    }
+
+    if (!ALLOWED_VAULT_ACCESS_LEVELS.includes(accessLevel)) {
+      return res.status(400).json({
+        message: `Invalid access level. Must be one of: ${ALLOWED_VAULT_ACCESS_LEVELS.join(', ')}`,
+      });
+    }
+
+    const vault = await prisma.vault.findUnique({
+      where: { id: vaultId },
+    });
+
+    if (!vault) {
+      return res.status(404).json({ message: 'Vault not found' });
+    }
+
+    if (vault.type === 'PERSONAL') {
+      return res.status(400).json({ message: 'Personal vaults cannot be shared' });
+    }
+
+    const access = await getVaultAccess(vaultId, req.user.id);
+    if (access !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.id === req.user.id) {
+      return res.status(400).json({ message: 'Cannot share vault with yourself' });
+    }
+
+    const permission = await prisma.vaultPermission.upsert({
+      where: {
+        vaultId_userId: {
+          vaultId,
+          userId: user.id,
+        },
+      },
+      update: {
+        accessLevel,
+      },
+      create: {
+        id: await generateId('vaultPermission'),
+        vaultId,
+        userId: user.id,
+        accessLevel,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'SHARE_VAULT',
+        targetType: 'Vault',
+        targetId: vaultId,
+        metadata: {
+          vaultId,
+          name: vault.name,
+          sharedWith: user.email,
+          accessLevel,
+        },
+      },
+    });
+
+    res.status(201).json(permission);
+  } catch (error) {
+    console.error('Share vault error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 module.exports = {

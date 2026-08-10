@@ -98,6 +98,11 @@ const shareFolder = async (req, res) => {
       return res.status(404).json({ message: 'Folder not found' });
     }
 
+    const access = await getFolderAccess(folderId, req.user.id);
+    if (!access || access !== 'ADMINISTRATOR') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: userEmail },
     });
@@ -163,6 +168,10 @@ const updateFolder = async (req, res) => {
   try {
     const { name, parentId } = req.body;
 
+    if (!name) {
+      return res.status(400).json({ message: 'Name is required' });
+    }
+
     if (parentId) {
       return res.status(400).json({ message: 'Subfolders are not allowed' });
     }
@@ -173,6 +182,11 @@ const updateFolder = async (req, res) => {
 
     if (!existingFolder) {
       return res.status(404).json({ message: 'Folder not found' });
+    }
+
+    const access = await getFolderAccess(existingFolder.id, req.user.id);
+    if (!access || access !== 'ADMINISTRATOR') {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     const updatedFolder = await prisma.folder.update({
@@ -351,7 +365,13 @@ const getFolderActivityLogs = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const logs = await prisma.activityLog.findMany({
+    const filteredLogs = await prisma.activityLog.findMany({
+      where: {
+        OR: [
+          { targetId: folderId },
+          { metadata: { path: ['folderId'], equals: folderId } },
+        ],
+      },
       include: {
         user: {
           select: {
@@ -364,12 +384,6 @@ const getFolderActivityLogs = async (req, res) => {
       orderBy: {
         createdAt: 'desc',
       },
-    });
-
-    const filteredLogs = logs.filter((log) => {
-      const metadataFolderId = log?.metadata?.folderId;
-
-      return log.targetId === folderId || metadataFolderId === folderId;
     });
 
     res.json(filteredLogs);
@@ -389,6 +403,24 @@ const updateFolderPermission = async (req, res) => {
       return res.status(400).json({ message: 'Access level is required' });
     }
 
+    if (!ALLOWED_ACCESS_LEVELS.includes(accessLevel)) {
+      return res.status(400).json({ message: `Invalid access level. Must be one of: ${ALLOWED_ACCESS_LEVELS.join(', ')}` });
+    }
+
+    const existing = await prisma.folderPermission.findUnique({
+      where: { id },
+      select: { folderId: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Permission not found' });
+    }
+
+    const adminAccess = await getFolderAccess(existing.folderId, req.user.id);
+    if (!adminAccess || adminAccess !== 'ADMINISTRATOR') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const permission = await prisma.folderPermission.update({
       where: { id },
       data: { accessLevel },
@@ -406,6 +438,20 @@ const updateFolderPermission = async (req, res) => {
 const deleteFolderPermission = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.folderPermission.findUnique({
+      where: { id },
+      select: { folderId: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Permission not found' });
+    }
+
+    const adminAccess = await getFolderAccess(existing.folderId, req.user.id);
+    if (!adminAccess || adminAccess !== 'ADMINISTRATOR') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     await prisma.folderPermission.delete({
       where: { id },
@@ -432,6 +478,11 @@ const deleteFolder = async (req, res) => {
 
     if (!folder) {
       return res.status(404).json({ message: 'Folder not found' });
+    }
+
+    const access = await getFolderAccess(folderId, req.user.id);
+    if (!access || access !== 'ADMINISTRATOR') {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     if (folder.passwords.length > 0) {

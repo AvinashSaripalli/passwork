@@ -2,8 +2,11 @@ require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 
-if (!process.env.DATABASE_URL) {
-  console.error('FATAL: DATABASE_URL is not set');
+const required = ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
+const missing = required.filter((key) => !process.env[key]);
+
+if (missing.length > 0) {
+  console.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
   process.exit(1);
 }
 

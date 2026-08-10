@@ -67,20 +67,20 @@ function VerifyMasterPasswordModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60] px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+      <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
         <div className="mb-5">
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             Verify Master Password
           </h2>
 
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Confirm your master password to continue.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-            <p className="text-sm text-red-600">
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
+            <p className="text-sm text-red-600 dark:text-red-400">
               {error}
             </p>
           </div>
@@ -95,7 +95,7 @@ function VerifyMasterPasswordModal({
               onChange={(e) =>
                 setMasterPassword(e.target.value)
               }
-              className="w-full border border-slate-300 rounded-lg px-4 pr-11 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-4 pr-11 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               required
             />
 
@@ -104,7 +104,7 @@ function VerifyMasterPasswordModal({
               onClick={() =>
                 setShowPassword((prev) => !prev)
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             >
               {showPassword ? (
                 <EyeOff size={18} />
@@ -118,7 +118,7 @@ function VerifyMasterPasswordModal({
             <button
               type="button"
               onClick={handleClose}
-              className="px-5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50"
+              className="px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

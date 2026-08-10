@@ -159,31 +159,31 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+      <div className="w-full max-w-3xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Folder History
             </p>
-            <h2 className="text-2xl font-bold text-slate-900 truncate mt-1">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 truncate mt-1">
               {selectedFolder?.name || 'Folder'}
             </h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Members and activity details
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-slate-600"
+            className="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-800/50">
           {error && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
               {error}
             </div>
           )}
@@ -205,59 +205,59 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
           </div> */}
 
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 bg-white">
-                <Users size={18} className="text-slate-600" />
-                <h3 className="text-base font-semibold text-slate-900">Members</h3>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-white dark:bg-slate-800">
+                <Users size={18} className="text-slate-600 dark:text-slate-300" />
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Members</h3>
               </div>
 
               {permissions.length > 0 ? (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-700">
                   {permissions.map((item) => (
                     <div
                       key={item.id}
-                      className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50"
+                      className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
-                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-semibold text-sm flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-300 font-semibold text-sm flex items-center justify-center shrink-0">
                         {getInitials(item.user?.fullName || item.user?.email || 'U')}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                           {item.user?.fullName || 'Unknown user'}
                         </p>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {item.user?.email || '-'}
                         </p>
                       </div>
 
-                      <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md whitespace-nowrap">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md whitespace-nowrap">
                         {formatAccess(item.accessLevel)}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="px-4 py-6 text-sm text-slate-500">
+                <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
                   No folder permissions found.
                 </div>
               )}
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 bg-white">
-                <History size={18} className="text-slate-600" />
-                <h3 className="text-base font-semibold text-slate-900">Activity</h3>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-white dark:bg-slate-800">
+                <History size={18} className="text-slate-600 dark:text-slate-300" />
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Activity</h3>
               </div>
 
               {loading && (
-                <div className="px-4 py-6 text-sm text-slate-500">
+                <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
                   Loading history...
                 </div>
               )}
 
               {!loading && logs.length > 0 && (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-700">
                   {logs.map((log) => {
                     const config = getActionConfig(log.action);
                     const Icon = config.icon;
@@ -265,16 +265,16 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
                     return (
                       <div
                         key={log.id}
-                        className="px-4 py-4 hover:bg-slate-50 transition"
+                        className="px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                            <Icon size={18} className="text-slate-700" />
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                            <Icon size={18} className="text-slate-700 dark:text-slate-300" />
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-900">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                 {config.label}
                               </p>
                               {/* <span
@@ -284,11 +284,11 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
                               </span>   */}
                             </div>
 
-                            <p className="text-sm text-slate-600 mt-1 truncate">
+                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 truncate">
                               {getTargetName(log)}
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
+                            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500 dark:text-slate-400">
                               <span>{log.user?.fullName || 'Unknown user'}</span>
                               <ChevronRight size={12} />
                               <span>{new Date(log.createdAt).toLocaleString()}</span>
@@ -302,7 +302,7 @@ function FolderHistoryPanel({ open, onClose, folderId }) {
               )}
 
               {!loading && !logs.length && (
-                <div className="px-4 py-6 text-sm text-slate-500">
+                <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
                   No history found.
                 </div>
               )}

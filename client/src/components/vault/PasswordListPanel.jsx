@@ -66,18 +66,18 @@ function PasswordListPanel() {
   }, [filteredPasswords, selectedPasswordId, selectedFolderId, dispatch]);
 
   return (
-    <div className="bg-white p-6 border-r border-slate-200">
+    <div className="bg-white p-6 border-r border-slate-200 dark:bg-slate-800 dark:border-slate-700">
       <div className="mb-4">
         <input
           type="text"
           placeholder="Search passwords..."
           value={searchTerm}
           onChange={(e) => dispatch(setSearchTerm(e.target.value))}
-          className="w-full h-[48px] rounded-2xl border border-slate-200 bg-slate-50 px-5 text-sm outline-none"
+          className="w-full h-[48px] rounded-2xl border border-slate-200 bg-slate-50 px-5 text-sm outline-none dark:bg-slate-800/50 dark:border-slate-700"
         />
       </div>
 
-      <p className="text-[28px] font-bold text-slate-900 mb-6">
+      <p className="text-[28px] font-bold text-slate-900 mb-6 dark:text-slate-100">
         {groupedPasswords.length} password
         {groupedPasswords.length !== 1 ? 's' : ''}
       </p>
@@ -123,15 +123,15 @@ function PasswordListPanel() {
               onClick={() => dispatch(selectPassword(group.items[0].id))}
               className={`w-full text-left px-5 py-5 rounded-2xl border transition ${
                 active
-                  ? 'bg-indigo-50 border-indigo-200'
-                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-700'
               }`}
             >
-              <div className="text-[18px] font-bold text-slate-900">
+              <div className="text-[18px] font-bold text-slate-900 dark:text-slate-100">
                 {group.name}
               </div>
 
-              <div className="text-sm text-slate-500 mt-1">
+              <div className="text-sm text-slate-500 mt-1 dark:text-slate-400">
                 {group.items.length} account{group.items.length > 1 ? 's' : ''}
               </div>
             </button>
@@ -139,7 +139,7 @@ function PasswordListPanel() {
         })}
 
         {!groupedPasswords.length && (
-          <p className="text-slate-500 text-sm">No passwords found.</p>
+          <p className="text-slate-500 text-sm dark:text-slate-400">No passwords found.</p>
         )}
       </div>
     </div>

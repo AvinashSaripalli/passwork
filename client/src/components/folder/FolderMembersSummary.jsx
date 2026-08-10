@@ -43,7 +43,7 @@ function FolderMembersSummary({ onClick }) {
         {visibleMembers.map((item, index) => (
           <div
             key={item.id}
-            className={`w-9 h-9 rounded-full border-2 border-white bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center ${
+            className={`w-9 h-9 rounded-full border-2 border-white dark:border-slate-800 bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center justify-center ${
               index !== 0 ? '-ml-2' : ''
             }`}
             title={item.user?.fullName || item.user?.email || 'User'}
@@ -52,17 +52,17 @@ function FolderMembersSummary({ onClick }) {
           </div>
         ))}
 
-        <div className="w-9 h-9 rounded-full border-2 border-white bg-indigo-50 text-indigo-600 flex items-center justify-center -ml-2">
+        <div className="w-9 h-9 rounded-full border-2 border-white dark:border-slate-800 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 flex items-center justify-center -ml-2">
           <UsersRound size={16} />
         </div>
       </div>
 
       <div className="text-sm leading-tight">
-        <div className="text-indigo-600 font-medium">
+        <div className="text-indigo-600 dark:text-indigo-400 font-medium">
           Shared with {allMembers.length} user
           {allMembers.length > 1 ? 's' : ''}
         </div>
-        <div className="text-slate-400 text-xs">Folder members</div>
+        <div className="text-slate-400 dark:text-slate-500 text-xs">Folder members</div>
       </div>
     </button>
   );

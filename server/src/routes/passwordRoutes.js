@@ -7,7 +7,7 @@ const passwordController = require('../controllers/passwordController');
 router.post('/', authenticate, passwordController.createPassword);
 
 router.post('/import-excel', authenticate, passwordController.importPasswordsFromExcel);
-router.get('/export-excel', authenticate, passwordController.exportPasswordsToExcel);
+router.get('/owned', authenticate, passwordController.getPasswordsOwnedByUser);
 
 router.get('/vault/:vaultId', authenticate, passwordController.getPasswordsByVault);
 router.get('/:id', authenticate, passwordController.getPasswordById);

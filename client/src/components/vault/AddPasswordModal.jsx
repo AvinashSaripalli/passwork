@@ -198,24 +198,24 @@ function AddPasswordModal() {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
-        <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl p-8">
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6 dark:bg-slate-800">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 Add Password
               </h2>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
                 Add password to {selectedFolder?.name || 'selected folder'}
               </p>
             </div>
 
-            <button onClick={handleClose} className="text-slate-500">
+            <button onClick={handleClose} className="text-slate-500 dark:text-slate-400">
               <X size={22} />
             </button>
           </div>
 
           {localError && (
-            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
               {localError}
             </div>
           )}
@@ -227,7 +227,7 @@ function AddPasswordModal() {
               placeholder="Website / Service name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
               required
             />
 
@@ -237,7 +237,7 @@ function AddPasswordModal() {
               placeholder="Login / Email"
               value={formData.login}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
               required
             />
 
@@ -248,14 +248,14 @@ function AddPasswordModal() {
                 placeholder="Password"
                 value={formData.encryptedPassword}
                 onChange={handleChange}
-                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none"
+                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                 required
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -268,14 +268,14 @@ function AddPasswordModal() {
                 placeholder="Confirm password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none"
+                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                 required
               />
 
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -287,7 +287,7 @@ function AddPasswordModal() {
               placeholder="URL"
               value={formData.url}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
             />
 
             <textarea
@@ -295,7 +295,7 @@ function AddPasswordModal() {
               placeholder="Note"
               value={formData.encryptedNote}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none min-h-[90px]"
+              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 min-h-[90px]"
             />
 
             <TagInput
@@ -308,7 +308,7 @@ function AddPasswordModal() {
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-5 py-3 rounded-xl border border-slate-300"
+                className="px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-600"
               >
                 Cancel
               </button>

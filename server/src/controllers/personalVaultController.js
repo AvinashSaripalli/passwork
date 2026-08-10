@@ -212,7 +212,7 @@ const createMyVaultPassword = async (req, res) => {
               connectOrCreate: {
                 where: { name: tagName },
                 create: {
-                  id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  id: generateId('tag'),
                   name: tagName,
                 },
               },
@@ -491,7 +491,7 @@ const updateMyVaultPassword = async (req, res) => {
                 connectOrCreate: {
                   where: { name: tagName },
                   create: {
-                    id: `TAG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    id: generateId('tag'),
                     name: tagName,
                   },
                 },

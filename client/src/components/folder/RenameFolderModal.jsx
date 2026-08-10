@@ -51,16 +51,16 @@ function RenameFolderModal({ open, onClose, folder, vaultId }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[70] px-4">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-xl p-8">
+      <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Rename Folder</h2>
-          <button onClick={onClose} className="text-slate-500 text-xl">
+          <button onClick={onClose} className="text-slate-500 dark:text-slate-400 text-xl">
             ×
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 text-red-600 px-4 py-3 text-sm">
+          <div className="mb-4 rounded-lg bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 px-4 py-3 text-sm">
             {error}
           </div>
         )}
@@ -71,7 +71,7 @@ function RenameFolderModal({ open, onClose, folder, vaultId }) {
             placeholder="Folder name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+            className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-xl px-4 py-3 outline-none"
             required
           />
 
@@ -79,7 +79,7 @@ function RenameFolderModal({ open, onClose, folder, vaultId }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-3 rounded-xl border border-slate-300"
+              className="px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-600"
             >
               Cancel
             </button>

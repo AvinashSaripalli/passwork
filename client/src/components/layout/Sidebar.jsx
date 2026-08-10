@@ -87,7 +87,7 @@ function Sidebar() {
     if (!items.length) return null;
     return (
       <div>
-        <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-slate-400">
+        <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-[var(--text-muted)]">
           {title}
         </p>
         <div className="space-y-0.5">
@@ -100,11 +100,11 @@ function Sidebar() {
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   active
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Icon size={16} className={active ? 'text-blue-600' : 'text-slate-400'} />
+                <Icon size={16} className={active ? 'text-blue-600 dark:text-blue-400' : 'text-[var(--text-muted)]'} />
                 <span className="flex-1">{item.name}</span>
                 {item.badge > 0 && (
                   <span className="h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -121,18 +121,18 @@ function Sidebar() {
 
   return (
     <>
-      <aside className="w-[260px] bg-white border-r border-slate-200 px-3 py-5 flex flex-col">
+      <aside className="w-[260px] bg-[var(--bg-sidebar)] border-r border-[var(--border-primary)] px-3 py-5 flex flex-col transition-colors duration-200">
 
         {/* Logo */}
         <div className="flex items-center gap-3 mb-7 px-2">
-          <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-800 flex items-center justify-center shrink-0 overflow-hidden">
             <img src={logo} alt="Vaultix Logo" className="h-7 w-7 object-contain" />
           </div>
           <div>
-            <p className="text-[16px] font-bold text-slate-900 leading-tight">
-              Vault<span className="text-blue-600">ix</span>
+            <p className="text-[16px] font-bold text-[var(--text-primary)] leading-tight">
+              Vault<span className="text-blue-600 dark:text-blue-400">ix</span>
             </p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-[var(--text-muted)]">
               {user?.role === 'ADMIN' ? 'Administrator' : 'User'}
             </p>
           </div>
@@ -146,12 +146,12 @@ function Sidebar() {
 
           {/* Company Vault */}
           <div>
-            <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-slate-400">
+            <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-[var(--text-muted)]">
               Company Vault
             </p>
 
             {vaultsLoading && (
-              <p className="text-xs text-slate-400 px-3 py-2">Loading vaults...</p>
+              <p className="text-xs text-[var(--text-muted)] px-3 py-2">Loading vaults...</p>
             )}
 
             {!vaultsLoading && vaults.map((vault) => {
@@ -160,8 +160,8 @@ function Sidebar() {
                 <div key={vault.id} className="mb-1">
                   <div className={`flex items-center justify-between px-2 py-2 rounded-xl transition-all duration-150 ${
                     vaultActive
-                      ? 'bg-blue-50 border border-blue-100'
-                      : 'border border-transparent hover:bg-slate-50'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800'
+                      : 'border border-transparent hover:bg-[var(--bg-hover)]'
                   }`}>
                     <Link
                       to={`/vaults/${vault.slug}`}
@@ -169,12 +169,12 @@ function Sidebar() {
                       className="flex items-center gap-2.5 flex-1 min-w-0"
                     >
                       <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        vaultActive ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'
+                        vaultActive ? 'bg-blue-100 dark:bg-blue-800/50 text-blue-600 dark:text-blue-400' : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'
                       }`}>
                         <FolderOpen size={15} />
                       </div>
                       <span className={`text-sm truncate ${
-                        vaultActive ? 'text-blue-700 font-semibold' : 'text-slate-600 font-medium'
+                        vaultActive ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-[var(--text-secondary)] font-medium'
                       }`}>
                         {vault.name}
                       </span>
@@ -184,21 +184,21 @@ function Sidebar() {
                       {vaultActive && user?.role === 'ADMIN' && (
                         <button
                           onClick={() => dispatch(openAddFolderModal())}
-                          className="w-7 h-7 rounded-lg bg-white border border-blue-200 flex items-center justify-center text-blue-500 hover:bg-blue-50 transition"
+                          className="w-7 h-7 rounded-lg bg-[var(--bg-card)] border border-blue-200 dark:border-blue-700 flex items-center justify-center text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                           title="Add folder"
                         >
                           <Plus size={13} />
                         </button>
                       )}
-                      {vaultActive && <ChevronDown size={14} className="text-slate-400" />}
+                      {vaultActive && <ChevronDown size={14} className="text-[var(--text-muted)]" />}
                     </div>
                   </div>
 
                   {/* Folders */}
                   {vaultActive && (
-                    <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-blue-100 pl-3">
+                    <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-blue-100 dark:border-blue-800 pl-3">
                       {foldersLoading && (
-                        <p className="text-xs text-slate-400 py-1">Loading folders...</p>
+                        <p className="text-xs text-[var(--text-muted)] py-1">Loading folders...</p>
                       )}
                       {!foldersLoading && folders.map((folder) => {
                         const selected = selectedFolderId === folder.id;
@@ -214,14 +214,14 @@ function Sidebar() {
                           <div
                             key={folder.id}
                             className={`w-full flex items-center justify-between rounded-lg transition-all duration-150 ${
-                              selected ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                              selected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]'
                             }`}
                           >
                             <button
                               onClick={() => dispatch(selectFolder(folder.id))}
                               className="flex items-center gap-2 px-2.5 py-2 text-left text-sm flex-1 min-w-0"
                             >
-                              <Folder size={13} className={selected ? 'text-blue-500' : 'text-slate-400'} />
+                              <Folder size={13} className={selected ? 'text-blue-500 dark:text-blue-400' : 'text-[var(--text-muted)]'} />
                               <span className={`truncate ${selected ? 'font-medium' : ''}`}>
                                 {folder.name}
                               </span>
@@ -237,7 +237,7 @@ function Sidebar() {
                         );
                       })}
                       {!foldersLoading && !folders.length && (
-                        <p className="text-xs text-slate-400 py-2 px-2">No folders</p>
+                        <p className="text-xs text-[var(--text-muted)] py-2 px-2">No folders</p>
                       )}
                     </div>
                   )}
@@ -250,7 +250,7 @@ function Sidebar() {
 
           {/* Tools */}
           <div>
-            <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-slate-400">
+            <p className="px-3 text-[10px] font-semibold tracking-[0.15em] uppercase mb-1.5 text-[var(--text-muted)]">
               Tools
             </p>
             <div className="space-y-0.5">
@@ -260,9 +260,9 @@ function Sidebar() {
                   <button
                     key={item.name}
                     onClick={() => setToolsOpen(true)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                   >
-                    <Icon size={16} className="text-slate-400" />
+                    <Icon size={16} className="text-[var(--text-muted)]" />
                     <span>{item.name}</span>
                   </button>
                 );
@@ -274,17 +274,17 @@ function Sidebar() {
           {renderMenuSection('Account', accountMenu)}
 
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">
-              <p className="text-xs text-red-500">{error}</p>
+            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 px-3 py-2">
+              <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
             </div>
           )}
         </div>
 
         {/* Divider */}
-        <div className="border-t border-slate-100 mt-4 pt-3">
+        <div className="border-t border-[var(--border-secondary)] mt-4 pt-3">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all duration-150"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150"
           >
             <LogOut size={16} />
             <span>Logout</span>

@@ -83,14 +83,14 @@ function formatAction(action) {
 }
 
 function getActionBadge(action) {
-  if (action?.startsWith('CREATE')) return 'bg-green-50 text-green-700';
-  if (action?.startsWith('UPDATE')) return 'bg-amber-50 text-amber-700';
-  if (action?.startsWith('DELETE')) return 'bg-red-50 text-red-700';
+  if (action?.startsWith('CREATE')) return 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400';
+  if (action?.startsWith('UPDATE')) return 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400';
+  if (action?.startsWith('DELETE')) return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400';
   if (action?.startsWith('VIEW')) return 'bg-blue-50 text-blue-700';
-  if (action?.startsWith('COPY')) return 'bg-sky-50 text-sky-700';
-  if (action?.startsWith('SHARE')) return 'bg-indigo-50 text-indigo-700';
-  if (action?.startsWith('IMPORT')) return 'bg-violet-50 text-violet-700';
-  return 'bg-slate-100 text-slate-700';
+  if (action?.startsWith('COPY')) return 'bg-sky-50 text-sky-700 dark:bg-sky-900/20';
+  if (action?.startsWith('SHARE')) return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400';
+  if (action?.startsWith('IMPORT')) return 'bg-violet-50 text-violet-700 dark:bg-violet-900/20';
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
 }
 
 function getActionIcon(action) {
@@ -107,32 +107,32 @@ function getUnreadItemIcon(type, meta) {
       className:
         meta?.status === 'SUCCESS'
           ? 'bg-blue-50 text-blue-600'
-          : 'bg-red-50 text-red-600',
+          : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
     };
   }
   if (type === 'ACTIVITY') {
     const action = meta?.action || '';
     if (action.includes('PASSWORD'))
-      return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600' };
+      return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' };
     if (action.includes('FOLDER'))
-      return { icon: <Folder size={16} />, className: 'bg-indigo-50 text-indigo-600' };
+      return { icon: <Folder size={16} />, className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' };
     if (action.includes('VAULT'))
-      return { icon: <Database size={16} />, className: 'bg-slate-100 text-slate-600' };
-    return { icon: <Activity size={16} />, className: 'bg-slate-100 text-slate-600' };
+      return { icon: <Database size={16} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' };
+    return { icon: <Activity size={16} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' };
   }
   if (type === 'SHARE_PASSWORD' || type === 'SHARE_FOLDER' || type === 'SHARE_VAULT')
-    return { icon: <Share2 size={16} />, className: 'bg-indigo-50 text-indigo-600' };
+    return { icon: <Share2 size={16} />, className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' };
   if (type === 'SECURITY' || type === 'WEAK_PASSWORD')
-    return { icon: <ShieldAlert size={16} />, className: 'bg-red-50 text-red-600' };
+    return { icon: <ShieldAlert size={16} />, className: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' };
   if (type === 'PASSWORD')
-    return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600' };
-  return { icon: <Bell size={16} />, className: 'bg-slate-100 text-slate-600' };
+    return { icon: <KeyRound size={16} />, className: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' };
+  return { icon: <Bell size={16} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' };
 }
 
 function getTypeBadge(type) {
   if (type === 'LOGIN') return { label: 'Login', className: 'bg-blue-50 text-blue-700' };
-  if (type === 'ACTIVITY') return { label: 'Action', className: 'bg-slate-100 text-slate-600' };
-  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-700' };
+  if (type === 'ACTIVITY') return { label: 'Action', className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' };
+  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' };
 }
 
 function getDateGroup(dateStr) {
@@ -181,7 +181,7 @@ function renderPageButtons(current, total, onPageChange) {
         className={`h-10 w-10 rounded-xl text-sm font-semibold ${
           current === page
             ? 'bg-indigo-600 text-white'
-            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
         }`}
       >
         {page}
@@ -208,7 +208,7 @@ function renderPageButtons(current, total, onPageChange) {
   return pages.map((page, idx) => {
     if (page === '...') {
       return (
-        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400">
+        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
           ...
         </span>
       );
@@ -220,7 +220,7 @@ function renderPageButtons(current, total, onPageChange) {
         className={`h-10 w-10 rounded-xl text-sm font-semibold ${
           current === page
             ? 'bg-indigo-600 text-white'
-            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
         }`}
       >
         {page}
@@ -238,7 +238,7 @@ function renderSimplePageButtons(current, total, onPageChange) {
         className={`h-10 w-10 rounded-xl text-sm font-semibold ${
           current === page
             ? 'bg-indigo-600 text-white'
-            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
         }`}
       >
         {page}
@@ -259,7 +259,7 @@ function renderSimplePageButtons(current, total, onPageChange) {
   return pages.map((page, idx) => {
     if (page === '...') {
       return (
-        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400">
+        <span key={`ellipsis-${idx}`} className="h-10 w-10 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
           ...
         </span>
       );
@@ -271,7 +271,7 @@ function renderSimplePageButtons(current, total, onPageChange) {
         className={`h-10 w-10 rounded-xl text-sm font-semibold ${
           current === page
             ? 'bg-indigo-600 text-white'
-            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
         }`}
       >
         {page}
@@ -575,17 +575,17 @@ function ActivityLogPage() {
     <AppLayout>
       <div className="space-y-5">
         {/* Header */}
-        <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7">
+        <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7 dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-slate-900">Activity Log</h1>
-              <p className="mt-2 text-slate-500">
+              <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">Activity Log</h1>
+              <p className="mt-2 text-slate-500 dark:text-slate-400">
                 Track actions, login history, and notifications in one place
               </p>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 border-b border-slate-200">
+            <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -593,7 +593,7 @@ function ActivityLogPage() {
                   className={`px-4 py-3 text-sm font-semibold border-b-2 transition ${
                     activeTab === tab.id
                       ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
                   }`}
                 >
                   {tab.label}
@@ -611,7 +611,7 @@ function ActivityLogPage() {
               <div className="relative w-full sm:w-[340px]">
                 <Search
                   size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                 />
                 <input
                   value={search}
@@ -627,7 +627,7 @@ function ActivityLogPage() {
                       ? 'Search by user, IP, status...'
                       : 'Search activity...'
                   }
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/30"
                 />
               </div>
 
@@ -639,7 +639,7 @@ function ActivityLogPage() {
                       setActionFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/30"
                   >
                     {ACTION_FILTERS.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -654,7 +654,7 @@ function ActivityLogPage() {
                       setTypeFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/30"
                   >
                     {TYPE_FILTERS.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -672,7 +672,7 @@ function ActivityLogPage() {
                     setLoginStatusFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/30"
                 >
                   {LOGIN_STATUS_FILTERS.map((item) => (
                     <option key={item.value} value={item.value}>
@@ -694,7 +694,7 @@ function ActivityLogPage() {
                       className={`h-11 px-4 rounded-xl text-sm font-semibold border transition ${
                         unreadTypeFilter === f.value
                           ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700'
                       }`}
                     >
                       {f.label}
@@ -706,7 +706,7 @@ function ActivityLogPage() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <RotateCcw size={16} />
                 Reset
@@ -717,7 +717,7 @@ function ActivityLogPage() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={loginLoading || notifLoading}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   <RefreshCw
                     size={16}
@@ -730,7 +730,7 @@ function ActivityLogPage() {
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <Download size={16} />
                 Export CSV
@@ -741,29 +741,29 @@ function ActivityLogPage() {
 
         {/* ── Actions Tab ── */}
         {activeTab === 'actions' && (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
             {activityLoading && (
-              <div className="p-6 text-sm text-slate-500">
+              <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
                 Loading activity logs...
               </div>
             )}
             {error && (
-              <div className="m-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="m-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
             {!activityLoading && !error && (
               <>
                 {groupedLogs.map((group) => (
                   <div key={group.label}>
-                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         {group.label}
                       </p>
                     </div>
                     <table className="w-full min-w-[900px]">
-                      <thead className="bg-slate-50">
-                        <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <thead className="bg-slate-50 dark:bg-slate-800/50">
+                        <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           <th className="px-6 py-4">Date</th>
                           <th className="px-6 py-4">User</th>
                           <th className="px-6 py-4">Action</th>
@@ -774,19 +774,19 @@ function ActivityLogPage() {
                         {group.items.map((log) => (
                           <tr
                             key={log.id}
-                            className="border-t border-slate-100 hover:bg-slate-50/70"
+                            className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-700 dark:hover:bg-slate-700/50"
                           >
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
+                            <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
                               {log.createdAt
                                 ? new Date(log.createdAt).toLocaleString()
                                 : '-'}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <div>
-                                <p className="font-medium text-slate-900">
+                                <p className="font-medium text-slate-900 dark:text-slate-100">
                                   {log.user?.fullName || 'User'}
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                   {log.user?.email || '-'}
                                 </p>
                               </div>
@@ -799,24 +799,24 @@ function ActivityLogPage() {
                                 {formatAction(log.action)}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-sm text-slate-700">
+                            <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold">
                                   {log.metadata?.name || log.targetId || '-'}
                                 </p>
                                 {log.metadata?.personalVault && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 shrink-0 dark:bg-teal-900/20 dark:text-teal-400">
                                     Personal Vault
                                   </span>
                                 )}
                                 {log.metadata?.vaultType === 'COMPANY' && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 shrink-0">
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 shrink-0 dark:bg-amber-900/20 dark:text-amber-400">
                                     Company Vault
                                   </span>
                                 )}
                               </div>
                               {log.metadata?.name && log.targetId && (
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-slate-400 dark:text-slate-500">
                                   {log.targetId}
                                 </p>
                               )}
@@ -830,22 +830,22 @@ function ActivityLogPage() {
 
                 {!filteredLogs.length && (
                   <div className="py-14 text-center">
-                    <p className="text-slate-500">
+                    <p className="text-slate-500 dark:text-slate-400">
                       No activity logs matched your filters.
                     </p>
                   </div>
                 )}
 
                 {filteredLogs.length > 0 && (
-                  <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-sm text-slate-500">
+                  <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       Showing {startItem} - {endItem} of {filteredLogs.length}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                         disabled={currentPage === 1}
-                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         Previous
                       </button>
@@ -855,7 +855,7 @@ function ActivityLogPage() {
                           setCurrentPage((p) => Math.min(p + 1, totalPages))
                         }
                         disabled={currentPage === totalPages}
-                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         Next
                       </button>
@@ -869,9 +869,9 @@ function ActivityLogPage() {
 
         {/* ── Login Tab ── */}
         {activeTab === 'login' && (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
             {loginLoading && (
-              <div className="p-6 text-sm text-slate-500">
+              <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
                 Loading login history...
               </div>
             )}
@@ -879,12 +879,12 @@ function ActivityLogPage() {
               <>
                 {groupedLogin.map((group) => (
                   <div key={group.label}>
-                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         {group.label}
                       </p>
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {group.items.map((item) => (
                         <div key={item.id}>
                           <div
@@ -893,18 +893,18 @@ function ActivityLogPage() {
                                 expandedLogin === item.id ? null : item.id
                               )
                             }
-                            className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 cursor-pointer"
+                            className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 cursor-pointer dark:hover:bg-slate-700/50"
                           >
                             <div className="shrink-0">
                               {expandedLogin === item.id ? (
                                 <ChevronDown
                                   size={16}
-                                  className="text-slate-400"
+                                  className="text-slate-400 dark:text-slate-500"
                                 />
                               ) : (
                                 <ChevronRight
                                   size={16}
-                                  className="text-slate-400"
+                                  className="text-slate-400 dark:text-slate-500"
                                 />
                               )}
                             </div>
@@ -913,28 +913,28 @@ function ActivityLogPage() {
                             </div>
                             <div className="min-w-0 flex-1 grid grid-cols-5 gap-4 text-sm items-center">
                               <div>
-                                <p className="font-medium text-slate-900 truncate">
+                                <p className="font-medium text-slate-900 truncate dark:text-slate-100">
                                   {item.user?.fullName || 'User'}
                                 </p>
                               </div>
-                              <div className="text-slate-600 truncate">
+                              <div className="text-slate-600 truncate dark:text-slate-300">
                                 {item.user?.email || '-'}
                               </div>
-                              <div className="text-slate-600 font-mono text-xs">
+                              <div className="text-slate-600 font-mono text-xs dark:text-slate-300">
                                 {item.ipAddress || '-'}
                               </div>
                               <div>
                                 <span
                                   className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
                                     item.status === 'SUCCESS'
-                                      ? 'bg-green-50 text-green-700'
-                                      : 'bg-red-50 text-red-700'
+                                      ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                      : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                                   }`}
                                 >
                                   {item.status || '-'}
                                 </span>
                               </div>
-                              <div className="text-slate-600 whitespace-nowrap">
+                              <div className="text-slate-600 whitespace-nowrap dark:text-slate-300">
                                 {item.createdAt
                                   ? new Date(item.createdAt).toLocaleString()
                                   : '-'}
@@ -942,44 +942,44 @@ function ActivityLogPage() {
                             </div>
                           </div>
                           {expandedLogin === item.id && (
-                            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100">
+                            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 dark:bg-slate-800/50 dark:border-slate-700">
                               <div className="grid grid-cols-2 gap-4 text-sm ml-9">
                                 <div>
-                                  <p className="text-xs text-slate-400 mb-1">
+                                  <p className="text-xs text-slate-400 mb-1 dark:text-slate-500">
                                     IP Address
                                   </p>
-                                  <p className="text-slate-700 font-mono">
+                                  <p className="text-slate-700 font-mono dark:text-slate-300">
                                     {item.ipAddress || '-'}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-slate-400 mb-1">
+                                  <p className="text-xs text-slate-400 mb-1 dark:text-slate-500">
                                     Status
                                   </p>
                                   <span
                                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                       item.status === 'SUCCESS'
-                                        ? 'bg-green-50 text-green-700'
-                                        : 'bg-red-50 text-red-700'
+                                        ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                        : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                                     }`}
                                   >
                                     {item.status || '-'}
                                   </span>
                                 </div>
                                 <div className="col-span-2">
-                                  <p className="text-xs text-slate-400 mb-1">
+                                  <p className="text-xs text-slate-400 mb-1 dark:text-slate-500">
                                     Device / User Agent
                                   </p>
-                                  <p className="text-slate-700 text-xs break-words">
+                                  <p className="text-slate-700 text-xs break-words dark:text-slate-300">
                                     {item.userAgent || '-'}
                                   </p>
                                 </div>
                                 {item.location && (
                                   <div className="col-span-2">
-                                    <p className="text-xs text-slate-400 mb-1">
+                                    <p className="text-xs text-slate-400 mb-1 dark:text-slate-500">
                                       Location
                                     </p>
-                                    <p className="text-slate-700">
+                                    <p className="text-slate-700 dark:text-slate-300">
                                       {item.location}
                                     </p>
                                   </div>
@@ -995,13 +995,13 @@ function ActivityLogPage() {
 
                 {!filteredLogin.length && (
                   <div className="py-14 text-center">
-                    <p className="text-slate-500">No login history found.</p>
+                    <p className="text-slate-500 dark:text-slate-400">No login history found.</p>
                   </div>
                 )}
 
                 {filteredLogin.length > PAGE_SIZE && (
-                  <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-sm text-slate-500">
+                  <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       Page {currentPage} of {loginTotalPages}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1010,7 +1010,7 @@ function ActivityLogPage() {
                           setCurrentPage((p) => Math.max(p - 1, 1))
                         }
                         disabled={currentPage === 1}
-                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         Previous
                       </button>
@@ -1022,7 +1022,7 @@ function ActivityLogPage() {
                           )
                         }
                         disabled={currentPage === loginTotalPages}
-                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         Next
                       </button>
@@ -1036,15 +1036,15 @@ function ActivityLogPage() {
 
         {/* ── Unread Tab ── */}
         {activeTab === 'unread' && (
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden dark:border-slate-700 dark:bg-slate-800">
             {/* Unread header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
-                <p className="text-sm font-semibold text-slate-700">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   {filteredUnreadItems.length} item
                   {filteredUnreadItems.length !== 1 ? 's' : ''}
                 </p>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
                   <span className="flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-slate-300 inline-block" />
                     {allActivityItems.filter((i) => i.type === 'ACTIVITY').length} actions
@@ -1070,7 +1070,7 @@ function ActivityLogPage() {
                 {unreadItems.length > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition dark:text-indigo-400"
                   >
                     Mark all read
                   </button>
@@ -1079,13 +1079,13 @@ function ActivityLogPage() {
             </div>
 
             {notifLoading && (
-              <div className="p-6 text-sm text-slate-500">
+              <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
                 Loading activity...
               </div>
             )}
 
             {!notifLoading && (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 dark:divide-slate-700">
                 {paginatedUnread.map((item) => {
                   const { icon, className: iconClass } = getUnreadItemIcon(
                     item.type,
@@ -1102,8 +1102,8 @@ function ActivityLogPage() {
                       key={item.id}
                       onClick={() => isAlert && markAsRead(item)}
                       className={`flex items-start gap-4 px-6 py-4 transition ${
-                        isAlert ? 'hover:bg-slate-50 cursor-pointer' : ''
-                      } ${isUnread ? 'bg-indigo-50/30' : ''}`}
+                        isAlert ? 'hover:bg-slate-50 cursor-pointer dark:hover:bg-slate-700' : ''
+                      } ${isUnread ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}
                     >
                       {/* Icon */}
                       <div
@@ -1123,7 +1123,7 @@ function ActivityLogPage() {
                               className="text-green-500 shrink-0"
                             />
                           ) : null}
-                          <p className="text-sm font-semibold text-slate-900">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                             {item.title}
                           </p>
                           <span
@@ -1133,11 +1133,11 @@ function ActivityLogPage() {
                           </span>
                         </div>
                         {item.message && (
-                          <p className="text-xs text-slate-500 mt-1 truncate">
+                          <p className="text-xs text-slate-500 mt-1 truncate dark:text-slate-400">
                             {item.message}
                           </p>
                         )}
-                        <p className="text-[11px] text-slate-400 mt-1.5">
+                        <p className="text-[11px] text-slate-400 mt-1.5 dark:text-slate-500">
                           {new Date(item.createdAt).toLocaleString()}
                         </p>
                       </div>
@@ -1149,7 +1149,7 @@ function ActivityLogPage() {
 
             {!notifLoading && !paginatedUnread.length && (
               <div className="py-14 text-center">
-                <p className="text-slate-500">
+                <p className="text-slate-500 dark:text-slate-400">
                   {search || unreadTypeFilter !== 'ALL'
                     ? 'No items match your filters.'
                     : 'No recent activity.'}
@@ -1158,15 +1158,15 @@ function ActivityLogPage() {
             )}
 
             {filteredUnreadItems.length > PAGE_SIZE && (
-              <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <p className="text-sm text-slate-500">
+              <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Page {currentPage} of {unreadTotalPages} · {filteredUnreadItems.length} total
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
-                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     Previous
                   </button>
@@ -1176,7 +1176,7 @@ function ActivityLogPage() {
                       setCurrentPage((p) => Math.min(p + 1, unreadTotalPages))
                     }
                     disabled={currentPage === unreadTotalPages}
-                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50"
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     Next
                   </button>

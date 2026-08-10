@@ -4,8 +4,8 @@ function MyVaultHeader({ folders, onCreateFolder, onCreatePassword }) {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">My Vault</h1>
-        <p className="text-slate-500 mt-1">
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">My Vault</h1>
+        <p className="text-slate-500 mt-1 dark:text-slate-400">
           Your personal passwords and private folders
         </p>
       </div>
@@ -13,7 +13,7 @@ function MyVaultHeader({ folders, onCreateFolder, onCreatePassword }) {
       <div className="flex items-center gap-3">
         <button
           onClick={onCreateFolder}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
         >
           <FolderPlus size={18} />
           New Folder

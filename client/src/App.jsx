@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchMe } from './features/auth/authSlice';
+import useInactivityLogout from './hooks/useInactivityLogout';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -21,7 +22,10 @@ import ProfilePage from './pages/profile/ProfilePage';
 function App() {
   const dispatch = useDispatch();
   const { token, userLoaded } = useSelector((state) => state.auth);
+  const { mode } = useSelector((state) => state.theme);
   const [initDone, setInitDone] = useState(false);
+
+  useInactivityLogout();
 
   useEffect(() => {
     if (token && !userLoaded) {
@@ -31,12 +35,20 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [mode]);
+
   if (!initDone) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#f4f6f8]">
+      <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-500 font-medium">Loading Vaultix...</p>
+          <p className="text-sm text-[var(--text-muted)] font-medium">Loading Vaultix...</p>
         </div>
       </div>
     );

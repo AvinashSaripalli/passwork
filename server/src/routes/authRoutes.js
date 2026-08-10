@@ -11,6 +11,12 @@ const authLimiter = rateLimit({
   message: { message: 'Too many attempts. Please try again later.' },
 });
 
+const sensitiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many attempts. Please try again later.' },
+});
+
 router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
 router.get('/me', authenticate, authController.me);
@@ -18,7 +24,8 @@ router.post('/set-master-password', authenticate, authController.setMasterPasswo
 router.post('/verify-master-password', authLimiter, authenticate, authController.verifyMasterPassword);
 router.post('/verify-admin-master-password', authLimiter, authenticate, authController.verifyAdministratorMasterPassword);
 router.put('/me', authenticate, authController.updateProfile);
-router.put('/change-password', authenticate, authController.changePassword);
-router.put('/change-master-password', authenticate, authController.changeMasterPassword);
+router.put('/change-password', sensitiveLimiter, authenticate, authController.changePassword);
+router.put('/change-master-password', sensitiveLimiter, authenticate, authController.changeMasterPassword);
+router.post('/reencrypt-passwords', authenticate, authController.reencryptPasswords);
 
 module.exports = router;

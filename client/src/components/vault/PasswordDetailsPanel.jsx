@@ -85,7 +85,7 @@ function PasswordDetailsPanel() {
   if (!selectedPassword) {
     return (
       <div className="p-8">
-        <p className="text-slate-500">Select a password to view details.</p>
+        <p className="text-slate-500 dark:text-slate-400">Select a password to view details.</p>
       </div>
     );
   }
@@ -215,11 +215,11 @@ function PasswordDetailsPanel() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <p className="text-sm text-slate-500">Selected password group</p>
-        <h2 className="text-3xl font-bold text-slate-900 mt-1">
+        <p className="text-sm text-slate-500 dark:text-slate-400">Selected password group</p>
+        <h2 className="text-3xl font-bold text-slate-900 mt-1 dark:text-slate-100">
           {selectedPassword.name}
         </h2>
-        <p className="text-slate-500 mt-2">
+        <p className="text-slate-500 mt-2 dark:text-slate-400">
           {sameNamePasswords.length} account
           {sameNamePasswords.length > 1 ? 's' : ''}
         </p>
@@ -233,11 +233,11 @@ function PasswordDetailsPanel() {
           return (
             <div
               key={item.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800"
             >
               <div className="flex items-start justify-between gap-5 mb-5">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                  <h3 className="text-lg font-bold text-slate-900 tracking-tight dark:text-slate-100">
                     Account {index + 1}
                   </h3>
                 </div>
@@ -246,7 +246,7 @@ function PasswordDetailsPanel() {
                   {canEdit && (
                     <button
                       onClick={() => requestAdminVerification('edit', item.id)}
-                      className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50"
+                      className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
                       title="Edit"
                     >
                       <Pencil size={16} />
@@ -257,7 +257,7 @@ function PasswordDetailsPanel() {
                     <button
                       onClick={() => requestAdminVerification('delete', item.id)}
                       disabled={actionLoading}
-                      className="w-9 h-9 rounded-xl border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 disabled:opacity-50"
+                      className="w-9 h-9 rounded-xl border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                       title="Delete"
                     >
                       <Trash2 size={16} />
@@ -266,7 +266,7 @@ function PasswordDetailsPanel() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="rounded-2xl border border-slate-200 overflow-hidden dark:border-slate-700">
                 <DetailRow
                   label="Login"
                   value={item.login || '-'}
@@ -275,7 +275,7 @@ function PasswordDetailsPanel() {
                       onClick={() =>
                         requestAdminVerification('copy-login', item.id)
                       }
-                      className="text-slate-500 hover:text-slate-900"
+                      className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                     >
                       <Copy size={16} />
                     </button>
@@ -295,7 +295,7 @@ function PasswordDetailsPanel() {
                         onClick={() =>
                           requestAdminVerification('view', item.id)
                         }
-                        className="text-slate-500 hover:text-slate-900"
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >
                         {isVisible ? <EyeOff size={17} /> : <Eye size={17} />}
                       </button>
@@ -304,7 +304,7 @@ function PasswordDetailsPanel() {
                         onClick={() =>
                           requestAdminVerification('copy-password', item.id)
                         }
-                        className="text-slate-500 hover:text-slate-900"
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >
                         <Copy size={16} />
                       </button>
@@ -324,7 +324,7 @@ function PasswordDetailsPanel() {
                         }
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                        className="text-blue-600 hover:text-blue-800 hover:underline break-all dark:text-blue-400 dark:hover:text-blue-400"
                       >
                         {item.url}
                       </a>
@@ -342,7 +342,7 @@ function PasswordDetailsPanel() {
                         }
                         target="_blank"
                         rel="noreferrer"
-                        className="text-slate-500 hover:text-slate-900"
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >
                         <ExternalLink size={16} />
                       </a>
@@ -367,14 +367,14 @@ function PasswordDetailsPanel() {
                         {tagNames.map((tag, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-medium"
+                            className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-medium dark:bg-blue-900/20 dark:text-blue-400"
                           >
                             {tag}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-slate-400">No tags</span>
+                      <span className="text-slate-400 dark:text-slate-500">No tags</span>
                     )
                   }
                 />
@@ -422,10 +422,10 @@ function PasswordDetailsPanel() {
 
 function DetailRow({ label, value, action }) {
   return (
-    <div className="grid grid-cols-[120px_1fr_80px] items-center border-b border-slate-200 last:border-b-0 px-4 py-4">
-      <p className="text-sm text-slate-500">{label}</p>
+    <div className="grid grid-cols-[120px_1fr_80px] items-center border-b border-slate-200 last:border-b-0 px-4 py-4 dark:border-slate-700">
+      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
 
-      <div className="text-sm text-slate-900 break-all">
+      <div className="text-sm text-slate-900 break-all dark:text-slate-100">
         {value}
       </div>
 

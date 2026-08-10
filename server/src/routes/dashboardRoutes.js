@@ -7,7 +7,6 @@ const {
   getSecuritySummary,
   getPasswordActivityTrend,
   getRecentPasswords,
-  getSecurityDashboard,
 } = require('../controllers/dashboardController');
 
 router.get('/security-summary', authenticate, getSecuritySummary);

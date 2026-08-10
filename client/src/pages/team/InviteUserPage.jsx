@@ -48,20 +48,20 @@ function InviteUserPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-8">
-        <h1 className="text-3xl font-bold mb-2">Send Invitation</h1>
-        <p className="text-slate-500 mb-6">
+      <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-8 dark:bg-slate-800 dark:border-slate-700">
+        <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-slate-100">Send Invitation</h1>
+        <p className="text-slate-500 mb-6 dark:text-slate-400">
           Send registration link to user email.
         </p>
 
         {message && (
-          <div className="mb-4 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm">
+          <div className="mb-4 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm dark:bg-green-900/20 dark:text-green-300">
             {message}
           </div>
         )}
 
         {error && (
-          <div className="mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
+          <div className="mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm dark:bg-red-900/20 dark:text-red-400">
             {error}
           </div>
         )}
@@ -72,14 +72,14 @@ function InviteUserPage() {
             placeholder="Enter user email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             required
           />
 
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none"
+            className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
           >
             <option value="USER">USER</option>
             <option value="ADMIN">ADMIN</option>
@@ -89,7 +89,7 @@ function InviteUserPage() {
             <button
               type="button"
               onClick={() => navigate('/team-management')}
-              className="px-5 py-3 rounded-xl border border-slate-300"
+              className="px-5 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

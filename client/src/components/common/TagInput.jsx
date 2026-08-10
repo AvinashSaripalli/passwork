@@ -53,17 +53,17 @@ function TagInput({ tags = [], setTags, suggestions: externalSuggestions }) {
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex flex-wrap items-center gap-1.5 border border-slate-300 rounded-xl px-3 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition min-h-[46px]">
+      <div className="flex flex-wrap items-center gap-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-xl px-3 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition min-h-[46px]">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 text-xs font-medium"
           >
             {tag}
             <button
               type="button"
               onClick={() => removeTag(tag)}
-              className="hover:bg-indigo-100 rounded-full p-0.5"
+              className="hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-full p-0.5"
             >
               <X size={12} />
             </button>
@@ -81,13 +81,13 @@ function TagInput({ tags = [], setTags, suggestions: externalSuggestions }) {
       </div>
 
       {focused && suggestions.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
           {suggestions.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => addTag(s)}
-              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+              className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-400 transition"
             >
               {s}
             </button>

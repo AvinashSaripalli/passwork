@@ -43,30 +43,30 @@ function ProfilePage() {
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xl font-bold">
+          <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-700 text-xl font-bold">
             {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Profile</h1>
-            <p className="text-sm text-slate-500 mt-1">Manage your account and security settings</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Profile</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your account and security settings</p>
           </div>
         </div>
 
         {serverError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
             {serverError}
           </div>
         )}
 
         {success && (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+          <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
             <CheckCircle2 size={16} />
             {success}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-700 p-1">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.key;
@@ -76,8 +76,8 @@ function ProfilePage() {
                 onClick={() => { setActiveTab(tab.key); clearMessages(); }}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
                   active
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-800 text-indigo-700 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 <Icon size={16} />
@@ -149,23 +149,23 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
   };
 
   const inputClass = (field) =>
-    `w-full rounded-xl border bg-white px-4 py-3 outline-none transition-all focus:ring-4 ${
+    `w-full rounded-xl border bg-white dark:bg-slate-700 dark:text-slate-200 px-4 py-3 outline-none transition-all focus:ring-4 ${
       errors[field]
         ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-        : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-100'
+        : 'border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-100'
     }`;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8">
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
-          <User size={20} className="text-slate-400" />
-          <p className="text-lg font-semibold text-slate-900">Personal Information</p>
+        <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+          <User size={20} className="text-slate-400 dark:text-slate-500" />
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Personal Information</p>
         </div>
 
         <div className="grid grid-cols-1 gap-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Full Name</label>
             <input
               type="text"
               value={formData.fullName}
@@ -177,7 +177,7 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email Address</label>
             <input
               type="email"
               value={formData.email}
@@ -189,20 +189,20 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
           </div>
         </div>
 
-        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 space-y-2">
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300 space-y-2">
           <div className="flex justify-between">
-            <span className="text-slate-500">Role</span>
-            <span className="font-medium text-slate-800">{user?.role || 'USER'}</span>
+            <span className="text-slate-500 dark:text-slate-400">Role</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">{user?.role || 'USER'}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Account Created</span>
-            <span className="font-medium text-slate-800">
+            <span className="text-slate-500 dark:text-slate-400">Account Created</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">
               {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Master Password</span>
-            <span className={`font-medium ${user?.hasMasterPassword ? 'text-green-600' : 'text-amber-600'}`}>
+            <span className="text-slate-500 dark:text-slate-400">Master Password</span>
+            <span className={`font-medium ${user?.hasMasterPassword ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
               {user?.hasMasterPassword ? 'Enabled' : 'Not Set'}
             </span>
           </div>
@@ -241,10 +241,10 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
   const [mpErrors, setMpErrors] = useState({});
 
   const inputClass = (field, errors) =>
-    `w-full rounded-xl border bg-white px-4 py-3 outline-none transition-all focus:ring-4 ${
+    `w-full rounded-xl border bg-white dark:bg-slate-700 dark:text-slate-200 px-4 py-3 outline-none transition-all focus:ring-4 ${
       errors[field]
         ? 'border-red-300 focus:border-red-500 focus:ring-red-100'
-        : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-100'
+        : 'border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-100'
     }`;
 
   const handleChangePassword = async (e) => {
@@ -304,19 +304,19 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
   return (
     <div className="space-y-6">
       {/* Change Login Password */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-8">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
         <form onSubmit={handleChangePassword} className="space-y-5">
-          <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
-            <Lock size={20} className="text-slate-400" />
+          <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+            <Lock size={20} className="text-slate-400 dark:text-slate-500" />
             <div>
-              <p className="text-lg font-semibold text-slate-900">Change Password</p>
-              <p className="text-sm text-slate-500">Update your account login password</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Change Password</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Update your account login password</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Current Password</label>
               <div className="relative">
                 <input
                   type={showCurrent ? 'text' : 'password'}
@@ -325,7 +325,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
                   className={inputClass('currentPassword', pwErrors)}
                   placeholder="Enter current password"
                 />
-                <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">
                   {showCurrent ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -333,7 +333,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">New Password</label>
               <div className="relative">
                 <input
                   type={showNew ? 'text' : 'password'}
@@ -342,7 +342,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
                   className={inputClass('newPassword', pwErrors)}
                   placeholder="Enter new password"
                 />
-                <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">
                   {showNew ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -364,25 +364,25 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
       </div>
 
       {/* Change Master Password */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-8">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
         <form onSubmit={handleChangeMasterPassword} className="space-y-5">
-          <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
-            <KeyRound size={20} className="text-slate-400" />
+          <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+            <KeyRound size={20} className="text-slate-400 dark:text-slate-500" />
             <div>
-              <p className="text-lg font-semibold text-slate-900">Change Master Password</p>
-              <p className="text-sm text-slate-500">Update the key used to encrypt your vault data</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Change Master Password</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Update the key used to encrypt your vault data</p>
             </div>
           </div>
 
           {!user?.hasMasterPassword && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-400">
               You have not set a master password yet. Go to the first-time setup to create one.
             </div>
           )}
 
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Master Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Current Master Password</label>
               <div className="relative">
                 <input
                   type={showMpCurrent ? 'text' : 'password'}
@@ -391,7 +391,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
                   className={inputClass('currentMasterPassword', mpErrors)}
                   placeholder="Enter current master password"
                 />
-                <button type="button" onClick={() => setShowMpCurrent(!showMpCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => setShowMpCurrent(!showMpCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">
                   {showMpCurrent ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -399,7 +399,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">New Master Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">New Master Password</label>
               <div className="relative">
                 <input
                   type={showMpNew ? 'text' : 'password'}
@@ -408,7 +408,7 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
                   className={inputClass('newMasterPassword', mpErrors)}
                   placeholder="Enter new master password"
                 />
-                <button type="button" onClick={() => setShowMpNew(!showMpNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => setShowMpNew(!showMpNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">
                   {showMpNew ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
@@ -416,12 +416,12 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Hint (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Hint (optional)</label>
               <input
                 type="text"
                 value={mpForm.hint}
                 onChange={(e) => setMpForm((p) => ({ ...p, hint: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-200 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition"
                 placeholder="A reminder for your master password"
               />
             </div>
@@ -463,7 +463,7 @@ function ActivityTab() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center text-slate-500 dark:text-slate-400">
         Loading...
       </div>
     );
@@ -471,19 +471,19 @@ function ActivityTab() {
 
   if (!activities.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-400">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center text-slate-400 dark:text-slate-500">
         No login activity recorded
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8">
-      <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
-        <LogIn size={20} className="text-slate-400" />
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
+      <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+        <LogIn size={20} className="text-slate-400 dark:text-slate-500" />
         <div>
-          <p className="text-lg font-semibold text-slate-900">Recent Login Activity</p>
-          <p className="text-sm text-slate-500">Your last {activities.length} login attempts</p>
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Recent Login Activity</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Your last {activities.length} login attempts</p>
         </div>
       </div>
 
@@ -491,30 +491,30 @@ function ActivityTab() {
         {activities.slice(0, 20).map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3"
+            className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 px-4 py-3"
           >
             <div className="flex items-center gap-3">
               <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                item.status === 'SUCCESS' ? 'bg-green-100 text-green-600' :
-                item.status === 'FAILED' ? 'bg-red-100 text-red-600' :
-                'bg-amber-100 text-amber-600'
+                item.status === 'SUCCESS' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                item.status === 'FAILED' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' :
+                'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
               }`}>
                 <LogIn size={14} />
               </div>
               <div>
                 <p className={`text-sm font-medium ${
-                  item.status === 'SUCCESS' ? 'text-green-700' :
-                  item.status === 'FAILED' ? 'text-red-700' :
-                  'text-amber-700'
+                  item.status === 'SUCCESS' ? 'text-green-700 dark:text-green-400' :
+                  item.status === 'FAILED' ? 'text-red-700 dark:text-red-400' :
+                  'text-amber-700 dark:text-amber-400'
                 }`}>
                   {item.status === 'SUCCESS' ? 'Successful Login' : item.status === 'FAILED' ? 'Failed Login' : 'Blocked'}
                 </p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
                 </p>
               </div>
             </div>
-            <div className="text-right text-xs text-slate-400">
+            <div className="text-right text-xs text-slate-400 dark:text-slate-500">
               {item.ipAddress && <p>{item.ipAddress}</p>}
               {item.userAgent && (
                 <p className="max-w-[200px] truncate" title={item.userAgent}>{item.userAgent}</p>

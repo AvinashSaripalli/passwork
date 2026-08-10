@@ -10,10 +10,13 @@ import {
   Folder,
   Database,
   RefreshCw,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout, setMasterVerified } from '../../features/auth/authSlice';
+import { logout } from '../../features/auth/authSlice';
+import { toggleTheme } from '../../features/theme/themeSlice';
 import api from '../../services/api';
 
 function getItemIcon(type, meta) {
@@ -22,46 +25,47 @@ function getItemIcon(type, meta) {
       icon: <LogIn size={15} />,
       className:
         meta?.status === 'SUCCESS'
-          ? 'bg-blue-50 text-blue-600'
-          : 'bg-red-50 text-red-600',
+          ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'
+          : 'bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400',
     };
   }
 
   if (type === 'ACTIVITY') {
     const action = meta?.action || '';
     if (action.includes('PASSWORD'))
-      return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600' };
+      return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' };
     if (action.includes('FOLDER'))
-      return { icon: <Folder size={15} />, className: 'bg-indigo-50 text-indigo-600' };
+      return { icon: <Folder size={15} />, className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400' };
     if (action.includes('VAULT'))
-      return { icon: <Database size={15} />, className: 'bg-slate-100 text-slate-600' };
-    return { icon: <Activity size={15} />, className: 'bg-slate-100 text-slate-600' };
+      return { icon: <Database size={15} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400' };
+    return { icon: <Activity size={15} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400' };
   }
 
   if (type === 'SHARE_PASSWORD' || type === 'SHARE_FOLDER' || type === 'SHARE_VAULT')
-    return { icon: <Share2 size={15} />, className: 'bg-indigo-50 text-indigo-600' };
+    return { icon: <Share2 size={15} />, className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400' };
 
   if (type === 'SECURITY' || type === 'WEAK_PASSWORD')
-    return { icon: <ShieldAlert size={15} />, className: 'bg-red-50 text-red-600' };
+    return { icon: <ShieldAlert size={15} />, className: 'bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400' };
 
   if (type === 'PASSWORD')
-    return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600' };
+    return { icon: <KeyRound size={15} />, className: 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' };
 
-  return { icon: <Bell size={15} />, className: 'bg-slate-100 text-slate-600' };
+  return { icon: <Bell size={15} />, className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400' };
 }
 
 function getTypeBadge(type) {
   if (type === 'LOGIN')
-    return { label: 'Login', className: 'bg-blue-50 text-blue-600' };
+    return { label: 'Login', className: 'bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' };
   if (type === 'ACTIVITY')
-    return { label: 'Action', className: 'bg-slate-100 text-slate-500' };
-  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-600' };
+    return { label: 'Action', className: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
+  return { label: 'Alert', className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400' };
 }
 
 function Topbar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user, isMasterVerified } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
+  const { mode } = useSelector((state) => state.theme);
 
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -146,25 +150,29 @@ function Topbar() {
   };
 
   return (
-    <div className="h-[72px] bg-white border-b border-slate-200 flex items-center justify-between px-8">
-      <h2 className="text-sm font-semibold text-slate-700">Password Manager</h2>
+    <div className="h-[72px] bg-[var(--bg-topbar)] border-b border-[var(--border-primary)] flex items-center justify-between px-8 transition-colors duration-200">
+      <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Password Manager</h2>
 
-      <div className="flex items-center gap-5">
-        {isMasterVerified && (
-          <button
-            onClick={() => dispatch(setMasterVerified(false))}
-            className="px-4 py-2 rounded-xl border border-slate-300 bg-slate-50 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            Lock Vault
-          </button>
-        )}
+      <div className="flex items-center gap-3">
+        {/* Theme toggle */}
+        <button
+          onClick={() => dispatch(toggleTheme())}
+          className="h-10 w-10 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {mode === 'dark' ? (
+            <Sun size={18} className="text-amber-400" />
+          ) : (
+            <Moon size={18} className="text-slate-600" />
+          )}
+        </button>
 
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={handleOpen}
-            className="relative h-10 w-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
+            className="relative h-10 w-10 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
           >
-            <Bell size={18} className="text-slate-600" />
+            <Bell size={18} className="text-[var(--text-secondary)]" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unreadCount > 99 ? '99+' : unreadCount}
@@ -173,11 +181,11 @@ function Topbar() {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-12 w-[400px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-12 w-[400px] bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-2xl shadow-xl z-50 overflow-hidden">
               {/* Header */}
-              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+              <div className="px-5 py-3.5 border-b border-[var(--border-primary)] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <h3 className="font-bold text-slate-900 text-sm">Recent Activity</h3>
+                  <h3 className="font-bold text-[var(--text-primary)] text-sm">Recent Activity</h3>
                   {unreadCount > 0 && (
                     <span className="h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
                       {unreadCount > 99 ? '99+' : unreadCount}
@@ -188,7 +196,7 @@ function Topbar() {
                   <button
                     onClick={fetchRecentActivity}
                     disabled={loading}
-                    className="text-slate-400 hover:text-slate-600 transition"
+                    className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
                     title="Refresh"
                   >
                     <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
@@ -196,7 +204,7 @@ function Topbar() {
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllRead}
-                      className="text-xs text-indigo-600 font-semibold hover:text-indigo-700 transition"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
                     >
                       Mark all read
                     </button>
@@ -206,7 +214,7 @@ function Topbar() {
                       setOpen(false);
                       navigate('/activity-log?tab=unread');
                     }}
-                    className="text-xs text-slate-500 font-medium hover:text-slate-700 transition"
+                    className="text-xs text-[var(--text-muted)] font-medium hover:text-[var(--text-secondary)] transition-colors"
                   >
                     View all →
                   </button>
@@ -214,15 +222,15 @@ function Topbar() {
               </div>
 
               {/* Items list */}
-              <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
+              <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border-secondary)]">
                 {loading && items.length === 0 && (
-                  <div className="p-6 text-center text-sm text-slate-500">
+                  <div className="p-6 text-center text-sm text-[var(--text-muted)]">
                     Loading...
                   </div>
                 )}
 
                 {!loading && items.length === 0 && (
-                  <div className="p-8 text-center text-sm text-slate-500">
+                  <div className="p-8 text-center text-sm text-[var(--text-muted)]">
                     No recent activity.
                   </div>
                 )}
@@ -236,8 +244,8 @@ function Topbar() {
                     <button
                       key={item.id}
                       onClick={() => markAsRead(item)}
-                      className={`w-full text-left px-4 py-3.5 hover:bg-slate-50 transition flex items-start gap-3 ${
-                        isUnread ? 'bg-indigo-50/40' : ''
+                      className={`w-full text-left px-4 py-3.5 hover:bg-[var(--bg-hover)] transition-colors flex items-start gap-3 ${
+                        isUnread ? 'bg-indigo-50/40 dark:bg-indigo-900/20' : ''
                       }`}
                     >
                       {/* Icon */}
@@ -256,16 +264,16 @@ function Topbar() {
                           {!isUnread && item.type !== 'ACTIVITY' && item.type !== 'LOGIN' && (
                             <CheckCircle2 size={11} className="text-green-500 shrink-0" />
                           )}
-                          <p className="text-sm font-semibold text-slate-900 truncate">
+                          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
                             {item.title}
                           </p>
                         </div>
                         {item.message && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
                             {item.message}
                           </p>
                         )}
-                        <p className="text-[11px] text-slate-400 mt-1">
+                        <p className="text-[11px] text-[var(--text-muted)] mt-1">
                           {new Date(item.createdAt).toLocaleString()}
                         </p>
                       </div>
@@ -282,11 +290,11 @@ function Topbar() {
               </div>
 
               {/* Footer summary */}
-              <div className="px-5 py-2.5 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
-                <p className="text-[11px] text-slate-400">
+              <div className="px-5 py-2.5 border-t border-[var(--border-secondary)] flex items-center justify-between bg-[var(--bg-hover)]">
+                <p className="text-[11px] text-[var(--text-muted)]">
                   {activityCount} actions · {loginCount} logins · {alertCount} alerts
                 </p>
-                <p className="text-[11px] font-semibold text-slate-600">
+                <p className="text-[11px] font-semibold text-[var(--text-secondary)]">
                   {unreadCount} unread
                 </p>
               </div>
@@ -298,38 +306,38 @@ function Topbar() {
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen((prev) => !prev)}
-            className="flex items-center gap-3 hover:bg-slate-50 rounded-xl px-2 py-1.5 transition"
+            className="flex items-center gap-3 hover:bg-[var(--bg-hover)] rounded-xl px-2 py-1.5 transition-colors"
           >
-            <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
+            <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-700 dark:text-indigo-400 text-sm font-semibold">
               {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="leading-tight text-left">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 {user?.fullName || 'User'}
               </p>
-              <p className="text-xs text-slate-500">{user?.email || ''}</p>
+              <p className="text-xs text-[var(--text-muted)]">{user?.email || ''}</p>
             </div>
           </button>
 
           {userMenuOpen && (
-            <div className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-12 w-48 bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-xl shadow-xl z-50 overflow-hidden">
               <button
                 onClick={() => {
                   setUserMenuOpen(false);
                   navigate('/profile');
                 }}
-                className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition font-medium"
+                className="w-full text-left px-4 py-3 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors font-medium"
               >
                 Profile
               </button>
-              <div className="border-t border-slate-100" />
+              <div className="border-t border-[var(--border-secondary)]" />
               <button
                 onClick={() => {
                   setUserMenuOpen(false);
                   dispatch(logout());
                   navigate('/login');
                 }}
-                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition font-medium"
+                className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
               >
                 Logout
               </button>

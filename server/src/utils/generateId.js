@@ -1,4 +1,4 @@
-const prisma = require('../config/prisma');
+const crypto = require('crypto');
 
 const config = {
   user: 'USER',
@@ -12,30 +12,19 @@ const config = {
   passwordShare: 'PSHARE',
   loginActivity: 'LOGIN',
   notification: 'NOTIF',
+  tag: 'TAG',
 };
 
-async function generateId(model) {
+function generateId(model) {
   const prefix = config[model];
 
   if (!prefix) {
     throw new Error(`Unsupported model: ${model}`);
   }
 
-  const last = await prisma[model].findFirst({
-    orderBy: { createdAt: 'desc' },
-    select: { id: true },
-  });
+  const uuid = crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase();
 
-  let next = 1;
-
-  if (last?.id) {
-    const match = last.id.match(/-(\d+)$/);
-    if (match) {
-      next = Number(match[1]) + 1;
-    }
-  }
-
-  return `${prefix}-${String(next).padStart(3, '0')}`;
+  return `${prefix}-${uuid}`;
 }
 
 module.exports = generateId;

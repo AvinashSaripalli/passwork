@@ -5,7 +5,7 @@ import VaultAutoLock from '../security/VaultAutoLock';
 
 function AppLayout({ children }) {
   return (
-    <div className="min-h-screen bg-[#f4f6f8] flex">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex transition-colors duration-200">
       <VaultAutoLock />
       <Sidebar />
 
