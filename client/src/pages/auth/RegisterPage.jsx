@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye,
   EyeOff,
@@ -10,12 +10,16 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { clearError, registerUser } from '../../features/auth/authSlice';
 import { validateEmail, validatePassword, validateFullName } from '../../utils/validation';
+import api from '../../services/api';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
 function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+
+  const inviteToken = searchParams.get('token');
 
   const { loading, error, isAuthenticated, userLoaded } = useSelector(
     (state) => state.auth
@@ -23,6 +27,9 @@ function RegisterPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [inviteLoading, setInviteLoading] = useState(!!inviteToken);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -33,6 +40,33 @@ function RegisterPage() {
   useEffect(() => {
     if (isAuthenticated && userLoaded) navigate('/set-master-password');
   }, [isAuthenticated, userLoaded, navigate]);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+
+    let cancelled = false;
+
+    api
+      .get(`/invitations/${inviteToken}`)
+      .then((res) => {
+        if (cancelled) return;
+        setInviteEmail(res.data.email || '');
+        setFormData((prev) => ({ ...prev, email: res.data.email || '' }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setInviteError(
+          err.response?.data?.message || 'Invalid invitation link'
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
 
   useEffect(() => {
     return () => dispatch(clearError());
@@ -48,7 +82,7 @@ function RegisterPage() {
       return;
     }
     setErrors({});
-    dispatch(registerUser(formData));
+    dispatch(registerUser({ ...formData, token: inviteToken }));
   };
 
   return (
@@ -96,6 +130,14 @@ function RegisterPage() {
           title="Create account"
           subtitle="Start managing passwords securely."
         >
+          {inviteLoading && (
+            <div className="mb-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
+              Checking your invitation...
+            </div>
+          )}
+
+          {inviteError && <ErrorBox message={inviteError} />}
+
           {error && <ErrorBox message={error} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -115,11 +157,18 @@ function RegisterPage() {
               placeholder="Email address"
               value={formData.email}
               error={errors.email}
+              disabled={!!inviteEmail}
               onChange={(value) => {
                 setErrors((p) => ({ ...p, email: '' }));
                 setFormData((p) => ({ ...p, email: value }));
               }}
             />
+
+            {inviteEmail && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Email is locked to the address your invitation was sent to.
+              </p>
+            )}
 
             {/* Password Field With Eye Icon */}
             <div>
@@ -159,7 +208,7 @@ function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || inviteLoading || !!inviteError}
               className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg disabled:opacity-60"
             >
               {loading ? 'Creating...' : 'Create Account'}
@@ -188,7 +237,7 @@ function AuthCard({ title, subtitle, children }) {
   );
 }
 
-function Input({ type, placeholder, value, onChange, error }) {
+function Input({ type, placeholder, value, onChange, error, disabled }) {
   return (
     <div>
       <input
@@ -196,8 +245,13 @@ function Input({ type, placeholder, value, onChange, error }) {
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         required
         className={`w-full rounded-2xl border bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 py-4 outline-none transition-all focus:ring-4 ${
+          disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : ''
+        } ${
           error
             ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-100'
             : 'border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-100'

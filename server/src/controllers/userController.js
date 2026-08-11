@@ -186,15 +186,51 @@ const deleteUser = async (req, res) => {
   try {
     if (requireAdmin(req, res)) return;
 
-    await prisma.user.delete({
-      where: {
-        id: req.params.id,
-      },
+    const userId = req.params.id;
+
+    if (userId === req.user.id) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const createdPasswords = await tx.passwordEntry.findMany({
+        where: { createdById: userId },
+        select: {
+          id: true,
+          vault: { select: { ownerId: true } },
+        },
+      });
+
+      const toReassign = [];
+      const ownVaultPasswordIds = [];
+
+      for (const entry of createdPasswords) {
+        if (entry.vault.ownerId === userId) {
+          ownVaultPasswordIds.push(entry.id);
+        } else {
+          toReassign.push(entry);
+        }
+      }
+
+      for (const entry of toReassign) {
+        await tx.passwordEntry.update({
+          where: { id: entry.id },
+          data: { createdById: entry.vault.ownerId },
+        });
+      }
+
+      if (ownVaultPasswordIds.length > 0) {
+        await tx.passwordEntry.deleteMany({
+          where: { id: { in: ownVaultPasswordIds } },
+        });
+      }
+
+      await tx.user.delete({
+        where: { id: userId },
+      });
     });
 
-    res.json({
-      message: 'User deleted successfully',
-    });
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error' });

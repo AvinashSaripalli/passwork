@@ -23,19 +23,7 @@ const sendInvitation = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const invitationId = await generateId('invitation');
     const token = crypto.randomBytes(32).toString('hex');
-
-    const invitation = await prisma.invitation.create({
-      data: {
-        id: invitationId,
-        email,
-        token,
-        role,
-        invitedBy: req.user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
 
     const registerLink = `${process.env.CLIENT_URL}/register?token=${token}`;
 
@@ -56,13 +44,29 @@ const sendInvitation = async (req, res) => {
       `,
     });
 
+    const invitation = await prisma.invitation.create({
+      data: {
+        id: await generateId('invitation'),
+        email,
+        token,
+        role,
+        invitedBy: req.user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     res.status(201).json({
       message: 'Invitation sent successfully',
       invitation,
     });
   } catch (error) {
     console.error('Send invitation error:', error);
-    res.status(500).json({ message: 'Failed to send invitation' });
+    const isAuthError = error?.code === 'EAUTH';
+    res.status(500).json({
+      message: isAuthError
+        ? 'Email sending failed: invalid Gmail credentials. Use a 16-character App Password (myaccount.google.com/apppasswords).'
+        : 'Failed to send invitation',
+    });
   }
 };
 

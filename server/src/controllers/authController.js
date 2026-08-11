@@ -75,7 +75,7 @@ const saveLoginActivity = async ({ req, userId, status }) => {
 
 const register = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, email, password, token } = req.body;
 
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -98,8 +98,30 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Password must include uppercase, lowercase, number, and special character' });
     }
 
+    let role = 'USER';
+
+    if (token) {
+      const invitation = await prisma.invitation.findUnique({
+        where: { token },
+      });
+
+      if (!invitation || invitation.isUsed) {
+        return res.status(400).json({ message: 'Invalid or already used invitation' });
+      }
+
+      if (new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: 'Invitation has expired' });
+      }
+
+      if (invitation.email.toLowerCase() !== email.trim().toLowerCase()) {
+        return res.status(400).json({ message: 'This invitation was issued for a different email address' });
+      }
+
+      role = invitation.role;
+    }
+
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim() },
     });
 
     if (existingUser) {
@@ -110,18 +132,53 @@ const register = async (req, res) => {
     const encryptionSalt = crypto.randomBytes(16).toString('hex');
     const userId = await generateId('user');
 
-    const user = await prisma.user.create({
-      data: {
-        id: userId,
-        fullName,
-        email,
-        passwordHash,
-        encryptionSalt,
-        role: 'USER',
-      },
-    });
+    let user;
 
-    const token = signToken(user);
+    if (token) {
+      try {
+        user = await prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: {
+              id: userId,
+              fullName,
+              email: email.trim(),
+              passwordHash,
+              encryptionSalt,
+              role,
+            },
+          });
+
+          const updated = await tx.invitation.updateMany({
+            where: { token, isUsed: false },
+            data: { isUsed: true },
+          });
+
+          if (updated.count === 0) {
+            throw new Error('INVITATION_ALREADY_USED');
+          }
+
+          return created;
+        });
+      } catch (error) {
+        if (error.message === 'INVITATION_ALREADY_USED') {
+          return res.status(400).json({ message: 'Invitation already used' });
+        }
+        throw error;
+      }
+    } else {
+      user = await prisma.user.create({
+        data: {
+          id: userId,
+          fullName,
+          email: email.trim(),
+          passwordHash,
+          encryptionSalt,
+          role,
+        },
+      });
+    }
+
+    const jwtToken = signToken(user);
 
     await saveLoginActivity({
       req,
@@ -131,7 +188,7 @@ const register = async (req, res) => {
 
     res.status(201).json({
       message: 'User registered successfully',
-      token,
+      token: jwtToken,
       user: {
         id: user.id,
         fullName: user.fullName,
