@@ -14,9 +14,9 @@ import api from '../../services/api';
 import { logout, setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
 import {
   isEncryptedFormat,
-  verifyMasterPasswordLocally,
   MASTER_VERIFIER_STORAGE_KEY,
 } from '../../utils/crypto';
+import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -44,11 +44,9 @@ function EnterMasterPasswordPage() {
       setVerifying(true);
       setError('');
 
-      const verifier = sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY);
-
       let samples = [];
 
-      if (!verifier) {
+      if (!sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY)) {
         try {
           const ownedRes = await api.get('/passwords/owned');
           const owned = ownedRes.data || [];
@@ -61,13 +59,13 @@ function EnterMasterPasswordPage() {
         }
       }
 
-      const verified = await verifyMasterPasswordLocally(
+      const verified = await verifyMasterPassword(
         masterPassword,
         user?.encryptionSalt,
-        { verifier, samples }
+        { samples }
       );
 
-      if (verified === false) {
+      if (!verified) {
         setError('Invalid master password');
         return;
       }

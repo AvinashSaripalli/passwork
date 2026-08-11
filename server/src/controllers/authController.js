@@ -384,6 +384,35 @@ const changePassword = async (req, res) => {
   }
 };
 
+const verifyMasterPassword = async (req, res) => {
+  try {
+    const { masterPassword } = req.body;
+
+    if (!masterPassword) {
+      return res.status(400).json({ message: 'Master password is required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!user || !user.masterPasswordHash) {
+      return res.status(400).json({ message: 'Master password not set' });
+    }
+
+    const isMatch = await bcrypt.compare(masterPassword, user.masterPasswordHash);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid master password' });
+    }
+
+    res.json({ verified: true });
+  } catch (error) {
+    console.error('Verify master password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const changeMasterPassword = async (req, res) => {
   try {
     const { currentMasterPassword, newMasterPassword, hint } = req.body;
@@ -470,6 +499,7 @@ module.exports = {
   login,
   me,
   setMasterPassword,
+  verifyMasterPassword,
   updateProfile,
   changePassword,
   changeMasterPassword,

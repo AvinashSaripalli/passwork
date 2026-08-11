@@ -26,11 +26,9 @@ function AddUserPage() {
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  if (user?.role !== 'ADMIN') {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   useEffect(() => {
+    if (user?.role !== 'ADMIN') return;
+
     const loadUsers = async () => {
       try {
         setTableLoading(true);
@@ -49,7 +47,11 @@ function AddUserPage() {
     };
 
     loadUsers();
-  }, [token]);
+  }, [token, user?.role]);
+
+  if (user?.role !== 'ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleDelete = (id, fullName) => {
     setDeleteUser({ id, fullName });

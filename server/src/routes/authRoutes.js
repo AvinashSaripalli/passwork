@@ -21,6 +21,7 @@ router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
 router.get('/me', authenticate, authController.me);
 router.post('/set-master-password', authenticate, authController.setMasterPassword);
+router.post('/verify-master-password', authLimiter, authenticate, authController.verifyMasterPassword);
 router.put('/me', authenticate, authController.updateProfile);
 router.put('/change-password', sensitiveLimiter, authenticate, authController.changePassword);
 router.put('/change-master-password', sensitiveLimiter, authenticate, authController.changeMasterPassword);

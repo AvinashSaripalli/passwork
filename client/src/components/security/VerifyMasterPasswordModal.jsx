@@ -5,10 +5,7 @@ import {
   setMasterVerified,
   setSessionMasterPassword,
 } from '../../features/auth/authSlice';
-import {
-  verifyMasterPasswordLocally,
-  MASTER_VERIFIER_STORAGE_KEY,
-} from '../../utils/crypto';
+import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
 
 function VerifyMasterPasswordModal({
   open,
@@ -41,15 +38,13 @@ function VerifyMasterPasswordModal({
       setLoading(true);
       setError('');
 
-      const verifier = sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY);
-
-      const verified = await verifyMasterPasswordLocally(
+      const verified = await verifyMasterPassword(
         masterPassword,
         user?.encryptionSalt,
-        { verifier, samples }
+        { samples }
       );
 
-      if (verified === false) {
+      if (!verified) {
         setError('Invalid master password');
         return;
       }

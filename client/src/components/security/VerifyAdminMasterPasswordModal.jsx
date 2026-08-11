@@ -3,9 +3,9 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setSessionAdminMasterPassword } from '../../features/auth/authSlice';
 import {
-  verifyMasterPasswordLocally,
   MASTER_VERIFIER_STORAGE_KEY,
 } from '../../utils/crypto';
+import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
 
 function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
   const dispatch = useDispatch();
@@ -57,13 +57,13 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
         ? sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY)
         : null;
 
-      const verified = await verifyMasterPasswordLocally(
+      const verified = await verifyMasterPassword(
         masterPassword,
         user?.encryptionSalt,
         { verifier, samples: buildSamples() }
       );
 
-      if (verified === false) {
+      if (!verified) {
         setError('Invalid administrator master password');
         return;
       }
