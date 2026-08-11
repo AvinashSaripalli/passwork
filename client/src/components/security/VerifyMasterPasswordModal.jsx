@@ -1,17 +1,24 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import api from '../../services/api';
 import { useDispatch, useSelector } from 'react-redux';
-import { setMasterVerified } from '../../features/auth/authSlice';
+import {
+  setMasterVerified,
+  setSessionMasterPassword,
+} from '../../features/auth/authSlice';
+import {
+  verifyMasterPasswordLocally,
+  MASTER_VERIFIER_STORAGE_KEY,
+} from '../../utils/crypto';
 
 function VerifyMasterPasswordModal({
   open,
   onClose,
   onVerified,
+  samples = [],
 }) {
   const dispatch = useDispatch();
 
-  const { token } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
 
   const [masterPassword, setMasterPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,17 +41,21 @@ function VerifyMasterPasswordModal({
       setLoading(true);
       setError('');
 
-      await api.post(
-        '/auth/verify-master-password',
-        { masterPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const verifier = sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY);
+
+      const verified = await verifyMasterPasswordLocally(
+        masterPassword,
+        user?.encryptionSalt,
+        { verifier, samples }
       );
 
+      if (verified === false) {
+        setError('Invalid master password');
+        return;
+      }
+
       dispatch(setMasterVerified(true));
+      dispatch(setSessionMasterPassword(masterPassword));
 
       const verifiedPassword = masterPassword;
 
@@ -56,10 +67,8 @@ function VerifyMasterPasswordModal({
       if (onVerified) {
         onVerified(verifiedPassword);
       }
-    } catch (err) {
-      setError(
-        err.response?.data?.message || 'Invalid master password'
-      );
+    } catch {
+      setError('Invalid master password');
     } finally {
       setLoading(false);
     }

@@ -1,10 +1,35 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../../services/api';
-import { encryptText, decryptText } from '../../utils/crypto';
+import {
+  encryptText,
+  decryptText,
+  createMasterPasswordVerifier,
+  MASTER_VERIFIER_STORAGE_KEY,
+} from '../../utils/crypto';
+
+const MASTER_PASSWORD_STORAGE_KEYS = [
+  'sessionMasterPassword',
+  'sessionAdminMasterPassword',
+  'isMasterVerified',
+];
+
+const purgeStoredMasterPasswordKeys = () => {
+  MASTER_PASSWORD_STORAGE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key);
+  });
+};
+
+const saveVerifier = (verifier) => {
+  if (verifier) {
+    sessionStorage.setItem(MASTER_VERIFIER_STORAGE_KEY, verifier);
+  } else {
+    sessionStorage.removeItem(MASTER_VERIFIER_STORAGE_KEY);
+  }
+};
+
+purgeStoredMasterPasswordKeys();
 
 const getSavedToken = () => localStorage.getItem('token');
-const getSavedMasterPassword = () =>
-  sessionStorage.getItem('sessionMasterPassword');
 const getSavedUser = () => {
   try {
     const raw = localStorage.getItem('user');
@@ -107,14 +132,26 @@ export const changeMasterPassword = createAsyncThunk(
 
       const reencrypted = [];
       for (const pw of ownedPasswords) {
-        const decrypted = await decryptText(pw.encryptedPassword, currentMasterPassword, salt);
+        const decrypted = await decryptText(
+          pw.encryptedPassword,
+          currentMasterPassword,
+          salt
+        );
         const newEncrypted = await encryptText(decrypted, newMasterPassword, salt);
 
         const update = { id: pw.id, encryptedPassword: newEncrypted };
 
         if (pw.encryptedNote) {
-          const decryptedNote = await decryptText(pw.encryptedNote, currentMasterPassword, salt);
-          update.encryptedNote = await encryptText(decryptedNote, newMasterPassword, salt);
+          const decryptedNote = await decryptText(
+            pw.encryptedNote,
+            currentMasterPassword,
+            salt
+          );
+          update.encryptedNote = await encryptText(
+            decryptedNote,
+            newMasterPassword,
+            salt
+          );
         }
 
         reencrypted.push(update);
@@ -129,6 +166,9 @@ export const changeMasterPassword = createAsyncThunk(
         newMasterPassword,
         hint,
       });
+
+      saveVerifier(await createMasterPasswordVerifier(newMasterPassword, salt));
+      thunkAPI.dispatch(setSessionMasterPassword(newMasterPassword));
 
       return response.data;
     } catch (error) {
@@ -154,6 +194,7 @@ export const setMasterPassword = createAsyncThunk(
       return {
         ...response.data,
         hint: formData.hint || '',
+        masterPassword: formData.masterPassword,
       };
     } catch (error) {
       return thunkAPI.rejectWithValue(
@@ -172,11 +213,9 @@ const initialState = {
   isAuthenticated: !!savedToken,
   loading: false,
   error: null,
-  isMasterVerified: sessionStorage.getItem('isMasterVerified') === 'true',
-  sessionMasterPassword: getSavedMasterPassword(),
-  sessionAdminMasterPassword: sessionStorage.getItem(
-    'sessionAdminMasterPassword'
-  ),
+  isMasterVerified: false,
+  sessionMasterPassword: null,
+  sessionAdminMasterPassword: null,
   userLoaded: !savedToken,
 };
 
@@ -186,27 +225,14 @@ const authSlice = createSlice({
   reducers: {
     setMasterVerified: (state, action) => {
       state.isMasterVerified = action.payload;
-      if (action.payload) {
-        sessionStorage.setItem('isMasterVerified', 'true');
-      }
     },
 
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
-      if (action.payload) {
-        sessionStorage.setItem('sessionMasterPassword', action.payload);
-      } else {
-        sessionStorage.removeItem('sessionMasterPassword');
-      }
     },
 
     setSessionAdminMasterPassword: (state, action) => {
       state.sessionAdminMasterPassword = action.payload || null;
-      if (action.payload) {
-        sessionStorage.setItem('sessionAdminMasterPassword', action.payload);
-      } else {
-        sessionStorage.removeItem('sessionAdminMasterPassword');
-      }
     },
 
     setUser: (state, action) => {
@@ -227,9 +253,8 @@ const authSlice = createSlice({
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      sessionStorage.removeItem('isMasterVerified');
-      sessionStorage.removeItem('sessionMasterPassword');
-      sessionStorage.removeItem('sessionAdminMasterPassword');
+      purgeStoredMasterPasswordKeys();
+      saveVerifier(null);
     },
 
     clearError: (state) => {
@@ -250,9 +275,13 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+        state.sessionMasterPassword = null;
+        state.sessionAdminMasterPassword = null;
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
         saveUser(action.payload.user);
+        purgeStoredMasterPasswordKeys();
+        saveVerifier(null);
       })
 
       .addCase(registerUser.rejected, (state, action) => {
@@ -271,9 +300,13 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isMasterVerified = false;
+        state.sessionMasterPassword = null;
+        state.sessionAdminMasterPassword = null;
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
         saveUser(action.payload.user);
+        purgeStoredMasterPasswordKeys();
+        saveVerifier(null);
       })
 
       .addCase(loginUser.rejected, (state, action) => {
@@ -299,9 +332,8 @@ const authSlice = createSlice({
 
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        sessionStorage.removeItem('isMasterVerified');
-        sessionStorage.removeItem('sessionMasterPassword');
-        sessionStorage.removeItem('sessionAdminMasterPassword');
+        purgeStoredMasterPasswordKeys();
+        saveVerifier(null);
       })
 
       .addCase(updateProfile.pending, (state) => {
@@ -364,6 +396,7 @@ const authSlice = createSlice({
           hasMasterPassword: true,
         };
         state.isMasterVerified = true;
+        state.sessionMasterPassword = action.payload.masterPassword;
         saveUser(state.user);
       })
 

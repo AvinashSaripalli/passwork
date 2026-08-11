@@ -287,82 +287,6 @@ const setMasterPassword = async (req, res) => {
   }
 };
 
-const verifyMasterPassword = async (req, res) => {
-  try {
-    const { masterPassword } = req.body;
-
-    if (!masterPassword) {
-      return res.status(400).json({ message: 'Master password is required' });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-    });
-
-    if (!user || !user.masterPasswordHash) {
-      return res.status(400).json({ message: 'Master password not set' });
-    }
-
-    const isMatch = await bcrypt.compare(
-      masterPassword,
-      user.masterPasswordHash
-    );
-
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid master password' });
-    }
-
-    res.json({ verified: true });
-  } catch (error) {
-    console.error('Verify master password error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const verifyAdministratorMasterPassword = async (req, res) => {
-  try {
-    const { masterPassword } = req.body;
-
-    if (!masterPassword) {
-      return res.status(400).json({ message: 'Master password is required' });
-    }
-
-    const adminUser = await prisma.user.findFirst({
-      where: {
-        role: 'ADMIN',
-        masterPasswordHash: {
-          not: null,
-        },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    if (!adminUser) {
-      return res.status(400).json({
-        message: 'Administrator master password not set',
-      });
-    }
-
-    const isMatch = await bcrypt.compare(
-      masterPassword,
-      adminUser.masterPasswordHash
-    );
-
-    if (!isMatch) {
-      return res.status(400).json({
-        message: 'Invalid administrator master password',
-      });
-    }
-
-    res.json({ verified: true });
-  } catch (error) {
-    console.error('Verify administrator master password error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 const updateProfile = async (req, res) => {
   try {
     const { fullName, email } = req.body;
@@ -546,8 +470,6 @@ module.exports = {
   login,
   me,
   setMasterPassword,
-  verifyMasterPassword,
-  verifyAdministratorMasterPassword,
   updateProfile,
   changePassword,
   changeMasterPassword,

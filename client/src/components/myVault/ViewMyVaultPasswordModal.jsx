@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Eye, EyeOff, Copy, ExternalLink } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import { secureCopyText } from '../../utils/clipboard';
 
 function ViewMyVaultPasswordModal({ open, password, onClose }) {
   const { user, sessionMasterPassword } = useSelector((state) => state.auth);
@@ -63,7 +64,7 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
 
   const handleCopy = (value) => {
     if (!value) return;
-    navigator.clipboard.writeText(value);
+    secureCopyText(value);
   };
 
   const handleClose = () => {

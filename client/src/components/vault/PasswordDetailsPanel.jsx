@@ -19,6 +19,7 @@ import {
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import ConfirmModal from '../common/ConfirmModal';
 import { safeDecryptText } from '../../utils/crypto';
+import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
 function PasswordDetailsPanel() {
@@ -129,8 +130,7 @@ function PasswordDetailsPanel() {
     }
 
     if (actionName === 'copy-login' && (!item.isSensitive || isFolderAdministrator)) {
-      navigator.clipboard.writeText(item.login || '');
-      showToast('Login copied');
+      secureCopyText(item.login || '', 'Login copied');
       return;
     }
 
@@ -192,8 +192,7 @@ function PasswordDetailsPanel() {
       }
 
       if (actionName === 'copy-login' && canView) {
-        await navigator.clipboard.writeText(activePassword.login || '');
-        showToast('Login copied');
+        secureCopyText(activePassword.login || '', 'Login copied');
         return;
       }
 
@@ -230,7 +229,7 @@ function PasswordDetailsPanel() {
       }
 
       if (actionName === 'copy-password' && canView) {
-        await navigator.clipboard.writeText(originalPassword);
+        secureCopyText(originalPassword, 'Password copied');
 
         await api.post(
           `/passwords/${activePassword.id}/copy-log`,
@@ -241,8 +240,6 @@ function PasswordDetailsPanel() {
             },
           }
         );
-
-        showToast('Password copied');
       }
 
       if (actionName === 'edit' && canEdit) {

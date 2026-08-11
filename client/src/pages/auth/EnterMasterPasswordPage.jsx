@@ -12,6 +12,11 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
 import { logout, setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
+import {
+  isEncryptedFormat,
+  verifyMasterPasswordLocally,
+  MASTER_VERIFIER_STORAGE_KEY,
+} from '../../utils/crypto';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
 
@@ -39,15 +44,33 @@ function EnterMasterPasswordPage() {
       setVerifying(true);
       setError('');
 
-      await api.post(
-        '/auth/verify-master-password',
-        { masterPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const verifier = sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY);
+
+      let samples = [];
+
+      if (!verifier) {
+        try {
+          const ownedRes = await api.get('/passwords/owned');
+          const owned = ownedRes.data || [];
+
+          samples = owned
+            .filter((pw) => isEncryptedFormat(pw.encryptedPassword))
+            .map((pw) => pw.encryptedPassword);
+        } catch {
+          samples = [];
         }
+      }
+
+      const verified = await verifyMasterPasswordLocally(
+        masterPassword,
+        user?.encryptionSalt,
+        { verifier, samples }
       );
+
+      if (verified === false) {
+        setError('Invalid master password');
+        return;
+      }
 
       dispatch(setMasterVerified(true));
       dispatch(setSessionMasterPassword(masterPassword));

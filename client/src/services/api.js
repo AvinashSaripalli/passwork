@@ -23,7 +23,10 @@ api.interceptors.response.use(
       isLoggingOut = true;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('sessionMasterPassword');
+      sessionStorage.removeItem('sessionAdminMasterPassword');
       sessionStorage.removeItem('isMasterVerified');
+      sessionStorage.removeItem('masterPasswordVerifier');
       window.location.href = '/login';
     }
     return Promise.reject(error);

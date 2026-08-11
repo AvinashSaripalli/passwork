@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
 import { showToast } from '../../utils/toast';
+import { secureCopyText } from '../../utils/clipboard';
 import DecryptDialog from '../common/DecryptDialog';
 import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 
@@ -50,8 +51,7 @@ function MyVaultPasswordWorkspace({
     filteredPasswords[0];
 
   const copyText = (value) => {
-    if (!value) return;
-    navigator.clipboard.writeText(value);
+    secureCopyText(value, 'Copied to clipboard');
   };
 
   const revealDecrypted = (decrypted) => {
@@ -115,7 +115,7 @@ function MyVaultPasswordWorkspace({
       return;
     }
 
-    if (selectedPassword.isSensitive && !sessionMasterPassword) {
+    if (selectedPassword.isSensitive) {
       setPendingAction('reveal');
       setVerifyOpen(true);
       return;
@@ -145,7 +145,7 @@ function MyVaultPasswordWorkspace({
   const handleCopyPassword = async () => {
     if (!selectedPassword) return;
 
-    if (selectedPassword.isSensitive && !sessionMasterPassword) {
+    if (selectedPassword.isSensitive) {
       setPendingAction('copy');
       setVerifyOpen(true);
       return;
@@ -210,6 +210,7 @@ function MyVaultPasswordWorkspace({
           setPendingAction(null);
         }}
         onVerified={handleVerified}
+        samples={passwords.map((item) => item.encryptedPassword)}
       />
       <div className="bg-white rounded-2xl border border-slate-200 min-h-[600px] overflow-hidden dark:bg-slate-800 dark:border-slate-700">
         {loading ? (

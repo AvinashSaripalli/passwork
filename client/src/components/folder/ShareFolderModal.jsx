@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
-import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 import { shareFolderAccess } from '../../features/vault/vaultSlice';
 
 function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const dispatch = useDispatch();
-  const { token, user } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const { actionLoading } = useSelector((state) => state.vault);
 
   const [users, setUsers] = useState([]);
@@ -15,22 +14,18 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const [accessLevel, setAccessLevel] = useState('READ_ONLY');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState('');
-  const [verifyOpen, setVerifyOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    if (user?.role !== 'ADMIN') return;
 
     const fetchUsers = async () => {
       try {
         setFetchingUsers(true);
         setError('');
 
-        const response = await api.get('/users', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await api.get('/users/shareable');
 
-        const filteredUsers = response.data.filter(
+        const filteredUsers = (response.data || []).filter(
           (item) => item.id !== user?.id
         );
 
@@ -43,13 +38,12 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
     };
 
     fetchUsers();
-  }, [open, token, user]);
+  }, [open, user?.id]);
 
   const resetForm = () => {
     setUserEmail('');
     setAccessLevel('READ_ONLY');
     setError('');
-    setVerifyOpen(false);
   };
 
   const handleClose = () => {
@@ -65,11 +59,7 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
     if (!userEmail) return setError('Select a user');
 
     setError('');
-    if (user?.role === 'ADMIN') {
-      handleVerified();
-      return;
-    }
-    setVerifyOpen(true);
+    handleVerified();
   };
 
   const handleVerified = async () => {
@@ -86,15 +76,13 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
       handleClose();
     } else {
       setError(result.payload || 'Failed to share');
-      setVerifyOpen(false);
     }
   };
 
   if (!open) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
         <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
           
           {/* Header */}
@@ -174,13 +162,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
           </form>
         </div>
       </div>
-
-      <VerifyMasterPasswordModal
-        open={verifyOpen}
-        onClose={() => setVerifyOpen(false)}
-        onVerified={handleVerified}
-      />
-    </>
   );
 }
 

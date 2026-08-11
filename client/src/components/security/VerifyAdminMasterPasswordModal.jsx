@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import api from '../../services/api';
 import { setSessionAdminMasterPassword } from '../../features/auth/authSlice';
+import {
+  verifyMasterPasswordLocally,
+  MASTER_VERIFIER_STORAGE_KEY,
+} from '../../utils/crypto';
 
 function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
   const dispatch = useDispatch();
-  const { token } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
+  const companyPasswords = useSelector((state) => state.vault.passwords);
 
   const [masterPassword, setMasterPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +18,24 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
   const [error, setError] = useState('');
 
   if (!open) return null;
+
+  const buildSamples = () => {
+    const samples = [];
+
+    for (const item of companyPasswords || []) {
+      const salt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+
+      if (item.encryptedPassword) {
+        samples.push({ encrypted: item.encryptedPassword, salt });
+      }
+
+      if (item.encryptedNote) {
+        samples.push({ encrypted: item.encryptedNote, salt });
+      }
+    }
+
+    return samples;
+  };
 
   const handleClose = () => {
     setMasterPassword('');
@@ -29,15 +51,22 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
       setLoading(true);
       setError('');
 
-      await api.post(
-        '/auth/verify-admin-master-password',
-        { masterPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const isAdmin = user?.role === 'ADMIN';
+
+      const verifier = isAdmin
+        ? sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY)
+        : null;
+
+      const verified = await verifyMasterPasswordLocally(
+        masterPassword,
+        user?.encryptionSalt,
+        { verifier, samples: buildSamples() }
       );
+
+      if (verified === false) {
+        setError('Invalid administrator master password');
+        return;
+      }
 
       const verifiedPassword = masterPassword;
 
@@ -52,10 +81,8 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
       if (onVerified) {
         onVerified(verifiedPassword);
       }
-    } catch (err) {
-      setError(
-        err.response?.data?.message || 'Invalid administrator master password'
-      );
+    } catch {
+      setError('Invalid administrator master password');
     } finally {
       setLoading(false);
     }

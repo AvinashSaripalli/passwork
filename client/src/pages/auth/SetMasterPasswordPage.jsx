@@ -14,8 +14,11 @@ import {
   clearError,
   logout,
   setMasterPassword,
-  setMasterVerified,
 } from '../../features/auth/authSlice';
+import {
+  createMasterPasswordVerifier,
+  MASTER_VERIFIER_STORAGE_KEY,
+} from '../../utils/crypto';
 import {
   validateMasterPassword,
   validateConfirmPassword,
@@ -95,7 +98,12 @@ function SetMasterPasswordPage() {
     );
 
     if (setMasterPassword.fulfilled.match(result)) {
-      dispatch(setMasterVerified(true));
+      const verifier = await createMasterPasswordVerifier(
+        formData.masterPassword,
+        user?.encryptionSalt
+      );
+      sessionStorage.setItem(MASTER_VERIFIER_STORAGE_KEY, verifier);
+
       navigate('/dashboard');
     }
   };

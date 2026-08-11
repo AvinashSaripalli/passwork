@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Copy, RefreshCw, Check, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { generatePassword } from '../../utils/passwordGenerator';
 import { getPasswordStrength } from '../../utils/passwordStrength';
+import { secureCopyText } from '../../utils/clipboard';
 
 const MIN_LENGTH = 8;
 const MAX_LENGTH = 64;
@@ -50,8 +51,8 @@ function PasswordGeneratorModal({ open, onClose }) {
     ? strength.label === 'Strong' ? 100 : strength.label === 'Medium' ? 60 : 30
     : 0;
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(password);
+  const handleCopy = () => {
+    secureCopyText(password);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

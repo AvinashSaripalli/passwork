@@ -1,6 +1,7 @@
 import { Copy, ExternalLink, X, Eye, EyeOff, Globe, User, Folder, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../services/api';
+import { secureCopyText } from '../../utils/clipboard';
 
 function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
   const [showPw, setShowPw] = useState(false);
@@ -13,7 +14,7 @@ function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
 
   const handleCopy = (value) => {
     if (!value) return;
-    navigator.clipboard.writeText(value);
+    secureCopyText(value);
     api.post(`/passwords/${password.id}/copy-log`).catch(() => {});
   };
 

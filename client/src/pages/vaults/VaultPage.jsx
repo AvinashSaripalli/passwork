@@ -137,17 +137,19 @@ function VaultPage() {
       const rows = [];
 
       for (const item of folderPasswords) {
+        const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+
         const originalPassword = await safeDecryptText(
           item.encryptedPassword,
           adminMasterPassword,
-          user?.encryptionSalt
+          creatorSalt
         );
 
         const originalNote = item.encryptedNote
           ? await safeDecryptText(
               item.encryptedNote,
               adminMasterPassword,
-              user?.encryptionSalt
+              creatorSalt
             )
           : '';
 
