@@ -27,8 +27,6 @@ const saveVerifier = (verifier) => {
   }
 };
 
-purgeStoredMasterPasswordKeys();
-
 const getSavedToken = () => localStorage.getItem('token');
 const getSavedUser = () => {
   try {
@@ -36,6 +34,36 @@ const getSavedUser = () => {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+};
+const getSavedSessionMasterPassword = () =>
+  sessionStorage.getItem('sessionMasterPassword');
+const getSavedSessionAdminMasterPassword = () =>
+  sessionStorage.getItem('sessionAdminMasterPassword');
+const getSavedMasterVerified = () =>
+  sessionStorage.getItem('isMasterVerified') === 'true';
+
+const saveSessionMasterPassword = (password) => {
+  if (password) {
+    sessionStorage.setItem('sessionMasterPassword', password);
+  } else {
+    sessionStorage.removeItem('sessionMasterPassword');
+  }
+};
+
+const saveSessionAdminMasterPassword = (password) => {
+  if (password) {
+    sessionStorage.setItem('sessionAdminMasterPassword', password);
+  } else {
+    sessionStorage.removeItem('sessionAdminMasterPassword');
+  }
+};
+
+const saveMasterVerified = (verified) => {
+  if (verified) {
+    sessionStorage.setItem('isMasterVerified', 'true');
+  } else {
+    sessionStorage.removeItem('isMasterVerified');
   }
 };
 const saveUser = (user) => {
@@ -213,9 +241,9 @@ const initialState = {
   isAuthenticated: !!savedToken,
   loading: false,
   error: null,
-  isMasterVerified: false,
-  sessionMasterPassword: null,
-  sessionAdminMasterPassword: null,
+  isMasterVerified: getSavedMasterVerified(),
+  sessionMasterPassword: getSavedSessionMasterPassword(),
+  sessionAdminMasterPassword: getSavedSessionAdminMasterPassword(),
   userLoaded: !savedToken,
 };
 
@@ -225,14 +253,17 @@ const authSlice = createSlice({
   reducers: {
     setMasterVerified: (state, action) => {
       state.isMasterVerified = action.payload;
+      saveMasterVerified(action.payload);
     },
 
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
+      saveSessionMasterPassword(action.payload || null);
     },
 
     setSessionAdminMasterPassword: (state, action) => {
       state.sessionAdminMasterPassword = action.payload || null;
+      saveSessionAdminMasterPassword(action.payload || null);
     },
 
     setUser: (state, action) => {
