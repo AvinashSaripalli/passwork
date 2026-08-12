@@ -50,6 +50,7 @@ function MyVaultPage() {
 
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [editPasswordOpen, setEditPasswordOpen] = useState(false);
+  const [addChildParent, setAddChildParent] = useState(null);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [manageSharesOpen, setManageSharesOpen] = useState(false);
@@ -73,6 +74,14 @@ function MyVaultPage() {
   }, [passwords, selectedFolderId]);
 
   const selectedFolder = folders.find((item) => item.id === selectedFolderId);
+  const addFolderForChild = addChildParent
+    ? folders.find((item) => item.id === addChildParent.folderId)
+    : null;
+
+  const openAddPasswordModal = (parent = null) => {
+    setAddChildParent(parent);
+    setPasswordModalOpen(true);
+  };
 
   const handleCreateFolder = async (name) => {
     const result = await dispatch(createMyVaultFolder({ name }));
@@ -117,6 +126,7 @@ function MyVaultPage() {
 
     if (createMyVaultPassword.fulfilled.match(result)) {
       setPasswordModalOpen(false);
+      setAddChildParent(null);
     }
   };
 
@@ -195,7 +205,7 @@ function MyVaultPage() {
         <MyVaultHeader
           folders={folders}
           onCreateFolder={() => setFolderModalOpen(true)}
-          onCreatePassword={() => setPasswordModalOpen(true)}
+          onCreatePassword={() => openAddPasswordModal()}
         />
 
         <div className="grid grid-cols-[280px_1fr] gap-5">
@@ -217,6 +227,7 @@ function MyVaultPage() {
             onEditPassword={handleEditPassword}
             onDeletePassword={handleDeletePassword}
             onManageShares={handleManageShares}
+            onAddChild={openAddPasswordModal}
           />
         </div>
 
@@ -239,8 +250,12 @@ function MyVaultPage() {
         <AddMyVaultPasswordModal
           open={passwordModalOpen}
           folders={folders}
-          selectedFolder={selectedFolder}
-          onClose={() => setPasswordModalOpen(false)}
+          selectedFolder={addFolderForChild || selectedFolder}
+          parent={addChildParent}
+          onClose={() => {
+            setPasswordModalOpen(false);
+            setAddChildParent(null);
+          }}
           onSubmit={handleCreatePassword}
         />
 

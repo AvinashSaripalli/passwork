@@ -537,6 +537,7 @@ const reencryptPasswords = async (req, res) => {
         data: {
           encryptedPassword: pw.encryptedPassword,
           ...(pw.encryptedNote !== undefined && { encryptedNote: pw.encryptedNote }),
+          ...(pw.encryptedFields !== undefined && { encryptedFields: pw.encryptedFields }),
         },
       })
     );

@@ -83,34 +83,40 @@ model VaultPermission {
 }
 
 model PasswordEntry {
-  id                String        @id
+  id                String          @id
   name              String
   login             String
+  type              ItemType        @default(LOGIN)
   encryptedPassword String
+  encryptedFields   String?
   encryptedNote     String?
   url               String?
   colorTag          String?
   vaultId           String
   folderId          String?
+  parentId          String?
   createdById       String
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   lastViewedAt      DateTime?
   lastUpdatedAt     DateTime?
   strengthScore     Int?
-  isWeak            Boolean       @default(false)
-  isOld             Boolean       @default(false)
-  isAtRisk          Boolean       @default(false)
-  isSensitive       Boolean       @default(false)
-  createdBy         User          @relation("PasswordCreatedBy", fields: [createdById], references: [id])
-  folder            Folder?       @relation(fields: [folderId], references: [id])
-  vault             Vault         @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  isWeak            Boolean         @default(false)
+  isOld             Boolean         @default(false)
+  isAtRisk          Boolean         @default(false)
+  isSensitive       Boolean         @default(false)
+  createdBy         User            @relation("PasswordCreatedBy", fields: [createdById], references: [id])
+  folder            Folder?         @relation(fields: [folderId], references: [id])
+  vault             Vault           @relation(fields: [vaultId], references: [id], onDelete: Cascade)
   tags              PasswordTag[]
-  shares PasswordShare[]
+  shares            PasswordShare[]
+  parent            PasswordEntry?  @relation("EntryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children          PasswordEntry[] @relation("EntryTree")
 
   @@index([vaultId])
   @@index([folderId])
   @@index([createdById])
+  @@index([parentId])
 }
 
 model Tag {
@@ -195,6 +201,14 @@ enum VaultAccessLevel {
   READ_WRITE
   DELETE
   ADMIN
+}
+
+enum ItemType {
+  LOGIN
+  CARD
+  BANK_ACCOUNT
+  IDENTITY
+  SECURE_NOTE
 }
 
 enum ActivityAction {

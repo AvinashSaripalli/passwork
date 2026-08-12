@@ -107,6 +107,24 @@ export async function safeDecryptText(encryptedText, masterPassword, salt) {
   }
 }
 
+export async function encryptFields(fields, masterPassword, salt) {
+  if (!fields) return '';
+  const keys = Object.keys(fields).filter((key) => fields[key]);
+  if (keys.length === 0) return '';
+  return encryptText(JSON.stringify(fields), masterPassword, salt);
+}
+
+export async function decryptFields(encryptedFields, masterPassword, salt) {
+  if (!encryptedFields) return null;
+
+  try {
+    const decrypted = await decryptText(encryptedFields, masterPassword, salt);
+    return decrypted ? JSON.parse(decrypted) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const MASTER_VERIFIER_MARKER = 'vaultix-master-verifier';
 
 export const MASTER_VERIFIER_STORAGE_KEY = 'masterPasswordVerifier';
@@ -151,3 +169,57 @@ export async function verifyMasterPasswordLocally(
 
   return hasCandidates ? false : null;
 }
+
+function base32ToBytes(base32) {
+  if (!base32) return new Uint8Array();
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const cleaned = base32.toUpperCase().replace(/=+$/, '').replace(/[\s-]/g, '');
+  let bits = '';
+  for (let i = 0; i < cleaned.length; i++) {
+    const val = alphabet.indexOf(cleaned[i]);
+    if (val === -1) continue;
+    bits += val.toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.substring(i, i + 8), 2));
+  }
+  return new Uint8Array(bytes);
+}
+
+export async function generateTOTP(secret, stepSeconds = 30) {
+  if (!secret || typeof secret !== 'string') return null;
+  try {
+    const keyBytes = base32ToBytes(secret);
+    if (keyBytes.length === 0) return null;
+    const epoch = Math.floor(Date.now() / 1000);
+    const timeStep = Math.floor(epoch / stepSeconds);
+    const secondsRemaining = stepSeconds - (epoch % stepSeconds);
+
+    const timeBuffer = new ArrayBuffer(8);
+    const timeView = new DataView(timeBuffer);
+    timeView.setBigUint64(0, BigInt(timeStep), false);
+
+    const cryptoKey = await window.crypto.subtle.importKey(
+      'raw',
+      keyBytes,
+      { name: 'HMAC', hash: { name: 'SHA-1' } },
+      false,
+      ['sign']
+    );
+
+    const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, timeBuffer);
+    const signatureBytes = new Uint8Array(signature);
+    const offset = signatureBytes[signatureBytes.length - 1] & 0xf;
+    const code =
+      ((signatureBytes[offset] & 0x7f) << 24) |
+      ((signatureBytes[offset + 1] & 0xff) << 16) |
+      ((signatureBytes[offset + 2] & 0xff) << 8) |
+      (signatureBytes[offset + 3] & 0xff);
+
+    const otp = (code % 1000000).toString().padStart(6, '0');
+    return { code: otp, secondsRemaining };
+  } catch {
+    return null;
+  }
+}

@@ -3,6 +3,8 @@ import api from '../../services/api';
 import {
   encryptText,
   decryptText,
+  encryptFields,
+  decryptFields,
   createMasterPasswordVerifier,
   MASTER_VERIFIER_STORAGE_KEY,
 } from '../../utils/crypto';
@@ -180,6 +182,21 @@ export const changeMasterPassword = createAsyncThunk(
             newMasterPassword,
             salt
           );
+        }
+
+        if (pw.encryptedFields) {
+          const decryptedFields = await decryptFields(
+            pw.encryptedFields,
+            currentMasterPassword,
+            salt
+          );
+          if (decryptedFields) {
+            update.encryptedFields = await encryptFields(
+              decryptedFields,
+              newMasterPassword,
+              salt
+            );
+          }
         }
 
         reencrypted.push(update);

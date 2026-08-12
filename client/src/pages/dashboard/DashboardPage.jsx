@@ -551,7 +551,7 @@ function DashboardPage() {
                           <td className="px-6 py-4">
                             <span className="font-medium text-slate-900 dark:text-slate-100">{row.name}</span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300 font-mono">{row.login}</td>
+                          <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{row.login}</td>
                           <td className="px-6 py-4">
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-lg">
                               {row.vault?.name || '-'}

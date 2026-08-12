@@ -58,7 +58,7 @@ function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
           <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 dark:border-slate-600 dark:divide-slate-700">
             <Row label="Login" value={password?.login} onCopy={() => handleCopy(password?.login)} copyIcon />
 
-            <Row label="Password" value={showPw ? (displayPassword || '') : '••••••••••••'} mono>
+            <Row label="Password" value={showPw ? (displayPassword || '') : '••••••••••••'}>
               <IconBtn onClick={() => setShowPw((p) => !p)}>
                 {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </IconBtn>
@@ -96,7 +96,7 @@ function MetaItem({ icon: Icon, label, value }) {
   );
 }
 
-function Row({ label, value, children, link, mono, onCopy, copyIcon, external }) {
+function Row({ label, value, children, link, onCopy, copyIcon, external }) {
   const isUrl = link && value && value !== 'No URL';
   return (
     <div className="flex items-center justify-between px-5 py-4 min-h-[52px]">
@@ -109,7 +109,7 @@ function Row({ label, value, children, link, mono, onCopy, copyIcon, external })
             <span className="truncate">{value}</span>
           </a>
         ) : (
-          <span className={`text-sm truncate max-w-[240px] ${mono ? 'font-mono tracking-wider' : 'text-slate-900 dark:text-slate-100'}`}>{value}</span>
+          <span className="text-sm text-slate-900 truncate max-w-[240px] dark:text-slate-100">{value}</span>
         )}
         {onCopy ? (
           <IconBtn onClick={onCopy}>

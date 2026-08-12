@@ -99,6 +99,27 @@ export const deleteMyVaultPassword = createAsyncThunk(
   }
 );
 
+const removeEntrySubtree = (passwords, id) => {
+  const idsToRemove = new Set([id]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const password of passwords) {
+      if (
+        !idsToRemove.has(password.id) &&
+        password.parentId &&
+        idsToRemove.has(password.parentId)
+      ) {
+        idsToRemove.add(password.id);
+        changed = true;
+      }
+    }
+  }
+
+  return passwords.filter((password) => !idsToRemove.has(password.id));
+};
+
 const myVaultSlice = createSlice({
   name: 'myVault',
 
@@ -241,9 +262,7 @@ const myVaultSlice = createSlice({
       .addCase(deleteMyVaultPassword.fulfilled, (state, action) => {
         state.actionLoading = false;
 
-        state.passwords = state.passwords.filter(
-          (password) => password.id !== action.payload
-        );
+        state.passwords = removeEntrySubtree(state.passwords, action.payload);
       })
 
       .addCase(deleteMyVaultPassword.rejected, (state, action) => {

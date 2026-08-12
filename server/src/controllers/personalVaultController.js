@@ -8,6 +8,8 @@ const makeSlug = (name, userId) =>
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9-]/g, '');
 
+const ITEM_TYPES = ['LOGIN', 'CARD', 'BANK_ACCOUNT', 'IDENTITY', 'SECURE_NOTE'];
+
 const getOrCreateMyVault = async (req, res) => {
   try {
     let vault = await prisma.vault.findFirst({
@@ -157,13 +159,24 @@ const createMyVaultPassword = async (req, res) => {
       login,
       encryptedPassword,
       encryptedNote,
+      encryptedFields,
       url,
       colorTag,
       folderId,
+      parentId,
       tags = [],
+      type = 'LOGIN',
     } = req.body;
 
-    if (!name || !login || !encryptedPassword || !folderId) {
+    if (!ITEM_TYPES.includes(type)) {
+      return res.status(400).json({ message: 'Invalid item type' });
+    }
+
+    if (!name || !folderId) {
+      return res.status(400).json({ message: 'name and folderId are required' });
+    }
+
+    if (type === 'LOGIN' && (!login || !encryptedPassword)) {
       return res.status(400).json({
         message: 'name, login, encryptedPassword and folderId are required',
       });
@@ -191,17 +204,30 @@ const createMyVaultPassword = async (req, res) => {
       return res.status(403).json({ message: 'Invalid personal folder' });
     }
 
+    if (parentId) {
+      const parent = await prisma.passwordEntry.findFirst({
+        where: { id: parentId, vaultId: vault.id },
+      });
+
+      if (!parent) {
+        return res.status(400).json({ message: 'Invalid parent item' });
+      }
+    }
+
     const passwordEntry = await prisma.passwordEntry.create({
       data: {
         id: await generateId('passwordEntry'),
         name,
-        login,
-        encryptedPassword,
+        login: login || '',
+        type,
+        encryptedPassword: encryptedPassword || '',
+        encryptedFields,
         encryptedNote,
         url,
         colorTag,
         vaultId: vault.id,
         folderId,
+        parentId: parentId || null,
         createdById: req.user.id,
         lastUpdatedAt: new Date(),
         strengthScore: req.body.strengthScore ?? 40,
@@ -223,6 +249,7 @@ const createMyVaultPassword = async (req, res) => {
       },
       include: {
         folder: true,
+        parent: true,
         tags: {
           include: {
             tag: true,
@@ -415,11 +442,18 @@ const updateMyVaultPassword = async (req, res) => {
       login,
       encryptedPassword,
       encryptedNote,
+      encryptedFields,
       url,
       colorTag,
       folderId,
+      parentId,
       tags,
+      type,
     } = req.body;
+
+    if (type !== undefined && !ITEM_TYPES.includes(type)) {
+      return res.status(400).json({ message: 'Invalid item type' });
+    }
 
     const cleanTags = Array.isArray(tags)
       ? tags
@@ -469,16 +503,47 @@ const updateMyVaultPassword = async (req, res) => {
       }
     }
 
+    let finalParentId = parentId === undefined ? undefined : parentId || null;
+
+    if (finalParentId) {
+      if (finalParentId === passwordId) {
+        return res.status(400).json({ message: 'An item cannot be its own parent' });
+      }
+
+      const parent = await prisma.passwordEntry.findFirst({
+        where: { id: finalParentId, vaultId: vault.id },
+      });
+
+      if (!parent) {
+        return res.status(400).json({ message: 'Invalid parent item' });
+      }
+
+      let cursor = parent;
+      while (cursor?.parentId) {
+        if (cursor.parentId === passwordId) {
+          return res.status(400).json({ message: 'Invalid parent item' });
+        }
+        cursor = await prisma.passwordEntry.findFirst({
+          where: { id: cursor.parentId },
+          select: { id: true, parentId: true },
+        });
+      }
+    }
+
     const updatedPassword = await prisma.passwordEntry.update({
       where: { id: passwordId },
       data: {
         name,
         login,
+        type,
         encryptedPassword,
+        encryptedFields:
+          encryptedFields !== undefined ? encryptedFields || null : undefined,
         encryptedNote,
         url,
         colorTag,
         folderId,
+        parentId: finalParentId,
         lastUpdatedAt: new Date(),
         strengthScore: req.body.strengthScore ?? undefined,
         isWeak: req.body.isWeak ?? undefined,
@@ -503,6 +568,8 @@ const updateMyVaultPassword = async (req, res) => {
         }),
       },
       include: {
+        folder: true,
+        parent: true,
         tags: {
           include: {
             tag: true,

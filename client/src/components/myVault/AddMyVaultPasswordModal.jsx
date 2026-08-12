@@ -1,35 +1,70 @@
-import { useState } from 'react';
-import { KeyRound, Lock, X, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { KeyRound, Lock, X, Eye, EyeOff, FolderDown } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import TagInput from '../common/TagInput';
-import { encryptText } from '../../utils/crypto';
+import ItemFields from './ItemFields';
+import { encryptText, encryptFields } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
-
-const initialForm = {
-  folderId: '',
-  name: '',
-  login: '',
-  encryptedPassword: '',
-  url: '',
-  encryptedNote: '',
-  tags: [],
-  isSensitive: false,
-};
+import {
+  ITEM_TYPES,
+  emptyTypeFields,
+  isSensitiveDefault,
+  getTypePlaceholder,
+} from '../../utils/itemTypes';
 
 function AddMyVaultPasswordModal({
   open,
   folders,
   selectedFolder,
+  parent,
+  initialType = 'LOGIN',
   onClose,
   onSubmit,
 }) {
   const { user, sessionMasterPassword } = useSelector((state) => state.auth);
 
-  const [formData, setFormData] = useState(initialForm);
+  const [formData, setFormData] = useState({
+    folderId: '',
+    type: initialType,
+    parentId: null,
+    name: '',
+    login: '',
+    encryptedPassword: '',
+    url: '',
+    encryptedNote: '',
+    tags: [],
+    isSensitive: isSensitiveDefault(initialType),
+    fields: emptyTypeFields(initialType),
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [encrypting, setEncrypting] = useState(false);
   const [masterError, setMasterError] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+
+    const type = initialType;
+    const baseFolder = parent?.folderId || selectedFolder?.id || '';
+
+    setFormData({
+      folderId: baseFolder,
+      type,
+      parentId: parent?.id || null,
+      name: '',
+      login: '',
+      encryptedPassword: '',
+      url: '',
+      encryptedNote: '',
+      tags: [],
+      isSensitive: isSensitiveDefault(type),
+      fields: emptyTypeFields(type),
+    });
+    setShowPassword(false);
+    setMasterError('');
+    setFormError('');
+  }, [open, parent, selectedFolder, initialType]);
 
   if (!open) return null;
 
@@ -40,20 +75,42 @@ function AddMyVaultPasswordModal({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const updateTypeField = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      fields: { ...prev.fields, [key]: value },
+    }));
+  };
+
+  const changeType = (type) => {
+    setFormData((prev) => ({
+      ...prev,
+      type,
+      fields: emptyTypeFields(type),
+      isSensitive: isSensitiveDefault(type),
+    }));
+  };
+
   const handleClose = () => {
-    setFormData(initialForm);
     setShowPassword(false);
     setMasterError('');
+    setFormError('');
     onClose();
   };
 
   const handleSubmit = async () => {
-    if (
-      !formData.folderId ||
-      !formData.name ||
-      !formData.login ||
-      !formData.encryptedPassword
-    ) {
+    if (!formData.folderId) {
+      setFormError('Please select a folder');
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      setFormError('Name is required');
+      return;
+    }
+
+    if (formData.type === 'LOGIN' && (!formData.login || !formData.encryptedPassword)) {
+      setFormError('Login and password are required for a login item');
       return;
     }
 
@@ -65,34 +122,46 @@ function AddMyVaultPasswordModal({
     try {
       setEncrypting(true);
       setMasterError('');
+      setFormError('');
 
-      const encryptedPassword = await encryptText(
-        formData.encryptedPassword,
-        sessionMasterPassword,
-        user?.encryptionSalt
-      );
+      const isLogin = formData.type === 'LOGIN';
+
+      const encryptedPassword = isLogin
+        ? await encryptText(formData.encryptedPassword, sessionMasterPassword, user?.encryptionSalt)
+        : '';
 
       const encryptedNote = formData.encryptedNote
         ? await encryptText(formData.encryptedNote, sessionMasterPassword, user?.encryptionSalt)
         : '';
 
-      const strength = getPasswordStrength(formData.encryptedPassword);
+      const encryptedFields = await encryptFields(
+        formData.fields,
+        sessionMasterPassword,
+        user?.encryptionSalt
+      );
+
+      const strength = isLogin ? getPasswordStrength(formData.encryptedPassword) : null;
 
       const payload = {
-        ...formData,
+        folderId: formData.folderId,
+        parentId: formData.parentId,
+        type: formData.type,
+        name: formData.name.trim(),
+        login: isLogin ? formData.login : '',
+        url: isLogin ? formData.url : '',
         encryptedPassword,
         encryptedNote,
-        strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
+        encryptedFields,
+        tags: formData.tags,
+        isSensitive: formData.isSensitive,
+        strengthScore: strength ? (strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40) : 0,
         isWeak: strength?.label === 'Weak',
         isOld: false,
-        isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
-        isSensitive: formData.isSensitive,
+        isAtRisk: isLogin ? isPasswordAtRisk(formData.encryptedPassword) : false,
       };
 
       onSubmit(payload);
-      setFormData(initialForm);
       setShowPassword(false);
-      setMasterError('');
     } catch {
       setMasterError('Encryption failed. Please re-enter your master password.');
     } finally {
@@ -102,11 +171,15 @@ function AddMyVaultPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Add Password</h2>
-            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">Create a new password in Personal Vault</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {parent ? `Add item to ${parent.name}` : 'Add Item'}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
+              Create a new {parent ? 'sub-item' : 'item'} in Personal Vault
+            </p>
           </div>
           <button
             onClick={handleClose}
@@ -116,69 +189,108 @@ function AddMyVaultPasswordModal({
           </button>
         </div>
 
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 mb-4 dark:bg-slate-800/50 dark:border-slate-700">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Selected Folder</p>
-          <p className="text-sm font-semibold text-slate-800 mt-1 dark:text-slate-200">
-            {selectedFolder?.name || 'Select Folder'}
-          </p>
-        </div>
-
         <div className="space-y-4">
-          <select
-            value={formData.folderId}
-            onChange={(e) => updateField('folderId', e.target.value)}
-            className={inputClass}
-          >
-            <option value="">Select Folder</option>
-            {folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => updateField('name', e.target.value)}
-              placeholder="Name"
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+              Item Type
+            </label>
+            <select
+              value={formData.type}
+              onChange={(e) => changeType(e.target.value)}
               className={inputClass}
-            />
-
-            <input
-              type="text"
-              value={formData.login}
-              onChange={(e) => updateField('login', e.target.value)}
-              placeholder="Login / Email"
-              className={inputClass}
-            />
-
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.encryptedPassword}
-                onChange={(e) => updateField('encryptedPassword', e.target.value)}
-                placeholder="Password"
-                className={`${inputClass} pr-10`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
-              >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </div>
-
-            <input
-              type="text"
-              value={formData.url}
-              onChange={(e) => updateField('url', e.target.value)}
-              placeholder="URL"
-              className={inputClass}
-            />
+            >
+              {ITEM_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+              Folder
+            </label>
+            <select
+              value={formData.folderId}
+              onChange={(e) => updateField('folderId', e.target.value)}
+              disabled={!!parent}
+              className={inputClass}
+            >
+              <option value="">Select Folder</option>
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </select>
+            {parent && (
+              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 dark:text-slate-500">
+                <FolderDown size={12} />
+                Stored in the same folder as {parent.name}
+              </p>
+            )}
+          </div>
+
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            placeholder={getTypePlaceholder(formData.type)}
+            className={inputClass}
+          />
+
+          {formData.type === 'LOGIN' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                value={formData.login}
+                onChange={(e) => updateField('login', e.target.value)}
+                placeholder="Login / Email"
+                className={inputClass}
+              />
+
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.encryptedPassword}
+                  onChange={(e) => updateField('encryptedPassword', e.target.value)}
+                  placeholder="Password"
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+
+              <input
+                type="text"
+                value={formData.url}
+                onChange={(e) => updateField('url', e.target.value)}
+                placeholder="URL"
+                className={inputClass}
+              />
+
+              <input
+                type="text"
+                value={formData.fields?.totpSecret || ''}
+                onChange={(e) => updateTypeField('totpSecret', e.target.value)}
+                placeholder="TOTP / Authenticator secret (optional)"
+                className={inputClass}
+              />
+            </div>
+          ) : (
+            <ItemFields
+              type={formData.type}
+              values={formData.fields}
+              onChange={updateTypeField}
+              inputClass={inputClass}
+            />
+          )}
 
           <TagInput
             tags={formData.tags}
@@ -189,21 +301,29 @@ function AddMyVaultPasswordModal({
             rows={2}
             value={formData.encryptedNote}
             onChange={(e) => updateField('encryptedNote', e.target.value)}
-            placeholder="Note"
+            placeholder={formData.type === 'SECURE_NOTE' ? 'Note contents' : 'Note'}
             className={`${inputClass} resize-none`}
           />
 
-          <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
-            <input
-              type="checkbox"
-              checked={formData.isSensitive}
-              onChange={(e) => updateField('isSensitive', e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
-              Secure — always ask master password before revealing this password
-            </span>
-          </label>
+          {formData.type !== 'SECURE_NOTE' && (
+            <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
+              <input
+                type="checkbox"
+                checked={formData.isSensitive}
+                onChange={(e) => updateField('isSensitive', e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-slate-700 dark:text-slate-300">
+                Secure — always ask master password before revealing this item
+              </span>
+            </label>
+          )}
+
+          {formError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>
+            </div>
+          )}
 
           {masterError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
@@ -226,7 +346,7 @@ function AddMyVaultPasswordModal({
               {encrypting ? (
                 <><Lock size={16} className="animate-spin" /> Encrypting...</>
               ) : (
-                <><KeyRound size={16} /> Save Password</>
+                <><KeyRound size={16} /> Save Item</>
               )}
             </button>
           </div>

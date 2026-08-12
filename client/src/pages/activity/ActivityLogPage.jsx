@@ -920,7 +920,7 @@ function ActivityLogPage() {
                               <div className="text-slate-600 truncate dark:text-slate-300">
                                 {item.user?.email || '-'}
                               </div>
-                              <div className="text-slate-600 font-mono text-xs dark:text-slate-300">
+                              <div className="text-slate-600 text-xs dark:text-slate-300">
                                 {item.ipAddress || '-'}
                               </div>
                               <div>
@@ -948,7 +948,7 @@ function ActivityLogPage() {
                                   <p className="text-xs text-slate-400 mb-1 dark:text-slate-500">
                                     IP Address
                                   </p>
-                                  <p className="text-slate-700 font-mono dark:text-slate-300">
+                                  <p className="text-slate-700 dark:text-slate-300">
                                     {item.ipAddress || '-'}
                                   </p>
                                 </div>

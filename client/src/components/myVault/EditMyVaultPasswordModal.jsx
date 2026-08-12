@@ -2,9 +2,17 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import TagInput from '../common/TagInput';
-import { decryptText, encryptText } from '../../utils/crypto';
+import ItemFields from './ItemFields';
+import {
+  decryptText,
+  encryptText,
+  decryptFields,
+  encryptFields,
+  isEncryptedFormat,
+} from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
+import { ITEM_TYPES, getTypePlaceholder } from '../../utils/itemTypes';
 
 function EditMyVaultPasswordModal({
   open,
@@ -17,6 +25,8 @@ function EditMyVaultPasswordModal({
 
   const [formData, setFormData] = useState({
     folderId: '',
+    type: 'LOGIN',
+    parentId: null,
     name: '',
     login: '',
     encryptedPassword: '',
@@ -24,6 +34,7 @@ function EditMyVaultPasswordModal({
     encryptedNote: '',
     tags: [],
     isSensitive: false,
+    fields: {},
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -35,16 +46,23 @@ function EditMyVaultPasswordModal({
 
     setDecryptError('');
 
+    const base = {
+      folderId: password.folderId || '',
+      type: password.type || 'LOGIN',
+      parentId: password.parentId || null,
+      name: password.name || '',
+      login: password.login || '',
+      url: password.url || '',
+      tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
+      isSensitive: password.isSensitive || false,
+    };
+
     if (!sessionMasterPassword) {
       setFormData({
-        folderId: password.folderId || '',
-        name: password.name || '',
-        login: password.login || '',
+        ...base,
         encryptedPassword: '',
-        url: password.url || '',
         encryptedNote: '',
-        tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
-        isSensitive: password.isSensitive || false,
+        fields: {},
       });
       setDecryptError('Session expired. Re-enter your master password to access encrypted fields, or type new values below.');
       return;
@@ -54,40 +72,31 @@ function EditMyVaultPasswordModal({
       setDecrypting(true);
 
       try {
-        const plainPassword = await decryptText(
-          password.encryptedPassword,
-          sessionMasterPassword,
-          user?.encryptionSalt
-        );
+        const isEncryptedPw = isEncryptedFormat(password.encryptedPassword);
+        const plainPassword = isEncryptedPw
+          ? await decryptText(password.encryptedPassword, sessionMasterPassword, user?.encryptionSalt)
+          : password.encryptedPassword || '';
 
-        const plainNote = password.encryptedNote
-          ? await decryptText(
-              password.encryptedNote,
-              sessionMasterPassword,
-              user?.encryptionSalt
-            )
-          : '';
+        const plainNote = password.encryptedNote && isEncryptedFormat(password.encryptedNote)
+          ? await decryptText(password.encryptedNote, sessionMasterPassword, user?.encryptionSalt)
+          : password.encryptedNote || '';
+
+        const plainFields = password.encryptedFields
+          ? (await decryptFields(password.encryptedFields, sessionMasterPassword, user?.encryptionSalt)) || {}
+          : {};
 
         setFormData({
-          folderId: password.folderId || '',
-          name: password.name || '',
-          login: password.login || '',
+          ...base,
           encryptedPassword: plainPassword,
-          url: password.url || '',
           encryptedNote: plainNote,
-          tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
-          isSensitive: password.isSensitive || false,
+          fields: plainFields,
         });
       } catch {
         setFormData({
-          folderId: password.folderId || '',
-          name: password.name || '',
-          login: password.login || '',
+          ...base,
           encryptedPassword: '',
-          url: password.url || '',
           encryptedNote: '',
-          tags: password.tags?.map((item) => item.tag?.name).filter(Boolean) || [],
-          isSensitive: password.isSensitive || false,
+          fields: {},
         });
         setDecryptError('Could not decrypt. Your session may have expired. Type new values below.');
       } finally {
@@ -112,13 +121,26 @@ function EditMyVaultPasswordModal({
     }));
   };
 
+  const updateTypeField = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      fields: { ...prev.fields, [key]: value },
+    }));
+  };
+
   const handleClose = () => {
     setShowPassword(false);
     onClose();
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.login || !formData.encryptedPassword) {
+    if (!formData.name.trim()) {
+      setDecryptError('Name is required');
+      return;
+    }
+
+    if (formData.type === 'LOGIN' && (!formData.login || !formData.encryptedPassword)) {
+      setDecryptError('Login and password are required for a login item');
       return;
     }
 
@@ -128,31 +150,42 @@ function EditMyVaultPasswordModal({
     }
 
     try {
-      const encryptedPassword = await encryptText(
-        formData.encryptedPassword,
+      const isLogin = formData.type === 'LOGIN';
+
+      const encryptedPassword = isLogin
+        ? await encryptText(formData.encryptedPassword, sessionMasterPassword, user?.encryptionSalt)
+        : formData.encryptedPassword
+          ? await encryptText(formData.encryptedPassword, sessionMasterPassword, user?.encryptionSalt)
+          : '';
+
+      const encryptedNote = formData.encryptedNote
+        ? await encryptText(formData.encryptedNote, sessionMasterPassword, user?.encryptionSalt)
+        : '';
+
+      const encryptedFields = await encryptFields(
+        formData.fields,
         sessionMasterPassword,
         user?.encryptionSalt
       );
 
-      const encryptedNote = formData.encryptedNote
-        ? await encryptText(
-            formData.encryptedNote,
-            sessionMasterPassword,
-            user?.encryptionSalt
-          )
-        : '';
-
-      const strength = getPasswordStrength(formData.encryptedPassword);
+      const strength = isLogin ? getPasswordStrength(formData.encryptedPassword) : null;
 
       onSubmit({
-        ...formData,
+        folderId: formData.folderId,
+        parentId: formData.parentId,
+        type: formData.type,
+        name: formData.name.trim(),
+        login: isLogin ? formData.login : '',
+        url: isLogin ? formData.url : '',
         encryptedPassword,
         encryptedNote,
-        strengthScore: strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40,
-        isWeak: strength?.label === 'Weak',
-        isOld: isPasswordOld(password.lastUpdatedAt, password.createdAt),
-        isAtRisk: isPasswordAtRisk(formData.encryptedPassword),
+        encryptedFields,
+        tags: formData.tags,
         isSensitive: formData.isSensitive,
+        strengthScore: strength ? (strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40) : 0,
+        isWeak: strength?.label === 'Weak',
+        isOld: isLogin ? isPasswordOld(password.lastUpdatedAt, password.createdAt) : false,
+        isAtRisk: isLogin ? isPasswordAtRisk(formData.encryptedPassword) : false,
       });
 
       setShowPassword(false);
@@ -163,15 +196,15 @@ function EditMyVaultPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl dark:bg-slate-800">
+      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto dark:bg-slate-800">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Edit Password
+              Edit Item
             </h2>
 
             <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
-              Update password details in Personal Vault
+              Update item details in Personal Vault
             </p>
           </div>
 
@@ -185,7 +218,7 @@ function EditMyVaultPasswordModal({
 
         {decrypting && (
           <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-900/20">
-            <p className="text-sm text-indigo-600 dark:text-indigo-400">Decrypting password…</p>
+            <p className="text-sm text-indigo-600 dark:text-indigo-400">Decrypting item…</p>
           </div>
         )}
 
@@ -196,6 +229,18 @@ function EditMyVaultPasswordModal({
         )}
 
         <div className="space-y-4">
+          <select
+            value={formData.type}
+            onChange={(e) => updateField('type', e.target.value)}
+            className={inputClass}
+          >
+            {ITEM_TYPES.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+
           <select
             value={formData.folderId}
             onChange={(e) => updateField('folderId', e.target.value)}
@@ -208,48 +253,64 @@ function EditMyVaultPasswordModal({
             ))}
           </select>
 
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              value={formData.name}
-              onChange={(e) => updateField('name', e.target.value)}
-              placeholder="Name"
-              className={inputClass}
-            />
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            placeholder={getTypePlaceholder(formData.type)}
+            className={inputClass}
+          />
 
-            <input
-              value={formData.login}
-              onChange={(e) => updateField('login', e.target.value)}
-              placeholder="Login"
-              className={inputClass}
-            />
-
-            <div className="relative">
+          {formData.type === 'LOGIN' ? (
+            <div className="grid grid-cols-2 gap-4">
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.encryptedPassword}
-                onChange={(e) =>
-                  updateField('encryptedPassword', e.target.value)
-                }
-                placeholder="Password"
-                className={`${inputClass} pr-11`}
+                value={formData.login}
+                onChange={(e) => updateField('login', e.target.value)}
+                placeholder="Login"
+                className={inputClass}
               />
 
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
-              >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.encryptedPassword}
+                  onChange={(e) => updateField('encryptedPassword', e.target.value)}
+                  placeholder="Password"
+                  className={`${inputClass} pr-11`}
+                />
 
-            <input
-              value={formData.url}
-              onChange={(e) => updateField('url', e.target.value)}
-              placeholder="URL"
-              className={inputClass}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+
+              <input
+                value={formData.url}
+                onChange={(e) => updateField('url', e.target.value)}
+                placeholder="URL"
+                className={inputClass}
+              />
+
+              <input
+                type="text"
+                value={formData.fields?.totpSecret || ''}
+                onChange={(e) => updateTypeField('totpSecret', e.target.value)}
+                placeholder="TOTP / Authenticator secret (optional)"
+                className={inputClass}
+              />
+            </div>
+          ) : (
+            <ItemFields
+              type={formData.type}
+              values={formData.fields}
+              onChange={updateTypeField}
+              inputClass={inputClass}
             />
-          </div>
+          )}
 
           <TagInput
             tags={formData.tags}
@@ -260,21 +321,23 @@ function EditMyVaultPasswordModal({
             rows={2}
             value={formData.encryptedNote}
             onChange={(e) => updateField('encryptedNote', e.target.value)}
-            placeholder="Note"
+            placeholder={formData.type === 'SECURE_NOTE' ? 'Note contents' : 'Note'}
             className={`${inputClass} resize-none`}
           />
 
-          <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
-            <input
-              type="checkbox"
-              checked={formData.isSensitive}
-              onChange={(e) => updateField('isSensitive', e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
-              Secure — always ask master password before revealing this password
-            </span>
-          </label>
+          {formData.type !== 'SECURE_NOTE' && (
+            <label className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-300 px-4 py-3 dark:border-slate-600">
+              <input
+                type="checkbox"
+                checked={formData.isSensitive}
+                onChange={(e) => updateField('isSensitive', e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-slate-700 dark:text-slate-300">
+                Secure — always ask master password before revealing this item
+              </span>
+            </label>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button

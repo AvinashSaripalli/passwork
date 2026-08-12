@@ -94,7 +94,7 @@ function PasswordGeneratorModal({ open, onClose }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   readOnly
-                  className={`${inputClass} pr-10 font-mono text-base`}
+                  className={`${inputClass} pr-10 text-base`}
                 />
                 <button
                   type="button"
