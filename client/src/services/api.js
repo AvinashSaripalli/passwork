@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearSecureSession } from '../utils/secureSession';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1',
@@ -23,10 +24,12 @@ api.interceptors.response.use(
       isLoggingOut = true;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      sessionStorage.removeItem('sessionMasterPassword');
-      sessionStorage.removeItem('sessionAdminMasterPassword');
-      sessionStorage.removeItem('isMasterVerified');
-      sessionStorage.removeItem('masterPasswordVerifier');
+      clearSecureSession();
+      try {
+        sessionStorage.removeItem('masterPasswordVerifier');
+      } catch {
+        // ignore
+      }
       window.location.href = '/login';
     }
     return Promise.reject(error);

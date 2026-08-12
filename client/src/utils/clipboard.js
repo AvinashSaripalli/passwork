@@ -1,6 +1,6 @@
 import { showToast } from './toast';
 
-const CLEAR_DELAY = 20 * 1000;
+const CLEAR_DELAY = 15 * 1000;
 
 let clearTimer = null;
 
@@ -42,7 +42,7 @@ function fallbackCopy(value, message) {
   }
 }
 
-export function secureCopyText(value, message = 'Copied to clipboard') {
+export function secureCopyText(value, message = 'Copied — clipboard clears in 15s') {
   if (!value) return;
 
   if (navigator.clipboard?.writeText) {

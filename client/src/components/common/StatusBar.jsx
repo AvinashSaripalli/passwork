@@ -40,7 +40,9 @@ function StatusBar() {
 
   return (
     <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 rounded-xl px-5 py-3 text-white text-sm font-medium shadow-lg animate-toast-in ${style}`}
+      role="status"
+      onClick={() => setToast(null)}
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 rounded-xl px-5 py-3 text-white text-sm font-medium shadow-lg animate-toast-in cursor-pointer ${style}`}
     >
       <Icon size={18} className="shrink-0" />
       <span>{toast.message}</span>

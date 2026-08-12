@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchMe } from './features/auth/authSlice';
-import useInactivityLogout from './hooks/useInactivityLogout';
+import { dismissSessionWarning, fetchMe } from './features/auth/authSlice';
+import useInactivityLogout, { touchActivity } from './hooks/useInactivityLogout';
+import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
+import useLockVault from './hooks/useLockVault';
+import SessionWarningModal from './components/security/SessionWarningModal';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -22,11 +25,15 @@ import StatusBar from './components/common/StatusBar';
 
 function App() {
   const dispatch = useDispatch();
-  const { token, userLoaded } = useSelector((state) => state.auth);
+  const { token, userLoaded, sessionWarningOpen, sessionWarningSeconds } = useSelector(
+    (state) => state.auth
+  );
   const { mode } = useSelector((state) => state.theme);
   const [initDone, setInitDone] = useState(false);
+  const lockVault = useLockVault();
 
   useInactivityLogout();
+  useKeyboardShortcuts();
 
   useEffect(() => {
     if (token && !userLoaded) {
@@ -58,6 +65,15 @@ function App() {
   return (
     <>
       <StatusBar />
+      <SessionWarningModal
+        open={sessionWarningOpen}
+        secondsLeft={sessionWarningSeconds}
+        onExtend={() => {
+          touchActivity();
+          dispatch(dismissSessionWarning());
+        }}
+        onLock={() => lockVault()}
+      />
       <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

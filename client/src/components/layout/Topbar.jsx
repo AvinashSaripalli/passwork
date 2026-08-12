@@ -3,6 +3,7 @@ import {
   Bell,
   CheckCircle2,
   KeyRound,
+  LockKeyhole,
   LogIn,
   Share2,
   ShieldAlert,
@@ -17,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
 import { toggleTheme } from '../../features/theme/themeSlice';
+import useLockVault from '../../hooks/useLockVault';
 import api from '../../services/api';
 
 function getItemIcon(type, meta) {
@@ -64,7 +66,8 @@ function getTypeBadge(type) {
 function Topbar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user } = useSelector((state) => state.auth);
+  const lockVault = useLockVault();
+  const { user, isMasterVerified } = useSelector((state) => state.auth);
   const { mode } = useSelector((state) => state.theme);
 
   const [open, setOpen] = useState(false);
@@ -151,9 +154,27 @@ function Topbar() {
 
   return (
     <div className="h-[72px] bg-[var(--bg-topbar)] border-b border-[var(--border-primary)] flex items-center justify-between px-8 transition-colors duration-200">
-      <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Password Manager</h2>
+      <div className="flex items-center gap-3">
+        <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Password Manager</h2>
+        {isMasterVerified && (
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Vault unlocked
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center gap-3">
+        {isMasterVerified && (
+          <button
+            onClick={() => lockVault()}
+            className="hidden sm:flex items-center gap-2 h-10 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            title="Lock vault (Ctrl+Shift+L)"
+          >
+            <LockKeyhole size={16} />
+            Lock
+          </button>
+        )}
         {/* Theme toggle */}
         <button
           onClick={() => dispatch(toggleTheme())}

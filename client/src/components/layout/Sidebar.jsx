@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
+import useLockVault from '../../hooks/useLockVault';
 import api from '../../services/api';
 import {
   fetchVaults, fetchFoldersByVault, selectFolder, clearSelectedFolder,
@@ -25,7 +26,7 @@ function Sidebar() {
   const dispatch = useDispatch();
   const { slug: currentVaultSlug } = useParams();
 
-  const { user } = useSelector((state) => state.auth);
+  const { user, isMasterVerified } = useSelector((state) => state.auth);
   const { vaults, vaultsLoading, folders, foldersLoading, selectedFolderId, error } =
     useSelector((state) => state.vault);
 
@@ -73,6 +74,7 @@ function Sidebar() {
 
   const accountMenu = [{ name: 'Profile', path: '/profile', icon: User }];
 
+  const lockVault = useLockVault();
   const handleLogout = () => { dispatch(logout()); navigate('/login'); };
   const openRename = (folder) => { setActionFolder(folder); setRenameOpen(true); };
   const openShare = (folder) => { setActionFolder(folder); setShareOpen(true); };
@@ -284,7 +286,16 @@ function Sidebar() {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-[var(--border-secondary)] mt-4 pt-3">
+        <div className="border-t border-[var(--border-secondary)] mt-4 pt-3 space-y-1">
+          {isMasterVerified && (
+            <button
+              onClick={() => lockVault()}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-150"
+            >
+              <LockKeyhole size={16} />
+              <span>Lock Vault</span>
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150"

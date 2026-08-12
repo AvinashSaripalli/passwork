@@ -170,6 +170,31 @@ body {
   animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Reusable UI utilities */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-700 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] px-4 py-2.5 text-sm font-semibold text-[var(--text-secondary)] transition-all hover:bg-[var(--bg-hover)];
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-60;
+}
+
+.card {
+  @apply rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-card)] shadow-sm;
+}
+
+.input-field {
+  @apply w-full rounded-xl border border-[var(--border-primary)] bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10;
+}
+
+.glass-panel {
+  @apply bg-white/88 dark:bg-slate-800/90 backdrop-blur-md border border-white/80 dark:border-slate-600/50;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

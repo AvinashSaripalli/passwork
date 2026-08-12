@@ -52,8 +52,8 @@ function LoginPage() {
     >
       <div className="absolute inset-0 bg-white/35 dark:bg-slate-950/60" />
 
-      <div className="relative z-10 h-full max-w-[1450px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_430px] items-center gap-8 px-10">
-        <div className="max-w-[780px]">
+      <div className="relative z-10 h-full max-w-[1450px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_430px] items-center gap-8 px-6 sm:px-10 py-8 lg:py-0">
+        <div className="max-w-[780px] hidden lg:block">
           <img src={logo} alt="Vaultix" className="w-64 mb-10" />
 
           <h1 className="text-6xl font-black leading-[1.05] tracking-[-2px] text-[#020617] dark:text-white">
@@ -73,6 +73,9 @@ function LoginPage() {
         </div>
 
         <AuthCard title="Welcome back" subtitle="Login to access your secure vault.">
+          <div className="lg:hidden flex justify-center mb-4">
+            <img src={logo} alt="Vaultix" className="w-40" />
+          </div>
           {error && <ErrorBox message={error} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,6 +122,11 @@ function LoginPage() {
               >
                 Create account
               </button>
+          </p>
+
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <ShieldCheck size={13} className="text-emerald-500" />
+            End-to-end encrypted · Zero-knowledge architecture
           </p>
         </AuthCard>
       </div>

@@ -8,18 +8,12 @@ import {
   createMasterPasswordVerifier,
   MASTER_VERIFIER_STORAGE_KEY,
 } from '../../utils/crypto';
-
-const MASTER_PASSWORD_STORAGE_KEYS = [
-  'sessionMasterPassword',
-  'sessionAdminMasterPassword',
-  'isMasterVerified',
-];
-
-const purgeStoredMasterPasswordKeys = () => {
-  MASTER_PASSWORD_STORAGE_KEYS.forEach((key) => {
-    sessionStorage.removeItem(key);
-  });
-};
+import {
+  clearSecureSession,
+  setMasterPassword as storeMasterPassword,
+  setAdminMasterPassword as storeAdminMasterPassword,
+  setMasterVerifiedFlag,
+} from '../../utils/secureSession';
 
 const saveVerifier = (verifier) => {
   if (verifier) {
@@ -38,35 +32,9 @@ const getSavedUser = () => {
     return null;
   }
 };
-const getSavedSessionMasterPassword = () =>
-  sessionStorage.getItem('sessionMasterPassword');
-const getSavedSessionAdminMasterPassword = () =>
-  sessionStorage.getItem('sessionAdminMasterPassword');
-const getSavedMasterVerified = () =>
-  sessionStorage.getItem('isMasterVerified') === 'true';
-
-const saveSessionMasterPassword = (password) => {
-  if (password) {
-    sessionStorage.setItem('sessionMasterPassword', password);
-  } else {
-    sessionStorage.removeItem('sessionMasterPassword');
-  }
-};
-
-const saveSessionAdminMasterPassword = (password) => {
-  if (password) {
-    sessionStorage.setItem('sessionAdminMasterPassword', password);
-  } else {
-    sessionStorage.removeItem('sessionAdminMasterPassword');
-  }
-};
-
-const saveMasterVerified = (verified) => {
-  if (verified) {
-    sessionStorage.setItem('isMasterVerified', 'true');
-  } else {
-    sessionStorage.removeItem('isMasterVerified');
-  }
+const purgeSecureSession = () => {
+  clearSecureSession();
+  saveVerifier(null);
 };
 const saveUser = (user) => {
   if (user) {
@@ -258,9 +226,11 @@ const initialState = {
   isAuthenticated: !!savedToken,
   loading: false,
   error: null,
-  isMasterVerified: getSavedMasterVerified(),
-  sessionMasterPassword: getSavedSessionMasterPassword(),
-  sessionAdminMasterPassword: getSavedSessionAdminMasterPassword(),
+  isMasterVerified: false,
+  sessionMasterPassword: null,
+  sessionAdminMasterPassword: null,
+  sessionWarningOpen: false,
+  sessionWarningSeconds: 0,
   userLoaded: !savedToken,
 };
 
@@ -270,17 +240,40 @@ const authSlice = createSlice({
   reducers: {
     setMasterVerified: (state, action) => {
       state.isMasterVerified = action.payload;
-      saveMasterVerified(action.payload);
+      setMasterVerifiedFlag(action.payload);
     },
 
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
-      saveSessionMasterPassword(action.payload || null);
+      storeMasterPassword(action.payload || null);
     },
 
     setSessionAdminMasterPassword: (state, action) => {
       state.sessionAdminMasterPassword = action.payload || null;
-      saveSessionAdminMasterPassword(action.payload || null);
+      storeAdminMasterPassword(action.payload || null);
+    },
+
+    showSessionWarning: (state, action) => {
+      state.sessionWarningOpen = true;
+      state.sessionWarningSeconds = action.payload;
+    },
+
+    updateSessionWarningSeconds: (state, action) => {
+      state.sessionWarningSeconds = action.payload;
+    },
+
+    dismissSessionWarning: (state) => {
+      state.sessionWarningOpen = false;
+      state.sessionWarningSeconds = 0;
+    },
+
+    lockVault: (state) => {
+      state.isMasterVerified = false;
+      state.sessionMasterPassword = null;
+      state.sessionAdminMasterPassword = null;
+      state.sessionWarningOpen = false;
+      state.sessionWarningSeconds = 0;
+      clearSecureSession();
     },
 
     setUser: (state, action) => {
@@ -301,8 +294,7 @@ const authSlice = createSlice({
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      purgeStoredMasterPasswordKeys();
-      saveVerifier(null);
+      purgeSecureSession();
     },
 
     clearError: (state) => {
@@ -328,8 +320,7 @@ const authSlice = createSlice({
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
         saveUser(action.payload.user);
-        purgeStoredMasterPasswordKeys();
-        saveVerifier(null);
+        purgeSecureSession();
       })
 
       .addCase(registerUser.rejected, (state, action) => {
@@ -353,8 +344,7 @@ const authSlice = createSlice({
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
         saveUser(action.payload.user);
-        purgeStoredMasterPasswordKeys();
-        saveVerifier(null);
+        purgeSecureSession();
       })
 
       .addCase(loginUser.rejected, (state, action) => {
@@ -380,8 +370,7 @@ const authSlice = createSlice({
 
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        purgeStoredMasterPasswordKeys();
-        saveVerifier(null);
+        purgeSecureSession();
       })
 
       .addCase(updateProfile.pending, (state) => {
@@ -445,6 +434,8 @@ const authSlice = createSlice({
         };
         state.isMasterVerified = true;
         state.sessionMasterPassword = action.payload.masterPassword;
+        storeMasterPassword(action.payload.masterPassword);
+        setMasterVerifiedFlag(true);
         saveUser(state.user);
       })
 
@@ -455,5 +446,16 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setMasterVerified, setSessionMasterPassword, setSessionAdminMasterPassword, setUser } = authSlice.actions;
+export const {
+  logout,
+  clearError,
+  setMasterVerified,
+  setSessionMasterPassword,
+  setSessionAdminMasterPassword,
+  setUser,
+  lockVault,
+  showSessionWarning,
+  updateSessionWarningSeconds,
+  dismissSessionWarning,
+} = authSlice.actions;
 export default authSlice.reducer;
