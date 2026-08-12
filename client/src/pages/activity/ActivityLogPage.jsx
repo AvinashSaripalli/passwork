@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Fragment, useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Search,
   RotateCcw,
@@ -11,6 +11,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  ArrowUp,
+  ArrowDown,
   LogIn,
   Share2,
   ShieldAlert,
@@ -292,6 +294,7 @@ function ActivityLogPage() {
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [sortConfig, setSortConfig] = useState(null);
 
   const [loginActivities, setLoginActivities] = useState([]);
   const [loginLoading, setLoginLoading] = useState(false);
@@ -389,7 +392,7 @@ function ActivityLogPage() {
 
   // --- Actions tab ---
   const filteredLogs = useMemo(() => {
-    return activityLogs.filter((log) => {
+    const list = activityLogs.filter((log) => {
       const q = search.toLowerCase();
       const matchesSearch =
         !q ||
@@ -404,7 +407,31 @@ function ActivityLogPage() {
         typeFilter === 'ALL' || log.action?.includes(typeFilter);
       return matchesSearch && matchesAction && matchesType;
     });
-  }, [activityLogs, search, actionFilter, typeFilter]);
+    if (!sortConfig) return list;
+    const { key, dir } = sortConfig;
+    const factor = dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let va;
+      let vb;
+      if (key === 'date') {
+        va = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        vb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      } else if (key === 'user') {
+        va = (a.user?.fullName || a.user?.email || '').toLowerCase();
+        vb = (b.user?.fullName || b.user?.email || '').toLowerCase();
+      } else if (key === 'action') {
+        va = a.action || '';
+        vb = b.action || '';
+      } else if (key === 'target') {
+        va = (a.metadata?.name || a.targetId || '').toLowerCase();
+        vb = (b.metadata?.name || b.targetId || '').toLowerCase();
+      }
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return (va - vb) * factor;
+      }
+      return String(va).localeCompare(String(vb)) * factor;
+    });
+  }, [activityLogs, search, actionFilter, typeFilter, sortConfig]);
 
   const totalPages = Math.ceil(filteredLogs.length / ACTIVITY_PAGE_SIZE) || 1;
 
@@ -432,6 +459,24 @@ function ActivityLogPage() {
     currentPage * ACTIVITY_PAGE_SIZE,
     filteredLogs.length
   );
+
+  const handleSort = (key) => {
+    setSortConfig((prev) =>
+      prev?.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    );
+    setCurrentPage(1);
+  };
+
+  const sortIcon = (key) => {
+    if (sortConfig?.key !== key) return null;
+    return sortConfig.dir === 'asc' ? (
+      <ArrowUp size={12} className="text-indigo-600" />
+    ) : (
+      <ArrowDown size={12} className="text-indigo-600" />
+    );
+  };
 
   // --- Login tab ---
   const filteredLogin = useMemo(() => {
@@ -754,23 +799,55 @@ function ActivityLogPage() {
             )}
             {!activityLoading && !error && (
               <>
-                {groupedLogs.map((group) => (
-                  <div key={group.label}>
-                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {group.label}
-                      </p>
-                    </div>
-                    <table className="w-full min-w-[900px]">
-                      <thead className="bg-slate-50 dark:bg-slate-800/50">
-                        <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          <th className="px-6 py-4">Date</th>
-                          <th className="px-6 py-4">User</th>
-                          <th className="px-6 py-4">Action</th>
-                          <th className="px-6 py-4">Target</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                <table className="w-full min-w-[900px]">
+                  <thead className="bg-slate-50 dark:bg-slate-800/50">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => handleSort('date')}
+                          className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        >
+                          Date
+                          {sortIcon('date')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => handleSort('user')}
+                          className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        >
+                          User
+                          {sortIcon('user')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => handleSort('action')}
+                          className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        >
+                          Action
+                          {sortIcon('action')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => handleSort('target')}
+                          className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        >
+                          Target
+                          {sortIcon('target')}
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedLogs.map((group, gi) => (
+                      <Fragment key={group.label}>
+                        {gi > 0 && (
+                          <tr className="border-t-2 border-slate-200 dark:border-slate-700">
+                            <td colSpan={4} className="p-0" />
+                          </tr>
+                        )}
                         {group.items.map((log) => (
                           <tr
                             key={log.id}
@@ -823,10 +900,10 @@ function ActivityLogPage() {
                             </td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
 
                 {!filteredLogs.length && (
                   <div className="py-14 text-center">
@@ -877,13 +954,11 @@ function ActivityLogPage() {
             )}
             {!loginLoading && (
               <>
-                {groupedLogin.map((group) => (
+                {groupedLogin.map((group, gi) => (
                   <div key={group.label}>
-                    <div className="sticky top-0 bg-slate-50 px-6 py-3 border-b border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
-                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {group.label}
-                      </p>
-                    </div>
+                    {gi > 0 && (
+                      <div className="border-t-2 border-slate-200 dark:border-slate-700" />
+                    )}
                     <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {group.items.map((item) => (
                         <div key={item.id}>

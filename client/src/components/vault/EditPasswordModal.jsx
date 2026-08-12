@@ -234,7 +234,7 @@ function EditPasswordModal() {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
-        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6 dark:bg-slate-800">
+        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 dark:bg-slate-800 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -257,117 +257,121 @@ function EditPasswordModal() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              name="name"
-              type="text"
-              placeholder="Website / Service name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-              required
-            />
-
-            <input
-              name="login"
-              type="text"
-              placeholder="Login / Email"
-              value={formData.login}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-              required
-            />
-
-            <select
-              name="folderId"
-              value={formData.folderId}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-              required
-            >
-              <option value="">Select folder</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-
-            <div className="relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input
-                name="encryptedPassword"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={formData.encryptedPassword}
+                name="name"
+                type="text"
+                placeholder="Website / Service name"
+                value={formData.name}
                 onChange={handleChange}
-                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                 required
               />
 
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <div className="relative">
               <input
-                name="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Confirm password"
-                value={formData.confirmPassword}
+                name="login"
+                type="text"
+                placeholder="Login / Email"
+                value={formData.login}
                 onChange={handleChange}
-                className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                 required
               />
 
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+              <select
+                name="folderId"
+                value={formData.folderId}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                required
               >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
+                <option value="">Select folder</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
 
-            <input
-              name="url"
-              type="text"
-              placeholder="URL"
-              value={formData.url}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-            />
+              <div className="relative">
+                <input
+                  name="encryptedPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={formData.encryptedPassword}
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                  required
+                />
 
-            <textarea
-              name="encryptedNote"
-              placeholder="Note"
-              value={formData.encryptedNote}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 min-h-[90px]"
-            />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
 
-            <TagInput
-              tags={formData.tags}
-              setTags={(newTags) => setFormData((prev) => ({ ...prev, tags: newTags }))}
-              suggestions={SUGGESTED_TAGS}
-            />
+              <div className="relative">
+                <input
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                  required
+                />
 
-            <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-300 px-4 py-3 dark:border-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
               <input
-                type="checkbox"
-                checked={formData.isSensitive}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, isSensitive: e.target.checked }))
-                }
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                name="url"
+                type="text"
+                placeholder="URL"
+                value={formData.url}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
               />
-              <span className="text-sm text-slate-700 dark:text-slate-300">
-                Secure — always ask master password before revealing this password
-              </span>
-            </label>
+
+              <textarea
+                name="encryptedNote"
+                placeholder="Note"
+                value={formData.encryptedNote}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 min-h-[90px] sm:col-span-2"
+              />
+
+              <div className="sm:col-span-2">
+                <TagInput
+                  tags={formData.tags}
+                  setTags={(newTags) => setFormData((prev) => ({ ...prev, tags: newTags }))}
+                  suggestions={SUGGESTED_TAGS}
+                />
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-300 px-4 py-3 dark:border-slate-600 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isSensitive}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, isSensitive: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Secure — always ask master password before revealing this password
+                </span>
+              </label>
+            </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button

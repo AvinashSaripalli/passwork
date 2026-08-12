@@ -196,7 +196,7 @@ function EditMyVaultPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto dark:bg-slate-800">
+      <div className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto dark:bg-slate-800">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -229,29 +229,31 @@ function EditMyVaultPasswordModal({
         )}
 
         <div className="space-y-4">
-          <select
-            value={formData.type}
-            onChange={(e) => updateField('type', e.target.value)}
-            className={inputClass}
-          >
-            {ITEM_TYPES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <select
+              value={formData.type}
+              onChange={(e) => updateField('type', e.target.value)}
+              className={inputClass}
+            >
+              {ITEM_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={formData.folderId}
-            onChange={(e) => updateField('folderId', e.target.value)}
-            className={inputClass}
-          >
-            {folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={formData.folderId}
+              onChange={(e) => updateField('folderId', e.target.value)}
+              className={inputClass}
+            >
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <input
             type="text"

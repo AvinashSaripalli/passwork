@@ -11,7 +11,7 @@ function AppLayout({ children }) {
         <Topbar />
 
         {/* Main content */}
-        <main className="p-6 flex-1">{children}</main>
+        <main className="p-6 flex-1 animate-slide-up">{children}</main>
 
         {/* Footer */}
         <Footer />
