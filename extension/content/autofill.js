@@ -291,7 +291,19 @@
 
       row.append(dot, textWrap);
       row.addEventListener('click', () => {
-        fillCredentials(cred.login, cred.password);
+        const filled = fillCredentials(cred.login, cred.password);
+        if (filled) {
+          try {
+            chrome.runtime.sendMessage(
+              { type: 'VAULTIX_LOG', passwordId: cred.id },
+              () => {
+                void chrome.runtime.lastError;
+              }
+            );
+          } catch {
+            /* logging is best-effort */
+          }
+        }
       });
       menu.appendChild(row);
     }

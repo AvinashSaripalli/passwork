@@ -338,14 +338,23 @@ function itemRow(cred, isMatch) {
   actions.className = 'actions';
 
   const fillBtn = actionBtn('Fill', 'fill', () => doFill(cred));
-  const copyUserBtn = actionBtn('Copy user', '', () => copy(cred.login, 'Username copied'));
-  const copyPassBtn = actionBtn('Copy pass', '', () => copy(cred.password, 'Password copied'));
+  const copyUserBtn = actionBtn('Copy user', '', () => {
+    copy(cred.login, 'Username copied');
+    logUse(cred);
+  });
+  const copyPassBtn = actionBtn('Copy pass', '', () => {
+    copy(cred.password, 'Password copied');
+    logUse(cred);
+  });
   actions.append(fillBtn, copyUserBtn, copyPassBtn);
 
   if (cred.totpSecret) {
     generateTOTP(cred.totpSecret).then((totp) => {
       if (!totp) return;
-      const otpBtn = actionBtn(`OTP ${totp.code}`, '', () => copy(totp.code, 'TOTP code copied'));
+      const otpBtn = actionBtn(`OTP ${totp.code}`, '', () => {
+        copy(totp.code, 'TOTP code copied');
+        logUse(cred);
+      });
       actions.appendChild(otpBtn);
     });
   }
@@ -370,9 +379,20 @@ async function doFill(cred) {
       password: cred.password,
     });
     const ok = Array.isArray(results) ? results.some((r) => r && r.ok) : results?.ok;
+    if (ok) logUse(cred);
     flash(ok ? `Filled → ${cred.name}` : 'No login form found on this page');
   } catch {
     flash('Reload the page once, then try Fill again');
+  }
+}
+
+function logUse(cred) {
+  try {
+    chrome.runtime.sendMessage({ type: 'VAULTIX_LOG', passwordId: cred.id }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch {
+    /* logging is best-effort */
   }
 }
 

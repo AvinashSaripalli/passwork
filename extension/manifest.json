@@ -1,8 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Vaultix – Password Manager",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Vaultix autofill: log in anywhere with your saved vault credentials.",
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "Vaultix"
