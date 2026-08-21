@@ -7,11 +7,20 @@
     "default_popup": "popup/popup.html",
     "default_title": "Vaultix"
   },
-  "options_page": "options/options.html",
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
   "permissions": ["storage"],
   "host_permissions": [
     "https://knbitrix.duckdns.org/*",
     "http://localhost:5173/*",
     "http://localhost:4173/*"
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vaultix@karnsphere.com",
+      "strict_min_version": "113.0"
+    }
+  }
 }
