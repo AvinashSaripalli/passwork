@@ -16,6 +16,14 @@ let tabHost = '';
 init();
 
 async function init() {
+  try {
+    await chrome.storage.session.setAccessLevel({
+      accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
+    });
+  } catch {
+    /* Firefox may not need this */
+  }
+
   const sync = await chrome.storage.sync.get('baseUrl');
   baseUrl = (sync.baseUrl || DEFAULT_URL).replace(/\/+$/, '');
 
@@ -143,6 +151,25 @@ async function loadCreds(force) {
       entries = entries.concat((shared || []).map((s) => ({ ...s.password, shared: true })));
     } catch {
       /* no shared access */
+    }
+
+    try {
+      const vaults = await apiGet(baseUrl, '/vaults', token);
+      for (const vault of vaults || []) {
+        if (vault.type === 'PERSONAL') continue;
+        try {
+          const vaultPasswords = await apiGet(
+            baseUrl,
+            `/passwords/vault/${vault.id}`,
+            token
+          );
+          entries = entries.concat(vaultPasswords || []);
+        } catch {
+          /* no access to this vault */
+        }
+      }
+    } catch {
+      /* company vault list unavailable */
     }
 
     const byId = new Map();
