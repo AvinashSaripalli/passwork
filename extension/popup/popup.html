@@ -3,35 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <style>
+      * { box-sizing: border-box; }
       body {
-        width: 280px;
+        width: 340px;
         margin: 0;
         font-family: system-ui, sans-serif;
         background: #0f172a;
         color: #e2e8f0;
+        font-size: 13px;
       }
       header {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 12px 14px;
+        padding: 11px 14px;
         background: #1e293b;
         border-bottom: 1px solid #334155;
       }
-      header h1 {
+      header h1 { font-size: 15px; margin: 0; flex: 1; }
+      header .icon-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
         font-size: 15px;
-        margin: 0;
-        flex: 1;
+        padding: 2px 6px;
+        border-radius: 6px;
       }
-      main {
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+      header .icon-btn:hover { background: #334155; color: white; }
+
+      main { padding: 12px 14px 14px; }
+
+      input {
+        width: 100%;
+        padding: 9px 10px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #0b1222;
+        color: #e2e8f0;
+        font-size: 13px;
+        margin-bottom: 9px;
+        outline: none;
       }
-      button,
-      a.open {
+      input:focus { border-color: #4f46e5; }
+
+      button.primary, a.primary {
         display: block;
+        width: 100%;
         text-align: center;
         padding: 9px 12px;
         border-radius: 8px;
@@ -40,36 +58,151 @@
         font-size: 13px;
         font-weight: 600;
         text-decoration: none;
-      }
-      .primary {
         background: #4f46e5;
         color: white;
       }
-      .primary:hover {
-        background: #4338ca;
+      button.primary:hover { background: #4338ca; }
+      button.primary:disabled { opacity: 0.6; cursor: default; }
+
+      .error {
+        color: #f87171;
+        font-size: 12px;
+        margin-bottom: 8px;
+        min-height: 14px;
       }
-      .ghost {
-        background: transparent;
+      .hint { color: #64748b; font-size: 11px; text-align: center; margin-top: 10px; }
+      .hint a { color: #818cf8; text-decoration: none; }
+
+      #siteLabel {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
         color: #94a3b8;
-        border: 1px solid #334155;
+        margin-bottom: 8px;
       }
+      #siteLabel b { color: #e2e8f0; word-break: break-all; }
+
+      .search-wrap { position: relative; margin-bottom: 8px; }
+      .search-wrap input { margin-bottom: 0; padding-left: 30px; }
+      .search-wrap span {
+        position: absolute;
+        left: 10px;
+        top: 9px;
+        color: #64748b;
+      }
+
+      #list { max-height: 320px; overflow-y: auto; }
+      .item {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 9px 10px;
+        margin-bottom: 7px;
+      }
+      .item.matched { border-color: #4f46e5; }
+      .item .row1 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 3px;
+      }
+      .item .name {
+        font-weight: 600;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .badge {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        background: #4f46e5;
+        color: white;
+        border-radius: 999px;
+        padding: 2px 7px;
+      }
+      .item .login {
+        color: #94a3b8;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-bottom: 7px;
+      }
+      .actions { display: flex; gap: 6px; }
+      .actions button {
+        flex: 1;
+        padding: 6px 4px;
+        border-radius: 7px;
+        border: 1px solid #334155;
+        background: transparent;
+        color: #cbd5e1;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .actions button:hover { background: #334155; }
+      .actions button.fill {
+        background: #4f46e5;
+        border-color: #4f46e5;
+        color: white;
+      }
+      .actions button.fill:hover { background: #4338ca; }
+
+      .empty { color: #64748b; text-align: center; padding: 24px 8px; font-size: 12px; }
+      .status { color: #818cf8; font-size: 12px; text-align: center; padding: 20px 0; }
       footer {
         padding: 8px 14px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         font-size: 11px;
         color: #64748b;
-        text-align: center;
       }
+      footer a { color: #818cf8; text-decoration: none; cursor: pointer; }
     </style>
   </head>
   <body>
     <header>
       <h1>Vaultix</h1>
+      <button class="icon-btn" id="btnLock" title="Lock" style="display:none">🔒</button>
     </header>
+
     <main>
-      <a class="open primary" id="openVault" href="#" target="_blank" rel="noreferrer">Open my vault</a>
-      <button class="ghost" id="openOptions">Settings</button>
+      <div id="viewLogin" style="display:none">
+        <div class="error" id="loginError"></div>
+        <input id="loginEmail" type="email" placeholder="Email" autocomplete="off" />
+        <input id="loginPassword" type="password" placeholder="Account password" />
+        <input id="loginMaster" type="password" placeholder="Master password (vault)" />
+        <button class="primary" id="btnLogin">Sign in</button>
+        <p class="hint">Server: <span id="loginServer"></span> · <a id="lnkSettings">change</a></p>
+      </div>
+
+      <div id="viewUnlock" style="display:none">
+        <div class="error" id="unlockError"></div>
+        <input id="unlockMaster" type="password" placeholder="Master password" />
+        <button class="primary" id="btnUnlock">Unlock vault</button>
+        <p class="hint">Signed in as <span id="unlockUser"></span></p>
+      </div>
+
+      <div id="viewList" style="display:none">
+        <div id="siteLabel"></div>
+        <div class="search-wrap">
+          <span>🔍</span>
+          <input id="search" type="text" placeholder="Search vault..." />
+        </div>
+        <div class="status" id="listStatus" style="display:none">Decrypting vault…</div>
+        <div id="list"></div>
+      </div>
     </main>
-    <footer id="baseUrlLabel"></footer>
-    <script src="popup.js"></script>
+
+    <footer id="footerBar" style="display:none">
+      <a id="lnkOpenVault">Open web vault</a>
+      <a id="lnkRefresh">Refresh</a>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
   </body>
 </html>
