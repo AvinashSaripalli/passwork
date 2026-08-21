@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+      header h1 {
+        font-size: 15px;
+        margin: 0;
+        flex: 1;
+      }
+      main {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      button,
+      a.open {
+        display: block;
+        text-align: center;
+        padding: 9px 12px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .primary {
+        background: #4f46e5;
+        color: white;
+      }
+      .primary:hover {
+        background: #4338ca;
+      }
+      .ghost {
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #334155;
+      }
+      footer {
+        padding: 8px 14px 12px;
+        font-size: 11px;
+        color: #64748b;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Vaultix</h1>
+    </header>
+    <main>
+      <a class="open primary" id="openVault" href="#" target="_blank" rel="noreferrer">Open my vault</a>
+      <button class="ghost" id="openOptions">Settings</button>
+    </main>
+    <footer id="baseUrlLabel"></footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

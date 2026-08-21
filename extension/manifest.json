@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Vaultix",
+  "version": "1.0.0",
+  "description": "Quick access to your Vaultix password vault.",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Vaultix"
+  },
+  "options_page": "options/options.html",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://knbitrix.duckdns.org/*",
+    "http://localhost:5173/*",
+    "http://localhost:4173/*"
+  ]
+}
