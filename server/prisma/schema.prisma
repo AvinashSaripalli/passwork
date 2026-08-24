@@ -6,6 +6,46 @@ datasource db {
   provider = "postgresql"
 }
 
+model Department {
+  id          String                 @id
+  name        String                 @unique
+  description String?
+  parentId    String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  parent      Department?            @relation("DepartmentTree", fields: [parentId], references: [id])
+  subDepartments Department[]        @relation("DepartmentTree")
+  members     DepartmentMember[]
+  permissions DepartmentPermission[]
+}
+
+model DepartmentMember {
+  id          String         @id
+  departmentId String
+  userId      String
+  memberRole  DepartmentRole @default(MEMBER)
+  createdAt   DateTime       @default(now())
+  department  Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, userId])
+}
+
+model DepartmentPermission {
+  id           String           @id
+  departmentId String
+  vaultId      String?
+  folderId     String?
+  accessLevel  VaultAccessLevel
+  createdAt    DateTime         @default(now())
+  department   Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  vault        Vault?           @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  folder       Folder?          @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@index([folderId])
+}
+
 model User {
   id                 String             @id
   fullName           String
@@ -16,7 +56,7 @@ model User {
   role               Role               @default(USER)
   isActive           Boolean            @default(true)
   createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  updatedAt          DateTime @updatedAt
   encryptionSalt     String?
   activityLogs       ActivityLog[]
   folderPermissions  FolderPermission[]
@@ -24,6 +64,7 @@ model User {
   createdPasswords   PasswordEntry[]    @relation("PasswordCreatedBy")
   ownedVaults        Vault[]            @relation("VaultOwner")
   vaultPermissions   VaultPermission[]
+  departmentMemberships DepartmentMember[]
   sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
   sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
   loginActivities LoginActivity[]
@@ -42,6 +83,7 @@ model Folder {
   vault       Vault              @relation(fields: [vaultId], references: [id], onDelete: Cascade)
   permissions FolderPermission[]
   passwords   PasswordEntry[]
+  departmentPermissions DepartmentPermission[]
 }
 
 model FolderPermission {
@@ -68,6 +110,7 @@ model Vault {
   passwords   PasswordEntry[]
   owner       User              @relation("VaultOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   permissions VaultPermission[]
+  departmentPermissions DepartmentPermission[]
 }
 
 model VaultPermission {
@@ -203,6 +246,11 @@ enum VaultAccessLevel {
   ADMIN
 }
 
+enum DepartmentRole {
+  MANAGER
+  MEMBER
+}
+
 enum ItemType {
   LOGIN
   CARD
@@ -229,6 +277,14 @@ enum ActivityAction {
   IMPORT_PASSWORDS
   SHARE_PASSWORD
   SHARE_FOLDER
+  CREATE_DEPARTMENT
+  UPDATE_DEPARTMENT
+  DELETE_DEPARTMENT
+  ADD_DEPARTMENT_MEMBER
+  REMOVE_DEPARTMENT_MEMBER
+  UPDATE_DEPARTMENT_MEMBER
+  GRANT_DEPARTMENT_ACCESS
+  REVOKE_DEPARTMENT_ACCESS
 }
 
 enum LoginStatus {

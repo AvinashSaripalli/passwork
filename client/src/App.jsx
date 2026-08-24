@@ -16,6 +16,7 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import MasterProtectedRoute from './routes/MasterProtectedRoute';
 import ActivityLogPage from './pages/activity/ActivityLogPage';
 import TeamManagementPage from './pages/team/TeamManagementPage';
+import DepartmentsPage from './pages/team/DepartmentsPage';
 import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
@@ -173,6 +174,15 @@ function App() {
         element={
           <MasterProtectedRoute>
             <EditUserPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/departments"
+        element={
+          <MasterProtectedRoute>
+            <DepartmentsPage />
           </MasterProtectedRoute>
         }
       />

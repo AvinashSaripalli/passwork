@@ -13,6 +13,9 @@ const config = {
   loginActivity: 'LOGIN',
   notification: 'NOTIF',
   tag: 'TAG',
+  department: 'DEPT',
+  departmentMember: 'DPERM',
+  departmentPermission: 'DACCESS',
 };
 
 function generateId(model) {

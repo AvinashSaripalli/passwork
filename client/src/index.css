@@ -204,3 +204,81 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- Department org chart ---- */
+.org-chart ul {
+  display: flex;
+  justify-content: center;
+  padding-top: 28px;
+  position: relative;
+}
+
+.org-chart > ul {
+  padding-top: 0;
+}
+
+.org-chart li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 28px 12px 0;
+  list-style: none;
+}
+
+.org-chart > li {
+  padding-top: 0;
+}
+
+/* horizontal rails */
+.org-chart li::before,
+.org-chart li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 28px;
+  border-top: 2px solid var(--border-primary);
+}
+
+.org-chart li::before {
+  left: 0;
+  border-right: 2px solid var(--border-primary);
+  border-radius: 0 8px 0 0;
+}
+
+.org-chart li::after {
+  right: 0;
+  border-left: 2px solid var(--border-primary);
+  border-radius: 8px 0 0 0;
+}
+
+.org-chart li:first-child::before {
+  border: none;
+}
+
+.org-chart li:last-child::after {
+  border: none;
+}
+
+.org-chart li:only-child::before,
+.org-chart li:only-child::after {
+  border: none;
+}
+
+/* stem from a parent card down to its children rail */
+.org-chart li.org-has-children > .org-node::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -28px;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 28px;
+  background: var(--border-primary);
+}
+
+.org-node {
+  position: relative;
+}
+

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Shield, Users, Activity, Folder, FolderOpen,
-  LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles,
+  LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles, Building2,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
@@ -69,7 +69,10 @@ function Sidebar() {
   const securityMenu = [{ name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount }];
   const toolsMenu = [{ name: 'Password Generator', icon: Sparkles }];
   const adminMenu = user?.role === 'ADMIN'
-    ? [{ name: 'Team Management', path: '/team-management', icon: Users }]
+    ? [
+        { name: 'Team Management', path: '/team-management', icon: Users },
+        { name: 'Departments', path: '/departments', icon: Building2 },
+      ]
     : [];
 
   const accountMenu = [{ name: 'Profile', path: '/profile', icon: User }];
