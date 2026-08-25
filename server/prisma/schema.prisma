@@ -32,15 +32,15 @@ model DepartmentMember {
 }
 
 model DepartmentPermission {
-  id           String           @id
+  id           String                @id
   departmentId String
   vaultId      String?
   folderId     String?
-  accessLevel  VaultAccessLevel
-  createdAt    DateTime         @default(now())
-  department   Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  vault        Vault?           @relation(fields: [vaultId], references: [id], onDelete: Cascade)
-  folder       Folder?          @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  accessLevel  DepartmentAccessLevel
+  createdAt    DateTime              @default(now())
+  department   Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  vault        Vault?                @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  folder       Folder?               @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@index([vaultId])
   @@index([folderId])
@@ -67,6 +67,7 @@ model User {
   departmentMemberships DepartmentMember[]
   sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
   sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
+  keyPair                 UserKeyPair?
   loginActivities LoginActivity[]
   notifications Notification[]
 }
@@ -76,6 +77,7 @@ model Folder {
   name        String
   vaultId     String
   parentId    String?
+  wrappedKeys Json?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   parent      Folder?            @relation("FolderTree", fields: [parentId], references: [id])
@@ -133,6 +135,7 @@ model PasswordEntry {
   encryptedPassword String
   encryptedFields   String?
   encryptedNote     String?
+  wrappedKeys       Json?
   url               String?
   colorTag          String?
   vaultId           String
@@ -205,12 +208,27 @@ model Invitation {
   @@index([email])
 }
 
+model UserKeyPair {
+  id                 String   @id
+  userId             String   @unique
+  encryptedPrivateKey Json
+  publicKey          Json
+  salt               String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model PasswordShare {
-  id           String   @id
-  passwordId   String
-  sharedWithId String
-  sharedById   String
-  createdAt    DateTime @default(now())
+  id                String    @id
+  passwordId        String
+  sharedWithId      String
+  sharedById        String
+  encryptedItemKey  String?
+  reEncryptedPassword String?
+  reEncryptedNote   String?
+  reEncryptedFields String?
+  createdAt         DateTime  @default(now())
 
   password   PasswordEntry @relation(fields: [passwordId], references: [id], onDelete: Cascade)
   sharedWith User          @relation("PasswordSharedWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
@@ -249,6 +267,13 @@ enum VaultAccessLevel {
 enum DepartmentRole {
   MANAGER
   MEMBER
+}
+
+enum DepartmentAccessLevel {
+  READ_ONLY
+  READ_WRITE
+  DELETE
+  ADMIN
 }
 
 enum ItemType {
@@ -301,6 +326,7 @@ enum NotificationType {
   SHARE_FOLDER
   SHARE_VAULT
   WEAK_PASSWORD
+  DEPARTMENT
 }
 
 model LoginActivity {

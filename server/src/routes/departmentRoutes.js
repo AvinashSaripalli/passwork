@@ -6,6 +6,7 @@ const departmentController = require('../controllers/departmentController');
 
 router.use(authenticate);
 
+router.get('/my', departmentController.getMyDepartments);
 router.get('/', departmentController.getDepartments);
 router.post('/', departmentController.createDepartment);
 router.put('/:id', departmentController.updateDepartment);

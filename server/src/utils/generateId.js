@@ -16,6 +16,7 @@ const config = {
   department: 'DEPT',
   departmentMember: 'DPERM',
   departmentPermission: 'DACCESS',
+  keyPair: 'KPAIR',
 };
 
 function generateId(model) {

@@ -5,9 +5,23 @@ const { getVaultAccess } = require('../utils/permissions');
 const getAllActivityLogs = async (req, res) => {
   try {
     const isAdmin = req.user.role === 'ADMIN';
+    const { departmentId } = req.query;
+
+    let whereClause = isAdmin ? {} : { userId: req.user.id };
+
+    if (departmentId && isAdmin) {
+      const memberIds = (
+        await prisma.departmentMember.findMany({
+          where: { departmentId },
+          select: { userId: true },
+        })
+      ).map((m) => m.userId);
+
+      whereClause = { userId: { in: memberIds } };
+    }
 
     const logs = await prisma.activityLog.findMany({
-      where: isAdmin ? {} : { userId: req.user.id },
+      where: whereClause,
       orderBy: {
         createdAt: 'desc',
       },

@@ -11,10 +11,11 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
-import { logout, setMasterVerified, setSessionMasterPassword } from '../../features/auth/authSlice';
+import { logout, setMasterVerified, setSessionMasterPassword, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 import {
   isEncryptedFormat,
   MASTER_VERIFIER_STORAGE_KEY,
+  decryptPrivateKey,
 } from '../../utils/crypto';
 import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
 import logo from '../../assets/Vaultix.png';
@@ -72,6 +73,24 @@ function EnterMasterPasswordPage() {
 
       dispatch(setMasterVerified(true));
       dispatch(setSessionMasterPassword(masterPassword));
+
+      try {
+        const kpRes = await api.get('/keypair');
+        if (kpRes.data?.encryptedPrivateKey) {
+          const privateKeyJwk = await decryptPrivateKey(
+            kpRes.data.encryptedPrivateKey,
+            masterPassword,
+            kpRes.data.salt
+          );
+          dispatch({ type: 'auth/setSessionRsaPrivateKey', payload: privateKeyJwk });
+          if (kpRes.data.publicKey) {
+            dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
+          }
+        }
+      } catch {
+        // key pair may not exist yet
+      }
+
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid master password');

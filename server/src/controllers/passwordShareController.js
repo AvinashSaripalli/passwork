@@ -5,7 +5,7 @@ const createNotification = require('../utils/createNotification');
 const sharePassword = async (req, res) => {
   try {
     const { passwordId } = req.params;
-    const { userId } = req.body;
+    const { userId, encryptedItemKey, reEncryptedPassword, reEncryptedNote, reEncryptedFields } = req.body;
 
     if (!userId) {
       return res.status(400).json({ message: 'User is required' });
@@ -54,12 +54,21 @@ const sharePassword = async (req, res) => {
           sharedWithId: sharedUser.id,
         },
       },
-      update: {},
+      update: {
+        ...(encryptedItemKey && { encryptedItemKey }),
+        ...(reEncryptedPassword && { reEncryptedPassword }),
+        ...(reEncryptedNote !== undefined && { reEncryptedNote: reEncryptedNote || null }),
+        ...(reEncryptedFields !== undefined && { reEncryptedFields: reEncryptedFields || null }),
+      },
       create: {
         id: await generateId('passwordShare'),
         passwordId,
         sharedWithId: sharedUser.id,
         sharedById: req.user.id,
+        encryptedItemKey: encryptedItemKey || null,
+        reEncryptedPassword: reEncryptedPassword || null,
+        reEncryptedNote: reEncryptedNote || null,
+        reEncryptedFields: reEncryptedFields || null,
       },
       include: {
         sharedWith: {
@@ -126,6 +135,16 @@ const sharePassword = async (req, res) => {
 
 const getSharedWithMe = async (req, res) => {
   try {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { encryptionSalt: true },
+    });
+
+    const keyPair = await prisma.userKeyPair.findUnique({
+      where: { userId: req.user.id },
+      select: { encryptedPrivateKey: true, publicKey: true, salt: true },
+    });
+
     const sharedPasswords = await prisma.passwordShare.findMany({
       where: {
         sharedWithId: req.user.id,
@@ -144,7 +163,6 @@ const getSharedWithMe = async (req, res) => {
                     id: true,
                     fullName: true,
                     email: true,
-                    encryptionSalt: true,
                   },
                 },
               },
@@ -169,7 +187,11 @@ const getSharedWithMe = async (req, res) => {
       },
     });
 
-    res.json(sharedPasswords);
+    res.json({
+      sharedPasswords,
+      userEncryptionSalt: currentUser?.encryptionSalt,
+      userKeyPair: keyPair,
+    });
   } catch (error) {
     console.error('Get shared with me error:', error);
     res.status(500).json({ message: 'Server error' });

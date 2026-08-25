@@ -181,14 +181,14 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
           });
           created += 1;
         } else if (isSelected && existing && existing.accessLevel !== wantedLevel) {
-          await api.delete(`/departments/${dept.id}/grants/${existing.grantId}`);
+          await api.delete(`/departments/${dept.id}/grants/${existing.id}`);
           await api.post(`/departments/${dept.id}/grants`, {
             folderId,
             accessLevel: wantedLevel,
           });
           updated += 1;
         } else if (!isSelected && existing) {
-          await api.delete(`/departments/${dept.id}/grants/${existing.grantId}`);
+          await api.delete(`/departments/${dept.id}/grants/${existing.id}`);
           revoked += 1;
         }
       }

@@ -229,14 +229,18 @@ export const shareFolderAccess = createAsyncThunk(
 
 export const fetchActivityLogs = createAsyncThunk(
   'vault/fetchActivityLogs',
-  async (_, thunkAPI) => {
+  async (departmentId, thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.token;
+
+      const params = {};
+      if (departmentId) params.departmentId = departmentId;
 
       const response = await api.get('/activity', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        params,
       });
 
       return response.data;

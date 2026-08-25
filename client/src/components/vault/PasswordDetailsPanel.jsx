@@ -18,7 +18,7 @@ import {
 } from '../../features/vault/vaultSlice';
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import ConfirmModal from '../common/ConfirmModal';
-import { safeDecryptText } from '../../utils/crypto';
+import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
@@ -38,6 +38,7 @@ function PasswordDetailsPanel() {
     token,
     sessionMasterPassword,
     sessionAdminMasterPassword,
+    sessionRsaPrivateKey,
   } = useSelector((state) => state.auth);
 
   const selectedPassword = passwords.find(
@@ -109,6 +110,8 @@ function PasswordDetailsPanel() {
   const requireVerify = (item, actionName) => {
     if (isFolderAdministrator) return false;
 
+    if (item.myWrappedKey && sessionRsaPrivateKey) return false;
+
     if (item.isSensitive) return true;
 
     if (['view', 'copy-password', 'edit'].includes(actionName)) {
@@ -157,22 +160,33 @@ function PasswordDetailsPanel() {
   };
 
   const decryptPasswordItem = async (item, adminMasterPassword) => {
-    const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+    if (item.myWrappedKey && sessionRsaPrivateKey) {
+      try {
+        const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
+        const originalPassword = await decryptTextWithAesKey(
+          item.encryptedPassword,
+          aesKeyJwk
+        );
+        const originalNote = item.encryptedNote
+          ? await decryptTextWithAesKey(item.encryptedNote, aesKeyJwk)
+          : '';
+        return { originalPassword, originalNote };
+      } catch {
+        // fallback to master password decryption
+      }
+    }
 
+    const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
     const originalPassword = await safeDecryptText(
       item.encryptedPassword,
       adminMasterPassword,
       creatorSalt
     );
-
     const originalNote = item.encryptedNote
       ? await safeDecryptText(item.encryptedNote, adminMasterPassword, creatorSalt)
       : '';
 
-    return {
-      originalPassword,
-      originalNote,
-    };
+    return { originalPassword, originalNote };
   };
 
   const executeAction = async (actionName, passwordId, masterPassword) => {

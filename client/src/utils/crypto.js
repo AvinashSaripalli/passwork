@@ -53,6 +53,59 @@ export async function encryptText(text, masterPassword, salt) {
   });
 }
 
+async function generateAesKey() {
+  return window.crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function exportAesKey(key) {
+  const jwk = await window.crypto.subtle.exportKey('jwk', key);
+  return JSON.stringify(jwk);
+}
+
+async function importAesKey(jwkStr) {
+  const jwk = JSON.parse(jwkStr);
+  return window.crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+}
+
+export async function encryptTextWithAesKey(text) {
+  if (!text) return { encryptedData: '', aesKeyJwk: '' };
+  const key = await generateAesKey();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(text)
+  );
+  const aesKeyJwk = await exportAesKey(key);
+  const encryptedData = JSON.stringify({
+    iv: Array.from(iv),
+    content: Array.from(new Uint8Array(encrypted)),
+  });
+  return { encryptedData, aesKeyJwk };
+}
+
+export async function decryptTextWithAesKey(encryptedData, aesKeyJwk) {
+  if (!encryptedData || !aesKeyJwk) return '';
+  const key = await importAesKey(aesKeyJwk);
+  const parsed = JSON.parse(encryptedData);
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
+    key,
+    new Uint8Array(parsed.content)
+  );
+  return decoder.decode(decrypted);
+}
+
 export async function decryptText(encryptedText, masterPassword, salt) {
   if (!encryptedText) return '';
 
@@ -169,6 +222,139 @@ export async function verifyMasterPasswordLocally(
 
   return hasCandidates ? false : null;
 }
+
+// ─── RSA-OAEP Key Pair Utilities (for per-user re-encryption) ───────────────
+
+export async function generateKeyPair() {
+  const keyPair = await window.crypto.subtle.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: 'SHA-256',
+    },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+  const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+  return { publicKeyJwk, privateKeyJwk };
+}
+
+async function getDeriveKeyForPrivateKey(masterPassword, salt) {
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    encoder.encode(masterPassword),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+
+  return window.crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: getSaltBytes(salt),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const privateKeyData = encoder.encode(JSON.stringify(privateKeyJwk));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    aesKey,
+    privateKeyData
+  );
+  return JSON.stringify({
+    iv: Array.from(iv),
+    content: Array.from(new Uint8Array(encrypted)),
+  });
+}
+
+export async function decryptPrivateKey(encryptedPrivateKeyStr, masterPassword, salt) {
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const parsed = JSON.parse(encryptedPrivateKeyStr);
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
+    aesKey,
+    new Uint8Array(parsed.content)
+  );
+  return JSON.parse(decoder.decode(decrypted));
+}
+
+async function importPublicKey(publicKeyJwk) {
+  return window.crypto.subtle.importKey(
+    'jwk',
+    publicKeyJwk,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['encrypt']
+  );
+}
+
+async function importPrivateKey(privateKeyJwk) {
+  return window.crypto.subtle.importKey(
+    'jwk',
+    privateKeyJwk,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['decrypt']
+  );
+}
+
+export async function rsaEncrypt(plaintext, publicKeyJwk) {
+  const publicKey = await importPublicKey(publicKeyJwk);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    publicKey,
+    encoder.encode(plaintext)
+  );
+  return JSON.stringify(Array.from(new Uint8Array(encrypted)));
+}
+
+export async function rsaDecrypt(ciphertextStr, privateKeyJwk) {
+  const privateKey = await importPrivateKey(privateKeyJwk);
+  const ciphertext = new Uint8Array(JSON.parse(ciphertextStr));
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    ciphertext
+  );
+  return decoder.decode(decrypted);
+}
+
+export async function reWrapItemKey(encryptedItemKeyStr, oldPrivateKeyJwk, newPublicKeyJwk) {
+  const aesKeyJson = await rsaDecrypt(encryptedItemKeyStr, oldPrivateKeyJwk);
+  return rsaEncrypt(aesKeyJson, newPublicKeyJwk);
+}
+
+export async function wrapItemKey(aesKeyJwkStr, publicKeyJwk) {
+  return rsaEncrypt(aesKeyJwkStr, publicKeyJwk);
+}
+
+export async function unwrapItemKey(wrappedKeyStr, privateKeyJwk) {
+  return rsaDecrypt(wrappedKeyStr, privateKeyJwk);
+}
+
+export async function wrapFolderKey(aesKeyJwkStr, publicKeyJwk) {
+  return rsaEncrypt(aesKeyJwkStr, publicKeyJwk);
+}
+
+export async function unwrapFolderKey(wrappedKeyStr, privateKeyJwk) {
+  return rsaDecrypt(wrappedKeyStr, privateKeyJwk);
+}
+
+// ─── TOTP Utilities ─────────────────────────────────────────────────────────
 
 function base32ToBytes(base32) {
   if (!base32) return new Uint8Array();

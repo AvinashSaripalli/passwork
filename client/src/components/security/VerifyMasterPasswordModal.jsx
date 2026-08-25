@@ -4,8 +4,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   setMasterVerified,
   setSessionMasterPassword,
+  setSessionRsaPublicKey,
 } from '../../features/auth/authSlice';
 import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
+import { decryptPrivateKey } from '../../utils/crypto';
+import api from '../../services/api';
 
 function VerifyMasterPasswordModal({
   open,
@@ -51,6 +54,23 @@ function VerifyMasterPasswordModal({
 
       dispatch(setMasterVerified(true));
       dispatch(setSessionMasterPassword(masterPassword));
+
+      try {
+        const kpRes = await api.get('/keypair');
+        if (kpRes.data?.encryptedPrivateKey) {
+          const privateKeyJwk = await decryptPrivateKey(
+            kpRes.data.encryptedPrivateKey,
+            masterPassword,
+            kpRes.data.salt
+          );
+          dispatch({ type: 'auth/setSessionRsaPrivateKey', payload: privateKeyJwk });
+          if (kpRes.data.publicKey) {
+            dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
+          }
+        }
+      } catch {
+        // key pair may not exist yet
+      }
 
       const verifiedPassword = masterPassword;
 

@@ -9,12 +9,13 @@ import AddPasswordModal from '../../components/vault/AddPasswordModal';
 import EditPasswordModal from '../../components/vault/EditPasswordModal';
 import AddFolderModal from '../../components/vault/AddFolderModal';
 import ShareFolderModal from '../../components/folder/ShareFolderModal';
+import ShareVaultModal from '../../components/vault/ShareVaultModal';
 import FolderHistoryPanel from '../../components/folder/FolderHistoryPanel';
 import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import VerifyAdminMasterPasswordModal from '../../components/security/VerifyAdminMasterPasswordModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import { safeDecryptText, encryptText } from '../../utils/crypto';
+import { safeDecryptText, encryptText, unwrapItemKey, decryptTextWithAesKey, encryptTextWithAesKey, wrapItemKey } from '../../utils/crypto';
 import { showToast } from '../../utils/toast';
 
 import * as XLSX from 'xlsx';
@@ -43,6 +44,7 @@ function VaultPage() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [vaultShareOpen, setVaultShareOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exportVerifyOpen, setExportVerifyOpen] = useState(false);
@@ -50,7 +52,7 @@ function VaultPage() {
   const [importVerifyOpen, setImportVerifyOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { user, token, sessionMasterPassword } = useSelector(
+  const { user, token, sessionMasterPassword, sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector(
     (state) => state.auth
   );
 
@@ -89,6 +91,107 @@ function VaultPage() {
       dispatch(fetchFoldersByVault(selectedVault.id));
     }
   }, [dispatch, selectedVault?.id]);
+
+  useEffect(() => {
+    if (
+      !selectedVault?.id ||
+      !sessionRsaPrivateKey ||
+      !sessionRsaPublicKey ||
+      !sessionMasterPassword ||
+      !isAdminUser
+    ) return;
+
+    const unmigratedPasswords = passwords.filter((p) => !p.myWrappedKey && p.encryptedPassword);
+
+    if (unmigratedPasswords.length === 0) return;
+
+    let cancelled = false;
+
+    const migrate = async () => {
+      const publicKeysCache = {};
+
+      const getPublicKeyForUser = async (uid) => {
+        if (publicKeysCache[uid]) return publicKeysCache[uid];
+        try {
+          const res = await api.get(`/keypair/${uid}/public`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          publicKeysCache[uid] = res.data.publicKey;
+          return res.data.publicKey;
+        } catch {
+          return null;
+        }
+      };
+
+      const getAllUserIdsWithAccess = (folderId) => {
+        const folder = folders.find((f) => f.id === folderId);
+        if (!folder?.permissions) return [];
+        return folder.permissions.map((p) => p.userId).filter(Boolean);
+      };
+
+      const passwordUpdates = [];
+
+      for (const item of unmigratedPasswords) {
+        if (cancelled) return;
+        try {
+          const plainPassword = await safeDecryptText(
+            item.encryptedPassword, sessionMasterPassword, user?.encryptionSalt
+          );
+          const { encryptedData: reEncrypted, aesKeyJwk } = await encryptTextWithAesKey(plainPassword);
+
+          let reEncryptedNote = undefined;
+          if (item.encryptedNote) {
+            const plainNote = await safeDecryptText(
+              item.encryptedNote, sessionMasterPassword, user?.encryptionSalt
+            );
+            if (plainNote) {
+              const { encryptedData } = await encryptTextWithAesKey(plainNote);
+              reEncryptedNote = encryptedData;
+            }
+          }
+
+          const userIds = getAllUserIdsWithAccess(item.folderId);
+          if (!userIds.includes(user.id)) userIds.push(user.id);
+
+          const wrappedKeys = {};
+          for (const uid of userIds) {
+            const pubKey = await getPublicKeyForUser(uid);
+            if (pubKey) {
+              wrappedKeys[uid] = await wrapItemKey(aesKeyJwk, pubKey);
+            }
+          }
+
+          passwordUpdates.push({
+            id: item.id,
+            encryptedPassword: reEncrypted,
+            ...(reEncryptedNote !== undefined && { encryptedNote: reEncryptedNote }),
+            wrappedKeys,
+          });
+        } catch {
+          // skip
+        }
+      }
+
+      if (cancelled || passwordUpdates.length === 0) return;
+
+      try {
+        await api.post('/passwords/batch-wrap', {
+          wrappedPasswords: passwordUpdates,
+        }, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) {
+          dispatch(fetchPasswordsByVault(selectedVault.id));
+        }
+      } catch {
+        // best-effort
+      }
+    };
+
+    migrate();
+
+    return () => { cancelled = true; };
+  }, [passwords, selectedVault?.id, sessionRsaPrivateKey, sessionRsaPublicKey, sessionMasterPassword, isAdminUser, user, token, dispatch, folders]);
 
   const folderPasswords = useMemo(() => {
     if (!selectedFolder?.id) return [];
@@ -137,21 +240,32 @@ function VaultPage() {
       const rows = [];
 
       for (const item of folderPasswords) {
-        const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+        let originalPassword = '';
+        let originalNote = '';
 
-        const originalPassword = await safeDecryptText(
-          item.encryptedPassword,
-          adminMasterPassword,
-          creatorSalt
-        );
+        if (item.myWrappedKey && sessionRsaPrivateKey) {
+          try {
+            const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
+            originalPassword = await decryptTextWithAesKey(item.encryptedPassword, aesKeyJwk);
+            originalNote = item.encryptedNote
+              ? await decryptTextWithAesKey(item.encryptedNote, aesKeyJwk)
+              : '';
+          } catch {
+            // fallback to master password
+          }
+        }
 
-        const originalNote = item.encryptedNote
-          ? await safeDecryptText(
-              item.encryptedNote,
-              adminMasterPassword,
-              creatorSalt
-            )
-          : '';
+        if (!originalPassword) {
+          const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
+          originalPassword = await safeDecryptText(
+            item.encryptedPassword,
+            adminMasterPassword,
+            creatorSalt
+          );
+          originalNote = item.encryptedNote
+            ? await safeDecryptText(item.encryptedNote, adminMasterPassword, creatorSalt)
+            : '';
+        }
 
         rows.push({
           Name: item.name || '',
@@ -235,15 +349,13 @@ function VaultPage() {
 
         if (!name || !login || !password) continue;
 
-        const encryptedPassword = await encryptText(
-          String(password),
-          adminMasterPassword,
-          user?.encryptionSalt
+        const { encryptedData: encryptedPassword, aesKeyJwk } = await encryptTextWithAesKey(
+          String(password)
         );
 
-        const encryptedNote = note
-          ? await encryptText(String(note), adminMasterPassword, user?.encryptionSalt)
-          : '';
+        const { encryptedData: encryptedNote } = note
+          ? await encryptTextWithAesKey(String(note))
+          : { encryptedData: '' };
 
         const tags = tagsText
           ? String(tagsText)
@@ -318,6 +430,15 @@ function VaultPage() {
                   className="h-[46px] px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
                 >
                   Share Folder
+                </button>
+              )}
+
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => setVaultShareOpen(true)}
+                  className="h-[46px] px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
+                >
+                  Share Vault
                 </button>
               )}
 
@@ -454,6 +575,12 @@ function VaultPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         folderId={selectedFolder?.id || null}
+        vaultId={selectedVault?.id || null}
+      />
+
+      <ShareVaultModal
+        open={vaultShareOpen}
+        onClose={() => setVaultShareOpen(false)}
         vaultId={selectedVault?.id || null}
       />
 

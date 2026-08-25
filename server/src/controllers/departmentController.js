@@ -1,17 +1,9 @@
-const prisma = require('../config/prisma');
+﻿const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
+const createNotification = require('../utils/createNotification');
 
-const ALLOWED_VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const ALLOWED_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
 const VALID_MEMBER_ROLES = ['MANAGER', 'MEMBER'];
-
-const requireAdmin = (req, res) => {
-  if (req.user.role !== 'ADMIN') {
-    res.status(403).json({ message: 'Access denied' });
-    return true;
-  }
-
-  return false;
-};
 
 const logActivity = async (userId, action, targetType, targetId, metadata) => {
   await prisma.activityLog.create({
@@ -26,32 +18,107 @@ const logActivity = async (userId, action, targetType, targetId, metadata) => {
   });
 };
 
+const requireAdmin = (req, res) => {
+  if (req.user.role !== 'ADMIN') {
+    res.status(403).json({ message: 'Access denied' });
+    return true;
+  }
+  return false;
+};
+
+const requireDeptManager = async (req, res) => {
+  if (req.user.role === 'ADMIN') return { ok: true };
+
+  const membership = await prisma.departmentMember.findUnique({
+    where: {
+      departmentId_userId: {
+        departmentId: req.params.id,
+        userId: req.user.id,
+      },
+    },
+  });
+
+  if (!membership || membership.memberRole !== 'MANAGER') {
+    res.status(403).json({ message: 'Department manager access required' });
+    return { ok: false };
+  }
+
+  return { ok: true };
+};
+
+const getDepartmentInclude = () => ({
+  parent: { select: { id: true, name: true } },
+  members: {
+    include: {
+      user: {
+        select: { id: true, fullName: true, email: true, role: true, isActive: true },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+  permissions: {
+    include: {
+      vault: { select: { id: true, name: true, slug: true, type: true } },
+      folder: {
+        select: { id: true, name: true, vault: { select: { id: true, name: true } } },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+  _count: { select: { subDepartments: true } },
+});
+
+const getMyDepartments = async (req, res) => {
+  try {
+    const memberships = await prisma.departmentMember.findMany({
+      where: { userId: req.user.id },
+      include: {
+        department: {
+          include: {
+            parent: { select: { id: true, name: true } },
+            members: {
+              include: {
+                user: {
+                  select: { id: true, fullName: true, email: true, role: true, isActive: true },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+            permissions: {
+              include: {
+                vault: { select: { id: true, name: true, slug: true, type: true } },
+                folder: {
+                  select: { id: true, name: true, vault: { select: { id: true, name: true } } },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+            _count: { select: { subDepartments: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const departments = memberships.map((m) => ({
+      ...m.department,
+      myRole: m.memberRole,
+      myMembershipId: m.id,
+    }));
+
+    res.json(departments);
+  } catch (error) {
+    console.error('Get my departments error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const getDepartments = async (req, res) => {
   try {
     if (requireAdmin(req, res)) return;
 
     const departments = await prisma.department.findMany({
-      include: {
-        parent: { select: { id: true, name: true } },
-        members: {
-          include: {
-            user: {
-              select: { id: true, fullName: true, email: true, role: true, isActive: true },
-            },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
-        permissions: {
-          include: {
-            vault: { select: { id: true, name: true, slug: true, type: true } },
-            folder: {
-              select: { id: true, name: true, vault: { select: { id: true, name: true } } },
-            },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
-        _count: { select: { subDepartments: true } },
-      },
+      include: getDepartmentInclude(),
       orderBy: { name: 'asc' },
     });
 
@@ -215,6 +282,13 @@ const deleteDepartment = async (req, res) => {
       });
     }
 
+    const memberUserIds = (
+      await prisma.departmentMember.findMany({
+        where: { departmentId: department.id },
+        select: { userId: true },
+      })
+    ).map((m) => m.userId);
+
     await prisma.department.delete({
       where: { id: department.id },
     });
@@ -222,6 +296,16 @@ const deleteDepartment = async (req, res) => {
     await logActivity(req.user.id, 'DELETE_DEPARTMENT', 'Department', department.id, {
       name: department.name,
     });
+
+    for (const uid of memberUserIds) {
+      await createNotification({
+        userId: uid,
+        title: 'Department Deleted',
+        message: `Department "${department.name}" has been deleted`,
+        type: 'DEPARTMENT',
+        metadata: { departmentId: department.id, departmentName: department.name },
+      });
+    }
 
     res.json({ message: 'Department deleted successfully' });
   } catch (error) {
@@ -232,7 +316,8 @@ const deleteDepartment = async (req, res) => {
 
 const addMember = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
+    const access = await requireDeptManager(req, res);
+    if (!access.ok) return;
 
     const department = await prisma.department.findUnique({
       where: { id: req.params.id },
@@ -293,6 +378,29 @@ const addMember = async (req, res) => {
       memberRole,
     });
 
+    await createNotification({
+      userId,
+      title: 'Added to Department',
+      message: `You have been added to "${department.name}" as ${memberRole}`,
+      type: 'DEPARTMENT',
+      metadata: { departmentId: department.id, departmentName: department.name, memberRole },
+    });
+
+    const existingMembers = await prisma.departmentMember.findMany({
+      where: { departmentId: department.id, userId: { not: userId } },
+      select: { userId: true },
+    });
+
+    for (const m of existingMembers) {
+      await createNotification({
+        userId: m.userId,
+        title: 'New Department Member',
+        message: `${user.fullName} joined "${department.name}"`,
+        type: 'DEPARTMENT',
+        metadata: { departmentId: department.id, departmentName: department.name },
+      });
+    }
+
     res.status(201).json(membership);
   } catch (error) {
     console.error('Add department member error:', error);
@@ -302,7 +410,8 @@ const addMember = async (req, res) => {
 
 const updateMember = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
+    const access = await requireDeptManager(req, res);
+    if (!access.ok) return;
 
     const membership = await prisma.departmentMember.findUnique({
       where: {
@@ -356,7 +465,8 @@ const updateMember = async (req, res) => {
 
 const removeMember = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
+    const access = await requireDeptManager(req, res);
+    if (!access.ok) return;
 
     const department = await prisma.department.findUnique({
       where: { id: req.params.id },
@@ -379,13 +489,23 @@ const removeMember = async (req, res) => {
       return res.status(404).json({ message: 'User is not a member of this department' });
     }
 
+    const removedUserId = req.params.userId;
+
     await prisma.departmentMember.delete({
       where: { id: membership.id },
     });
 
     await logActivity(req.user.id, 'REMOVE_DEPARTMENT_MEMBER', 'Department', department.id, {
       departmentName: department.name,
-      userId: req.params.userId,
+      userId: removedUserId,
+    });
+
+    await createNotification({
+      userId: removedUserId,
+      title: 'Removed from Department',
+      message: `You have been removed from "${department.name}"`,
+      type: 'DEPARTMENT',
+      metadata: { departmentId: department.id, departmentName: department.name },
     });
 
     res.json({ message: 'Member removed successfully' });
@@ -397,7 +517,8 @@ const removeMember = async (req, res) => {
 
 const createGrant = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
+    const access = await requireDeptManager(req, res);
+    if (!access.ok) return;
 
     const department = await prisma.department.findUnique({
       where: { id: req.params.id },
@@ -417,14 +538,15 @@ const createGrant = async (req, res) => {
       return res.status(400).json({ message: 'Provide either vaultId or folderId, not both' });
     }
 
-    if (!ALLOWED_VAULT_ACCESS_LEVELS.includes(accessLevel)) {
+    if (!ALLOWED_ACCESS_LEVELS.includes(accessLevel)) {
       return res.status(400).json({
-        message: `Invalid access level. Must be one of: ${ALLOWED_VAULT_ACCESS_LEVELS.join(', ')}`,
+        message: `Invalid access level. Must be one of: ${ALLOWED_ACCESS_LEVELS.join(', ')}`,
       });
     }
 
     let grantData;
     let metadataTarget;
+    let targetName;
 
     if (folderId) {
       const folder = await prisma.folder.findUnique({
@@ -452,6 +574,7 @@ const createGrant = async (req, res) => {
 
       grantData = { folderId };
       metadataTarget = { folderId, folderName: folder.name, vaultName: folder.vault.name };
+      targetName = `folder "${folder.name}"`;
     } else {
       const vault = await prisma.vault.findUnique({ where: { id: vaultId } });
 
@@ -475,6 +598,7 @@ const createGrant = async (req, res) => {
 
       grantData = { vaultId };
       metadataTarget = { vaultId, vaultName: vault.name };
+      targetName = `vault "${vault.name}"`;
     }
 
     const grant = await prisma.departmentPermission.create({
@@ -498,6 +622,21 @@ const createGrant = async (req, res) => {
       accessLevel,
     });
 
+    const members = await prisma.departmentMember.findMany({
+      where: { departmentId: department.id },
+      select: { userId: true },
+    });
+
+    for (const m of members) {
+      await createNotification({
+        userId: m.userId,
+        title: 'Department Access Granted',
+        message: `Your department "${department.name}" received ${accessLevel} access to ${targetName}`,
+        type: 'DEPARTMENT',
+        metadata: { departmentId: department.id, departmentName: department.name, accessLevel },
+      });
+    }
+
     res.status(201).json(grant);
   } catch (error) {
     console.error('Create department grant error:', error);
@@ -507,7 +646,8 @@ const createGrant = async (req, res) => {
 
 const deleteGrant = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
+    const access = await requireDeptManager(req, res);
+    if (!access.ok) return;
 
     const department = await prisma.department.findUnique({
       where: { id: req.params.id },
@@ -525,6 +665,14 @@ const deleteGrant = async (req, res) => {
       return res.status(404).json({ message: 'Grant not found' });
     }
 
+    const vaultName = grant.vaultId
+      ? (await prisma.vault.findUnique({ where: { id: grant.vaultId }, select: { name: true } }))?.name
+      : null;
+    const folderName = grant.folderId
+      ? (await prisma.folder.findUnique({ where: { id: grant.folderId }, select: { name: true } }))?.name
+      : null;
+    const targetName = folderName ? `folder "${folderName}"` : `vault "${vaultName}"`;
+
     await prisma.departmentPermission.delete({
       where: { id: grant.id },
     });
@@ -536,6 +684,21 @@ const deleteGrant = async (req, res) => {
       folderId: grant.folderId,
     });
 
+    const members = await prisma.departmentMember.findMany({
+      where: { departmentId: department.id },
+      select: { userId: true },
+    });
+
+    for (const m of members) {
+      await createNotification({
+        userId: m.userId,
+        title: 'Department Access Revoked',
+        message: `Your department "${department.name}" lost access to ${targetName}`,
+        type: 'DEPARTMENT',
+        metadata: { departmentId: department.id, departmentName: department.name },
+      });
+    }
+
     res.json({ message: 'Grant revoked successfully' });
   } catch (error) {
     console.error('Delete department grant error:', error);
@@ -544,6 +707,7 @@ const deleteGrant = async (req, res) => {
 };
 
 module.exports = {
+  getMyDepartments,
   getDepartments,
   createDepartment,
   updateDepartment,

@@ -19,7 +19,7 @@ const createFolder = async (req, res) => {
       });
     }
 
-    const { name, vaultId, parentId } = req.body;
+    const { name, vaultId, parentId, wrappedKeys } = req.body;
 
     if (!name || !vaultId) {
       return res.status(400).json({ message: 'Name and vaultId are required' });
@@ -37,6 +37,7 @@ const createFolder = async (req, res) => {
         name,
         vaultId,
         parentId: null,
+        wrappedKeys: wrappedKeys || null,
       },
       include: {
         permissions: {
@@ -293,7 +294,15 @@ const getFoldersByVault = async (req, res) => {
       });
     }
 
-    res.json(folders);
+    const userId = req.user.id;
+    const result = folders.map((folder) => {
+      const allWrappedKeys = folder.wrappedKeys || {};
+      const myWrappedKey = allWrappedKeys[userId] || null;
+      const { wrappedKeys, ...rest } = folder;
+      return { ...rest, myWrappedKey };
+    });
+
+    res.json(result);
   } catch (error) {
     console.error('Get folders by vault error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -349,7 +358,11 @@ const getFolderById = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    res.json(folder);
+    const allWrappedKeys = folder.wrappedKeys || {};
+    const myWrappedKey = allWrappedKeys[req.user.id] || null;
+    const { wrappedKeys, ...folderData } = folder;
+
+    res.json({ ...folderData, myWrappedKey });
   } catch (error) {
     console.error('Get folder by id error:', error);
     res.status(500).json({ message: 'Server error' });

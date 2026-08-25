@@ -8,5 +8,6 @@ router.get('/', authenticate, vaultController.getVaults);
 router.post('/', authenticate, vaultController.createVault);
 router.get('/:slug', authenticate, vaultController.getVaultBySlug);
 router.post('/:id/share', authenticate, vaultController.shareVault);
+router.post('/:id/unshare', authenticate, vaultController.unshareVault);
 
 module.exports = router;

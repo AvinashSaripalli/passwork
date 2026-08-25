@@ -8,6 +8,8 @@ router.post('/', authenticate, passwordController.createPassword);
 
 router.post('/import-excel', authenticate, passwordController.importPasswordsFromExcel);
 router.get('/owned', authenticate, passwordController.getPasswordsOwnedByUser);
+router.get('/vault/:vaultId/items-needing-wrap', authenticate, passwordController.getItemsNeedingWrapping);
+router.post('/batch-wrap', authenticate, passwordController.batchWrapKeys);
 
 router.get('/vault/:vaultId', authenticate, passwordController.getPasswordsByVault);
 router.get('/:id', authenticate, passwordController.getPasswordById);

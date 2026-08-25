@@ -14,6 +14,13 @@ const FOLDER_LEVEL_RANK = {
   ADMINISTRATOR: 3,
 };
 
+const DEPT_TO_FOLDER_MAP = {
+  READ_ONLY: 'READ_ONLY',
+  READ_WRITE: 'FULL_ACCESS',
+  DELETE: 'FULL_ACCESS',
+  ADMIN: 'ADMINISTRATOR',
+};
+
 const isAdminUser = async (userId) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -103,7 +110,9 @@ const getDepartmentFolderAccess = async (folderId, userId) => {
     orderBy: { createdAt: 'asc' },
   });
 
-  return grant ? grant.accessLevel : null;
+  if (!grant) return null;
+
+  return DEPT_TO_FOLDER_MAP[grant.accessLevel] || null;
 };
 
 const getFolderAccess = async (folderId, userId) => {
@@ -214,4 +223,5 @@ module.exports = {
   getVaultAccess,
   getFolderAccess,
   requireFolderAccess,
+  DEPT_TO_FOLDER_MAP,
 };

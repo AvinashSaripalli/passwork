@@ -294,6 +294,8 @@ function ActivityLogPage() {
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [departments, setDepartments] = useState([]);
   const [sortConfig, setSortConfig] = useState(null);
 
   const [loginActivities, setLoginActivities] = useState([]);
@@ -316,8 +318,20 @@ function ActivityLogPage() {
   }, []);
 
   useEffect(() => {
-    dispatch(fetchActivityLogs());
-  }, [dispatch]);
+    dispatch(fetchActivityLogs(deptFilter === 'ALL' ? undefined : deptFilter));
+  }, [dispatch, deptFilter]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data || []);
+      } catch {
+        // departments are optional for the filter
+      }
+    };
+    fetchDepts();
+  }, []);
 
   const fetchLoginActivities = useCallback(async () => {
     setLoginLoading(true);
@@ -559,6 +573,7 @@ function ActivityLogPage() {
     setSearch('');
     setActionFilter('ALL');
     setTypeFilter('ALL');
+    setDeptFilter('ALL');
     setLoginStatusFilter('ALL');
     setUnreadTypeFilter('ALL');
   };
@@ -569,6 +584,7 @@ function ActivityLogPage() {
     setSearch('');
     setActionFilter('ALL');
     setTypeFilter('ALL');
+    setDeptFilter('ALL');
     setLoginStatusFilter('ALL');
     setUnreadTypeFilter('ALL');
     setExpandedLogin(null);
@@ -707,6 +723,24 @@ function ActivityLogPage() {
                       </option>
                     ))}
                   </select>
+
+                  {departments.length > 0 && (
+                    <select
+                      value={deptFilter}
+                      onChange={(e) => {
+                        setDeptFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/30"
+                    >
+                      <option value="ALL">All Departments</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </>
               )}
 

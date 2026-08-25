@@ -1,5 +1,11 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../../services/api';
+import {
+  decryptText,
+  encryptTextWithAesKey,
+  rsaEncrypt,
+} from '../../utils/crypto';
+import { getMasterPassword, getRsaPrivateKey } from '../../utils/secureSession';
 
 export const fetchSharedWithMe = createAsyncThunk(
   'sharedPasswords/fetchSharedWithMe',
@@ -17,10 +23,56 @@ export const fetchSharedWithMe = createAsyncThunk(
 
 export const sharePasswordToUser = createAsyncThunk(
   'sharedPasswords/sharePasswordToUser',
-  async ({ passwordId, userId }, thunkAPI) => {
+  async ({ passwordId, userId, password }, thunkAPI) => {
     try {
+      let encryptedItemKey = null;
+      let reEncryptedPassword = null;
+      let reEncryptedNote = null;
+      let reEncryptedFields = null;
+
+      const masterPassword = getMasterPassword();
+      const rsaPrivateKey = getRsaPrivateKey();
+
+      if (masterPassword && rsaPrivateKey) {
+        try {
+          const recipientKeyRes = await api.get(`/keypair/${userId}/public`);
+          const recipientPublicKey = recipientKeyRes.data.publicKey;
+
+          const salt = thunkAPI.getState().auth.user?.encryptionSalt;
+          const decryptedPassword = await decryptText(
+            password.encryptedPassword,
+            masterPassword,
+            salt
+          );
+
+          const { encryptedData: reEncryptedPwd, aesKeyJwk } = await encryptTextWithAesKey(decryptedPassword);
+          reEncryptedPassword = reEncryptedPwd;
+          encryptedItemKey = await rsaEncrypt(aesKeyJwk, recipientPublicKey);
+
+          if (password.encryptedNote) {
+            const decryptedNote = await decryptText(password.encryptedNote, masterPassword, salt);
+            const { encryptedData: reEncryptedNt } = await encryptTextWithAesKey(decryptedNote);
+            reEncryptedNote = reEncryptedNt;
+          }
+
+          if (password.encryptedFields) {
+            const decryptedFields = await decryptText(password.encryptedFields, masterPassword, salt);
+            if (decryptedFields) {
+              const { encryptedData: reEncryptedFlds } = await encryptTextWithAesKey(decryptedFields);
+              reEncryptedFields = reEncryptedFlds;
+            }
+          }
+        } catch {
+          // recipient may not have keys yet; share without re-encryption (fallback)
+        }
+      }
+
       const response = await api.post(`/password-shares/${passwordId}/share`, {
         userId,
+        encryptedItemKey,
+        reEncryptedPassword,
+        reEncryptedNote,
+        reEncryptedFields,
       });
 
       return response.data;
@@ -51,6 +103,8 @@ const sharedPasswordsSlice = createSlice({
 
   initialState: {
     sharedWithMe: [],
+    userEncryptionSalt: null,
+    userKeyPair: null,
     loading: false,
     error: null,
 
@@ -77,7 +131,9 @@ const sharedPasswordsSlice = createSlice({
 
       .addCase(fetchSharedWithMe.fulfilled, (state, action) => {
         state.loading = false;
-        state.sharedWithMe = action.payload;
+        state.sharedWithMe = action.payload.sharedPasswords || [];
+        state.userEncryptionSalt = action.payload.userEncryptionSalt || null;
+        state.userKeyPair = action.payload.userKeyPair || null;
       })
 
       .addCase(fetchSharedWithMe.rejected, (state, action) => {

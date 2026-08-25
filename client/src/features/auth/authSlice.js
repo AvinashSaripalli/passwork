@@ -7,12 +7,19 @@ import {
   decryptFields,
   createMasterPasswordVerifier,
   MASTER_VERIFIER_STORAGE_KEY,
+  generateKeyPair,
+  encryptPrivateKey,
+  reWrapItemKey,
+  rsaDecrypt,
+  rsaEncrypt,
 } from '../../utils/crypto';
 import {
   clearSecureSession,
   setMasterPassword as storeMasterPassword,
   setAdminMasterPassword as storeAdminMasterPassword,
   setMasterVerifiedFlag,
+  isMasterVerified as getSecureMasterVerified,
+  setRsaPrivateKey as storeRsaPrivateKey,
 } from '../../utils/secureSession';
 
 const saveVerifier = (verifier) => {
@@ -118,12 +125,27 @@ export const changePassword = createAsyncThunk(
   }
 );
 
+export const fetchKeyPair = createAsyncThunk(
+  'auth/fetchKeyPair',
+  async (_, thunkAPI) => {
+    try {
+      const response = await api.get('/keypair');
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to fetch key pair'
+      );
+    }
+  }
+);
+
 export const changeMasterPassword = createAsyncThunk(
   'auth/changeMasterPassword',
   async ({ currentMasterPassword, newMasterPassword, hint }, thunkAPI) => {
     try {
       const { auth } = thunkAPI.getState();
       const salt = auth.user.encryptionSalt;
+      const oldPrivateKey = thunkAPI.getState().auth.sessionRsaPrivateKey;
 
       const ownedRes = await api.get('/passwords/owned');
       const ownedPasswords = ownedRes.data;
@@ -180,6 +202,94 @@ export const changeMasterPassword = createAsyncThunk(
         hint,
       });
 
+      const newKeyPair = await generateKeyPair();
+      const newEncryptedPrivateKey = await encryptPrivateKey(
+        newKeyPair.privateKeyJwk,
+        newMasterPassword,
+        salt
+      );
+
+      await api.post('/keypair', {
+        encryptedPrivateKey: newEncryptedPrivateKey,
+        publicKey: newKeyPair.publicKeyJwk,
+        salt,
+      });
+
+      storeRsaPrivateKey(newKeyPair.privateKeyJwk);
+
+      thunkAPI.dispatch(setSessionRsaPublicKey(newKeyPair.publicKeyJwk));
+
+      if (oldPrivateKey) {
+        const wrappedKeysRes = await api.get('/keypair/me/wrapped-keys');
+        const wrappedKeys = wrappedKeysRes.data;
+
+        if (wrappedKeys.length > 0) {
+          const reWrappedKeys = [];
+          for (const item of wrappedKeys) {
+            if (!item.encryptedItemKey) continue;
+            try {
+              const newEncryptedItemKey = await reWrapItemKey(
+                item.encryptedItemKey,
+                oldPrivateKey,
+                newKeyPair.publicKeyJwk
+              );
+              reWrappedKeys.push({
+                shareId: item.id,
+                encryptedItemKey: newEncryptedItemKey,
+              });
+            } catch {
+              // skip items that fail to re-wrap
+            }
+          }
+
+          if (reWrappedKeys.length > 0) {
+            await api.post('/keypair/me/re-wrap', { wrappedKeys: reWrappedKeys });
+          }
+        }
+
+        try {
+          const vaultKeysRes = await api.get('/keypair/me/all-vault-wrapped-keys');
+          const vaultKeys = vaultKeysRes.data;
+
+          const reWrappedFolders = [];
+          for (const item of vaultKeys.folders || []) {
+            try {
+              const aesKeyJson = await rsaDecrypt(item.wrappedKey, oldPrivateKey);
+              const newWrappedKey = await rsaEncrypt(aesKeyJson, newKeyPair.publicKeyJwk);
+              reWrappedFolders.push({
+                id: item.id,
+                wrappedKeys: { [user.id]: newWrappedKey },
+              });
+            } catch {
+              // skip
+            }
+          }
+
+          const reWrappedPasswords = [];
+          for (const item of vaultKeys.passwords || []) {
+            try {
+              const aesKeyJson = await rsaDecrypt(item.wrappedKey, oldPrivateKey);
+              const newWrappedKey = await rsaEncrypt(aesKeyJson, newKeyPair.publicKeyJwk);
+              reWrappedPasswords.push({
+                id: item.id,
+                wrappedKeys: { [user.id]: newWrappedKey },
+              });
+            } catch {
+              // skip
+            }
+          }
+
+          if (reWrappedFolders.length > 0 || reWrappedPasswords.length > 0) {
+            await api.post('/keypair/me/re-wrap-vault-keys', {
+              folders: reWrappedFolders,
+              passwords: reWrappedPasswords,
+            });
+          }
+        } catch {
+          // vault key re-wrap is best-effort
+        }
+      }
+
       saveVerifier(await createMasterPasswordVerifier(newMasterPassword, salt));
       thunkAPI.dispatch(setSessionMasterPassword(newMasterPassword));
 
@@ -197,6 +307,7 @@ export const setMasterPassword = createAsyncThunk(
   async (formData, thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.token || getSavedToken();
+      const salt = thunkAPI.getState().auth.user?.encryptionSalt;
 
       const response = await api.post('/auth/set-master-password', formData, {
         headers: {
@@ -204,10 +315,34 @@ export const setMasterPassword = createAsyncThunk(
         },
       });
 
+      const { publicKeyJwk, privateKeyJwk } = await generateKeyPair();
+      const encryptedPrivKey = await encryptPrivateKey(
+        privateKeyJwk,
+        formData.masterPassword,
+        salt
+      );
+
+      await api.post(
+        '/keypair',
+        {
+          encryptedPrivateKey: encryptedPrivKey,
+          publicKey: publicKeyJwk,
+          salt,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      storeRsaPrivateKey(privateKeyJwk);
+
       return {
         ...response.data,
         hint: formData.hint || '',
         masterPassword: formData.masterPassword,
+        publicKeyJwk,
       };
     } catch (error) {
       return thunkAPI.rejectWithValue(
@@ -226,9 +361,11 @@ const initialState = {
   isAuthenticated: !!savedToken,
   loading: false,
   error: null,
-  isMasterVerified: false,
+  isMasterVerified: !!savedToken && getSecureMasterVerified(),
   sessionMasterPassword: null,
   sessionAdminMasterPassword: null,
+  sessionRsaPrivateKey: null,
+  sessionRsaPublicKey: null,
   sessionWarningOpen: false,
   sessionWarningSeconds: 0,
   userLoaded: !savedToken,
@@ -253,6 +390,15 @@ const authSlice = createSlice({
       storeAdminMasterPassword(action.payload || null);
     },
 
+    setSessionRsaPrivateKey: (state, action) => {
+      state.sessionRsaPrivateKey = action.payload || null;
+      storeRsaPrivateKey(action.payload || null);
+    },
+
+    setSessionRsaPublicKey: (state, action) => {
+      state.sessionRsaPublicKey = action.payload || null;
+    },
+
     showSessionWarning: (state, action) => {
       state.sessionWarningOpen = true;
       state.sessionWarningSeconds = action.payload;
@@ -271,6 +417,8 @@ const authSlice = createSlice({
       state.isMasterVerified = false;
       state.sessionMasterPassword = null;
       state.sessionAdminMasterPassword = null;
+      state.sessionRsaPrivateKey = null;
+      state.sessionRsaPublicKey = null;
       state.sessionWarningOpen = false;
       state.sessionWarningSeconds = 0;
       clearSecureSession();
@@ -290,6 +438,8 @@ const authSlice = createSlice({
       state.isMasterVerified = false;
       state.sessionMasterPassword = null;
       state.sessionAdminMasterPassword = null;
+      state.sessionRsaPrivateKey = null;
+      state.sessionRsaPublicKey = null;
       state.userLoaded = true;
 
       localStorage.removeItem('token');
@@ -434,6 +584,7 @@ const authSlice = createSlice({
         };
         state.isMasterVerified = true;
         state.sessionMasterPassword = action.payload.masterPassword;
+        state.sessionRsaPublicKey = action.payload.publicKeyJwk;
         storeMasterPassword(action.payload.masterPassword);
         setMasterVerifiedFlag(true);
         saveUser(state.user);
@@ -452,6 +603,8 @@ export const {
   setMasterVerified,
   setSessionMasterPassword,
   setSessionAdminMasterPassword,
+  setSessionRsaPrivateKey,
+  setSessionRsaPublicKey,
   setUser,
   lockVault,
   showSessionWarning,

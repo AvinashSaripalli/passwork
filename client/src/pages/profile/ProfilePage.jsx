@@ -119,6 +119,19 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
     email: user?.email || '',
   });
   const [errors, setErrors] = useState({});
+  const [myDepartments, setMyDepartments] = useState([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments/my');
+        setMyDepartments(res.data || []);
+      } catch {
+        // departments are optional
+      }
+    };
+    fetchDepts();
+  }, []);
 
   const updateField = (field, value) => {
     setErrors((prev) => ({ ...prev, [field]: '' }));
@@ -206,6 +219,21 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
               {user?.hasMasterPassword ? 'Enabled' : 'Not Set'}
             </span>
           </div>
+          {myDepartments.length > 0 && (
+            <div className="flex justify-between items-start">
+              <span className="text-slate-500 dark:text-slate-400 shrink-0">Departments</span>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {myDepartments.map((dept) => (
+                  <span
+                    key={dept.id}
+                    className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                  >
+                    {dept.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end pt-2">

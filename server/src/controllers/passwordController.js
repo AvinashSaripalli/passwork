@@ -26,6 +26,7 @@ const createPassword = async (req, res) => {
       colorTag,
       vaultId,
       folderId,
+      wrappedKeys,
       tags = [],
     } = req.body;
 
@@ -53,6 +54,7 @@ const createPassword = async (req, res) => {
         login,
         encryptedPassword,
         encryptedNote,
+        encryptedFields: req.body.encryptedFields || null,
         url,
         colorTag,
         vaultId,
@@ -63,6 +65,7 @@ const createPassword = async (req, res) => {
         isAtRisk,
         isSensitive,
         strengthScore,
+        wrappedKeys: wrappedKeys || null,
         lastUpdatedAt: new Date(),
         tags: {
           create: tags.map((tagName) => ({
@@ -228,7 +231,15 @@ const getPasswordsByVault = async (req, res) => {
       });
     }
 
-    res.json(passwords);
+    const userId = req.user.id;
+    const result = passwords.map((pw) => {
+      const allWrappedKeys = pw.wrappedKeys || {};
+      const myWrappedKey = allWrappedKeys[userId] || null;
+      const { wrappedKeys, ...rest } = pw;
+      return { ...rest, myWrappedKey };
+    });
+
+    res.json(result);
   } catch (error) {
     console.error('Get passwords by vault error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -313,6 +324,7 @@ const updatePassword = async (req, res) => {
       url,
       colorTag,
       folderId,
+      wrappedKeys,
       tags,
     } = req.body;
 
@@ -345,6 +357,7 @@ const updatePassword = async (req, res) => {
         isOld: req.body.isOld ?? undefined,
         isAtRisk: req.body.isAtRisk ?? undefined,
         isSensitive: req.body.isSensitive ?? undefined,
+        ...(wrappedKeys !== undefined && { wrappedKeys }),
 
         ...(cleanTags !== undefined && {
           tags: {
@@ -566,6 +579,86 @@ const getPasswordsOwnedByUser = async (req, res) => {
   }
 };
 
+const getItemsNeedingWrapping = async (req, res) => {
+  try {
+    const { vaultId } = req.params;
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId query param is required' });
+    }
+
+    const vault = await prisma.vault.findUnique({
+      where: { id: vaultId },
+      select: { type: true },
+    });
+
+    if (!vault) {
+      return res.status(404).json({ message: 'Vault not found' });
+    }
+
+    if (vault.type === 'PERSONAL') {
+      return res.status(400).json({ message: 'Personal vaults do not support key wrapping' });
+    }
+
+    const result = await getItemsNeedingWrapping(vaultId, userId);
+    res.json(result);
+  } catch (error) {
+    console.error('Get items needing wrapping error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const batchWrapKeys = async (req, res) => {
+  try {
+    const { wrappedFolders, wrappedPasswords } = req.body;
+
+    if (!wrappedFolders && !wrappedPasswords) {
+      return res.status(400).json({ message: 'wrappedFolders or wrappedPasswords is required' });
+    }
+
+    const operations = [];
+
+    if (wrappedFolders && Array.isArray(wrappedFolders)) {
+      for (const item of wrappedFolders) {
+        if (!item.folderId || !item.wrappedKeys) continue;
+        operations.push(
+          prisma.folder.update({
+            where: { id: item.folderId },
+            data: { wrappedKeys: item.wrappedKeys },
+          })
+        );
+      }
+    }
+
+    if (wrappedPasswords && Array.isArray(wrappedPasswords)) {
+      for (const item of wrappedPasswords) {
+        const passwordId = item.id || item.passwordId;
+        if (!passwordId || !item.wrappedKeys) continue;
+        operations.push(
+          prisma.passwordEntry.update({
+            where: { id: passwordId },
+            data: {
+              wrappedKeys: item.wrappedKeys,
+              ...(item.encryptedPassword && { encryptedPassword: item.encryptedPassword }),
+              ...(item.encryptedNote !== undefined && { encryptedNote: item.encryptedNote }),
+            },
+          })
+        );
+      }
+    }
+
+    if (operations.length > 0) {
+      await prisma.$transaction(operations);
+    }
+
+    res.json({ message: 'Keys wrapped successfully', count: operations.length });
+  } catch (error) {
+    console.error('Batch wrap keys error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createPassword,
   getPasswordsByVault,
@@ -576,4 +669,6 @@ module.exports = {
   logViewPassword,
   importPasswordsFromExcel,
   getPasswordsOwnedByUser,
+  getItemsNeedingWrapping,
+  batchWrapKeys,
 };

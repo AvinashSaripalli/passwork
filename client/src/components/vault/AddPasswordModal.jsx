@@ -7,7 +7,7 @@ import {
 } from '../../features/vault/vaultSlice';
 import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import TagInput from '../common/TagInput';
-import { encryptText } from '../../utils/crypto';
+import { encryptTextWithAesKey, wrapItemKey } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
 
@@ -43,7 +43,7 @@ function AddPasswordModal() {
     folders,
   } = useSelector((state) => state.vault);
 
-  const { user, sessionMasterPassword } = useSelector((state) => state.auth);
+  const { user, sessionMasterPassword, sessionRsaPublicKey } = useSelector((state) => state.auth);
 
   const isAdminUser = user?.role === 'ADMIN';
 
@@ -154,19 +154,19 @@ function AddPasswordModal() {
     try {
       if (!pendingPayload) return;
 
-      const encryptedPassword = await encryptText(
-        pendingPayload.password,
-        adminMasterPassword,
-        user?.encryptionSalt
+      const { encryptedData: encryptedPassword, aesKeyJwk } = await encryptTextWithAesKey(
+        pendingPayload.password
       );
 
-      const encryptedNote = pendingPayload.note
-        ? await encryptText(
-            pendingPayload.note,
-            adminMasterPassword,
-            user?.encryptionSalt
-          )
-        : '';
+      const { encryptedData: encryptedNote } = pendingPayload.note
+        ? await encryptTextWithAesKey(pendingPayload.note)
+        : { encryptedData: '' };
+
+      const wrappedKeys = {};
+      if (aesKeyJwk && sessionRsaPublicKey) {
+        const wrappedKey = await wrapItemKey(aesKeyJwk, sessionRsaPublicKey);
+        wrappedKeys[user.id] = wrappedKey;
+      }
 
       const strength = getPasswordStrength(pendingPayload.password);
 
@@ -176,6 +176,7 @@ function AddPasswordModal() {
           login: pendingPayload.login,
           encryptedPassword,
           encryptedNote,
+          wrappedKeys: Object.keys(wrappedKeys).length > 0 ? wrappedKeys : null,
           url: pendingPayload.url,
           vaultId: pendingPayload.vaultId,
           folderId: pendingPayload.folderId,

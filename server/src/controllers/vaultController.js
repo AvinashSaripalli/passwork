@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
 const { getVaultAccess } = require('../utils/permissions');
+const { revokeWrappedKeysForUser } = require('../utils/wrappedKeys');
 
 const ALLOWED_VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
 
@@ -296,6 +297,19 @@ const getVaultBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Vault not found' });
     }
 
+    const extractMyWrappedKey = (folders) => {
+      return folders.map((folder) => {
+        const allWrappedKeys = folder.wrappedKeys || {};
+        const myWrappedKey = allWrappedKeys[req.user.id] || null;
+        const { wrappedKeys, ...rest } = folder;
+        return { ...rest, myWrappedKey };
+      });
+    };
+
+    if (vault.folders) {
+      vault = { ...vault, folders: extractMyWrappedKey(vault.folders) };
+    }
+
     res.json(vault);
   } catch (error) {
     console.error('Get vault by slug error:', error);
@@ -401,9 +415,57 @@ const shareVault = async (req, res) => {
   }
 };
 
+const unshareVault = async (req, res) => {
+  try {
+    const vaultId = req.params.id;
+    const { userId } = req.body;
+
+    if (!vaultId || !userId) {
+      return res.status(400).json({ message: 'vaultId and userId are required' });
+    }
+
+    const vault = await prisma.vault.findUnique({ where: { id: vaultId } });
+    if (!vault) {
+      return res.status(404).json({ message: 'Vault not found' });
+    }
+
+    const access = await getVaultAccess(vaultId, req.user.id);
+    if (access !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (userId === req.user.id) {
+      return res.status(400).json({ message: 'Cannot remove yourself' });
+    }
+
+    await prisma.vaultPermission.deleteMany({
+      where: { vaultId, userId },
+    });
+
+    await revokeWrappedKeysForUser(vaultId, userId);
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'UNSHARE_VAULT',
+        targetType: 'Vault',
+        targetId: vaultId,
+        metadata: { vaultId, removedUserId: userId },
+      },
+    });
+
+    res.json({ message: 'Vault access removed and wrapped keys revoked' });
+  } catch (error) {
+    console.error('Unshare vault error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createVault,
   getVaults,
   getVaultBySlug,
   shareVault,
+  unshareVault,
 };

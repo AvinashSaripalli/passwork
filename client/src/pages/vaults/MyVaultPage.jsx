@@ -181,6 +181,7 @@ function MyVaultPage() {
       sharePasswordToUser({
         passwordId: selectedPassword.id,
         userId,
+        password: selectedPassword,
       })
     );
 

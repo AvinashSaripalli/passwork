@@ -6,6 +6,7 @@ import useInactivityLogout, { touchActivity } from './hooks/useInactivityLogout'
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import useLockVault from './hooks/useLockVault';
 import SessionWarningModal from './components/security/SessionWarningModal';
+import VerifyMasterPasswordModal from './components/security/VerifyMasterPasswordModal';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -17,6 +18,7 @@ import MasterProtectedRoute from './routes/MasterProtectedRoute';
 import ActivityLogPage from './pages/activity/ActivityLogPage';
 import TeamManagementPage from './pages/team/TeamManagementPage';
 import DepartmentsPage from './pages/team/DepartmentsPage';
+import MyDepartmentsPage from './pages/team/MyDepartmentsPage';
 import EditUserPage from './pages/team/EditUserPage';
 import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
@@ -26,11 +28,12 @@ import StatusBar from './components/common/StatusBar';
 
 function App() {
   const dispatch = useDispatch();
-  const { token, userLoaded, sessionWarningOpen, sessionWarningSeconds } = useSelector(
+  const { token, userLoaded, isMasterVerified, sessionMasterPassword, sessionWarningOpen, sessionWarningSeconds } = useSelector(
     (state) => state.auth
   );
   const { mode } = useSelector((state) => state.theme);
   const [initDone, setInitDone] = useState(false);
+  const [showReEntryModal, setShowReEntryModal] = useState(false);
   const lockVault = useLockVault();
 
   useInactivityLogout();
@@ -43,6 +46,12 @@ function App() {
       setInitDone(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (isMasterVerified && !sessionMasterPassword) {
+      setShowReEntryModal(true);
+    }
+  }, [isMasterVerified, sessionMasterPassword]);
 
   useEffect(() => {
     if (mode === 'dark') {
@@ -74,6 +83,11 @@ function App() {
           dispatch(dismissSessionWarning());
         }}
         onLock={() => lockVault()}
+      />
+      <VerifyMasterPasswordModal
+        open={showReEntryModal}
+        onClose={() => setShowReEntryModal(false)}
+        onVerified={() => setShowReEntryModal(false)}
       />
       <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -183,6 +197,15 @@ function App() {
         element={
           <MasterProtectedRoute>
             <DepartmentsPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/my-departments"
+        element={
+          <MasterProtectedRoute>
+            <MyDepartmentsPage />
           </MasterProtectedRoute>
         }
       />

@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, ExternalLink, Globe, KeyRound, Search, Share2, User, Folder, ChevronRight, Lock, EyeOff } from 'lucide-react';
+import { Eye, ExternalLink, Globe, KeyRound, Search, Share2, User, Folder, ChevronRight, Lock } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppLayout from '../../components/layout/AppLayout';
 import ViewSharedPasswordModal from './ViewSharedPasswordModal';
 import { fetchSharedWithMe } from '../../features/sharedPasswords/sharedPasswordsSlice';
-import { decryptText, isEncryptedFormat } from '../../utils/crypto';
+import { decryptText, isEncryptedFormat, rsaDecrypt, decryptTextWithAesKey } from '../../utils/crypto';
 import api from '../../services/api';
 
 function SharedWithMePage() {
   const dispatch = useDispatch();
-  const { sharedWithMe, loading, error } = useSelector((state) => state.sharedPasswords);
+  const { sharedWithMe, loading, error, userEncryptionSalt, userKeyPair } = useSelector(
+    (state) => state.sharedPasswords
+  );
+  const { sessionMasterPassword, sessionRsaPrivateKey } = useSelector(
+    (state) => state.auth
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedShare, setSelectedShare] = useState(null);
-  const [decryptOpen, setDecryptOpen] = useState(false);
-  const [decryptItem, setDecryptItem] = useState(null);
-  const [masterPassword, setMasterPassword] = useState('');
-  const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState('');
   const [decryptedData, setDecryptedData] = useState({});
@@ -33,48 +34,64 @@ function SharedWithMePage() {
     );
   }, [sharedWithMe, searchTerm]);
 
-  const handleView = (item) => {
+  const handleView = async (item) => {
     const password = item.password;
     const isEncrypted = isEncryptedFormat(password?.encryptedPassword);
 
-    if (isEncrypted) {
-      setDecryptItem(item);
-      setMasterPassword('');
-      setDecryptError('');
-      setDecryptOpen(true);
-    } else {
+    if (!isEncrypted) {
       setSelectedShare(item);
       setViewOpen(true);
+      return;
     }
-  };
 
-  const handleDecrypt = async () => {
-    if (!masterPassword || !decryptItem) return;
+    if (!sessionMasterPassword || !sessionRsaPrivateKey) {
+      setDecryptError('Please verify your master password first');
+      setSelectedShare(item);
+      setDecryptError('Unable to decrypt. Please verify your master password.');
+      return;
+    }
+
     try {
       setDecrypting(true);
       setDecryptError('');
-      const password = decryptItem.password;
-      const ownerSalt = password?.vault?.owner?.encryptionSalt;
-      if (!ownerSalt) { setDecryptError('Owner encryption salt not available'); return; }
 
-      const decrypted = await decryptText(password.encryptedPassword, masterPassword, ownerSalt);
-      let noteText = null;
-      if (password.encryptedNote && isEncryptedFormat(password.encryptedNote)) {
-        noteText = await decryptText(password.encryptedNote, masterPassword, ownerSalt);
+      let decrypted, noteText = null;
+
+      if (item.encryptedItemKey && sessionRsaPrivateKey) {
+        const aesKeyJwk = await rsaDecrypt(item.encryptedItemKey, sessionRsaPrivateKey);
+        const encryptedData = item.reEncryptedPassword || password.encryptedPassword;
+        decrypted = await decryptTextWithAesKey(encryptedData, aesKeyJwk);
+
+        if (item.reEncryptedNote || (password.encryptedNote && isEncryptedFormat(password.encryptedNote))) {
+          const noteData = item.reEncryptedNote || password.encryptedNote;
+          noteText = await decryptTextWithAesKey(noteData, aesKeyJwk);
+        }
+      } else {
+        const ownerSalt = password?.vault?.owner?.encryptionSalt;
+        if (!ownerSalt) {
+          setDecryptError('Encryption salt not available');
+          return;
+        }
+        decrypted = await decryptText(password.encryptedPassword, sessionMasterPassword, ownerSalt);
+
+        if (password.encryptedNote && isEncryptedFormat(password.encryptedNote)) {
+          noteText = await decryptText(password.encryptedNote, sessionMasterPassword, ownerSalt);
+        }
       }
 
       setDecryptedData((prev) => ({
         ...prev,
-        [decryptItem.id]: { password: decrypted, note: noteText },
+        [item.id]: { password: decrypted, note: noteText },
       }));
-      setDecryptOpen(false);
-      setMasterPassword('');
-      setSelectedShare(decryptItem);
+      setSelectedShare(item);
       setViewOpen(true);
 
       api.post(`/passwords/${password.id}/view-log`).catch(() => {});
-    } catch { setDecryptError('Wrong master password'); }
-    finally { setDecrypting(false); }
+    } catch {
+      setDecryptError('Decryption failed. Your master password may be incorrect or the item was not re-encrypted for you.');
+    } finally {
+      setDecrypting(false);
+    }
   };
 
   return (
@@ -187,9 +204,13 @@ function SharedWithMePage() {
                       </p>
                     </div>
 
-                    <button onClick={() => handleView(item)} className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                      <Eye size={14} />
-                      View
+                    <button
+                      onClick={() => handleView(item)}
+                      disabled={decrypting}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-60"
+                    >
+                      {decrypting ? <Lock size={14} className="animate-spin" /> : <Eye size={14} />}
+                      {decrypting ? 'Decrypting...' : 'View'}
                     </button>
                   </div>
                 ))}
@@ -198,41 +219,24 @@ function SharedWithMePage() {
           )}
         </div>
 
-        {decryptOpen && (
+        {decryptError && (
           <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl dark:bg-slate-800">
               <div className="px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Encrypted Password</h2>
-                <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">Enter the owner's master password to decrypt</p>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Decryption Error</h2>
               </div>
-              <div className="px-6 py-5 space-y-4">
-                {decryptError && (
-                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">{decryptError}</div>
-                )}
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1.5 dark:text-slate-400">Owner: {decryptItem?.password?.vault?.owner?.fullName || 'Unknown'}</p>
-                  <div className="relative">
-                    <input
-                      type={showMasterPassword ? 'text' : 'password'}
-                      value={masterPassword}
-                      onChange={(e) => { setMasterPassword(e.target.value); setDecryptError(''); }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleDecrypt()}
-                      placeholder="Owner's master password"
-                      autoFocus
-                      className="w-full h-11 rounded-xl border border-slate-200 px-4 pr-11 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/20"
-                    />
-                    <button type="button" onClick={() => setShowMasterPassword(!showMasterPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300">
-                      {showMasterPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-                </div>
-                <button onClick={handleDecrypt} disabled={decrypting || !masterPassword} className="w-full h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                  {decrypting ? <><Lock size={16} className="animate-spin" /> Decrypting...</> : <><Lock size={16} /> Decrypt</>}
-                </button>
+              <div className="px-6 py-5">
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">{decryptError}</div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-3">
+                  This password may not have been re-encrypted for your key pair. Ask the sender to share it again.
+                </p>
               </div>
               <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-end dark:bg-slate-800/50 dark:border-slate-700">
-                <button onClick={() => { setDecryptOpen(false); setDecryptItem(null); setMasterPassword(''); setDecryptError(''); }} className="h-9 px-4 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700">
-                  Cancel
+                <button
+                  onClick={() => setDecryptError('')}
+                  className="h-9 px-4 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Close
                 </button>
               </div>
             </div>

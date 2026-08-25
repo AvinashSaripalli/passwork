@@ -69,6 +69,119 @@ export async function decryptFields(encryptedFields, masterPassword, salt) {
   }
 }
 
+export async function generateKeyPair() {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: 'SHA-256',
+    },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+  const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+  return { publicKeyJwk, privateKeyJwk };
+}
+
+async function getDeriveKeyForPrivateKey(masterPassword, salt) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(masterPassword),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: getSaltBytes(salt),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const privateKeyData = encoder.encode(JSON.stringify(privateKeyJwk));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    aesKey,
+    privateKeyData
+  );
+  return JSON.stringify({
+    iv: Array.from(iv),
+    content: Array.from(new Uint8Array(encrypted)),
+  });
+}
+
+export async function decryptPrivateKey(encryptedPrivateKeyStr, masterPassword, salt) {
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const parsed = JSON.parse(encryptedPrivateKeyStr);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
+    aesKey,
+    new Uint8Array(parsed.content)
+  );
+  return JSON.parse(decoder.decode(decrypted));
+}
+
+async function importPublicKey(publicKeyJwk) {
+  return crypto.subtle.importKey(
+    'jwk',
+    publicKeyJwk,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['encrypt']
+  );
+}
+
+async function importPrivateKey(privateKeyJwk) {
+  return crypto.subtle.importKey(
+    'jwk',
+    privateKeyJwk,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['decrypt']
+  );
+}
+
+export async function rsaEncrypt(plaintext, publicKeyJwk) {
+  const publicKey = await importPublicKey(publicKeyJwk);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    publicKey,
+    encoder.encode(plaintext)
+  );
+  return JSON.stringify(Array.from(new Uint8Array(encrypted)));
+}
+
+export async function rsaDecrypt(ciphertextStr, privateKeyJwk) {
+  const privateKey = await importPrivateKey(privateKeyJwk);
+  const ciphertext = new Uint8Array(JSON.parse(ciphertextStr));
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    ciphertext
+  );
+  return decoder.decode(decrypted);
+}
+
+export async function reWrapItemKey(encryptedItemKeyStr, oldPrivateKeyJwk, newPublicKeyJwk) {
+  const aesKeyJson = await rsaDecrypt(encryptedItemKeyStr, oldPrivateKeyJwk);
+  return rsaEncrypt(aesKeyJson, newPublicKeyJwk);
+}
+
 function base32ToBytes(base32) {
   if (!base32) return new Uint8Array();
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

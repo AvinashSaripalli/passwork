@@ -66,6 +66,9 @@ function Sidebar() {
     { name: 'Personal Vault', path: '/my-vault', icon: LockKeyhole },
     { name: 'Shared With Me', path: '/shared-with-me', icon: Share2 },
   ];
+  const deptMenu = user?.role !== 'ADMIN'
+    ? [{ name: 'My Departments', path: '/my-departments', icon: Building2 }]
+    : [];
   const securityMenu = [{ name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount }];
   const toolsMenu = [{ name: 'Password Generator', icon: Sparkles }];
   const adminMenu = user?.role === 'ADMIN'
@@ -151,6 +154,7 @@ function Sidebar() {
 
           {renderMenuSection('Overview', overviewMenu)}
           {renderMenuSection('Vaults', vaultMenu)}
+          {renderMenuSection('Departments', deptMenu)}
 
           {/* Company Vault */}
           <div>
