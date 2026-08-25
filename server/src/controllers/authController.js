@@ -194,6 +194,7 @@ const register = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        encryptionSalt: user.encryptionSalt,
         hasMasterPassword: false,
         masterPasswordHint: null,
       },

@@ -7,26 +7,26 @@ datasource db {
 }
 
 model Department {
-  id          String                 @id
-  name        String                 @unique
-  description String?
-  parentId    String?
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  parent      Department?            @relation("DepartmentTree", fields: [parentId], references: [id])
-  subDepartments Department[]        @relation("DepartmentTree")
-  members     DepartmentMember[]
-  permissions DepartmentPermission[]
+  id             String                 @id
+  name           String                 @unique
+  description    String?
+  parentId       String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  parent         Department?            @relation("DepartmentTree", fields: [parentId], references: [id])
+  subDepartments Department[]           @relation("DepartmentTree")
+  members        DepartmentMember[]
+  permissions    DepartmentPermission[]
 }
 
 model DepartmentMember {
-  id          String         @id
+  id           String         @id
   departmentId String
-  userId      String
-  memberRole  DepartmentRole @default(MEMBER)
-  createdAt   DateTime       @default(now())
-  department  Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  memberRole   DepartmentRole @default(MEMBER)
+  createdAt    DateTime       @default(now())
+  department   Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([departmentId, userId])
 }
@@ -39,53 +39,53 @@ model DepartmentPermission {
   accessLevel  DepartmentAccessLevel
   createdAt    DateTime              @default(now())
   department   Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  vault        Vault?                @relation(fields: [vaultId], references: [id], onDelete: Cascade)
   folder       Folder?               @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  vault        Vault?                @relation(fields: [vaultId], references: [id], onDelete: Cascade)
 
   @@index([vaultId])
   @@index([folderId])
 }
 
 model User {
-  id                 String             @id
-  fullName           String
-  email              String             @unique
-  passwordHash       String
-  masterPasswordHash String?
-  masterPasswordHint String?
-  role               Role               @default(USER)
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime @updatedAt
-  encryptionSalt     String?
-  activityLogs       ActivityLog[]
-  folderPermissions  FolderPermission[]
-  sentInvitations    Invitation[]       @relation("InvitationSender")
-  createdPasswords   PasswordEntry[]    @relation("PasswordCreatedBy")
-  ownedVaults        Vault[]            @relation("VaultOwner")
-  vaultPermissions   VaultPermission[]
-  departmentMemberships DepartmentMember[]
-  sharedPasswordsReceived PasswordShare[] @relation("PasswordSharedWith")
-  sharedPasswordsSent     PasswordShare[] @relation("PasswordSharedBy")
+  id                      String             @id
+  fullName                String
+  email                   String             @unique
+  passwordHash            String
+  masterPasswordHash      String?
+  masterPasswordHint      String?
+  role                    Role               @default(USER)
+  isActive                Boolean            @default(true)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  encryptionSalt          String?
+  activityLogs            ActivityLog[]
+  departmentMemberships   DepartmentMember[]
+  folderPermissions       FolderPermission[]
+  sentInvitations         Invitation[]       @relation("InvitationSender")
+  loginActivities         LoginActivity[]
+  notifications           Notification[]
+  createdPasswords        PasswordEntry[]    @relation("PasswordCreatedBy")
+  sharedPasswordsSent     PasswordShare[]    @relation("PasswordSharedBy")
+  sharedPasswordsReceived PasswordShare[]    @relation("PasswordSharedWith")
   keyPair                 UserKeyPair?
-  loginActivities LoginActivity[]
-  notifications Notification[]
+  ownedVaults             Vault[]            @relation("VaultOwner")
+  vaultPermissions        VaultPermission[]
 }
 
 model Folder {
-  id          String             @id
-  name        String
-  vaultId     String
-  parentId    String?
-  wrappedKeys Json?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  parent      Folder?            @relation("FolderTree", fields: [parentId], references: [id])
-  children    Folder[]           @relation("FolderTree")
-  vault       Vault              @relation(fields: [vaultId], references: [id], onDelete: Cascade)
-  permissions FolderPermission[]
-  passwords   PasswordEntry[]
+  id                    String                 @id
+  name                  String
+  vaultId               String
+  parentId              String?
+  wrappedKeys           Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
   departmentPermissions DepartmentPermission[]
+  parent                Folder?                @relation("FolderTree", fields: [parentId], references: [id])
+  children              Folder[]               @relation("FolderTree")
+  vault                 Vault                  @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  permissions           FolderPermission[]
+  passwords             PasswordEntry[]
 }
 
 model FolderPermission {
@@ -101,18 +101,18 @@ model FolderPermission {
 }
 
 model Vault {
-  id          String            @id
-  name        String
-  type        VaultType
-  slug        String            @unique
-  ownerId     String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  folders     Folder[]
-  passwords   PasswordEntry[]
-  owner       User              @relation("VaultOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  permissions VaultPermission[]
+  id                    String                 @id
+  name                  String
+  type                  VaultType
+  slug                  String                 @unique
+  ownerId               String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
   departmentPermissions DepartmentPermission[]
+  folders               Folder[]
+  passwords             PasswordEntry[]
+  owner                 User                   @relation("VaultOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  permissions           VaultPermission[]
 }
 
 model VaultPermission {
@@ -153,11 +153,11 @@ model PasswordEntry {
   isSensitive       Boolean         @default(false)
   createdBy         User            @relation("PasswordCreatedBy", fields: [createdById], references: [id])
   folder            Folder?         @relation(fields: [folderId], references: [id])
-  vault             Vault           @relation(fields: [vaultId], references: [id], onDelete: Cascade)
-  tags              PasswordTag[]
-  shares            PasswordShare[]
   parent            PasswordEntry?  @relation("EntryTree", fields: [parentId], references: [id], onDelete: Cascade)
   children          PasswordEntry[] @relation("EntryTree")
+  vault             Vault           @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  shares            PasswordShare[]
+  tags              PasswordTag[]
 
   @@index([vaultId])
   @@index([folderId])
@@ -209,34 +209,59 @@ model Invitation {
 }
 
 model UserKeyPair {
-  id                 String   @id
-  userId             String   @unique
+  id                  String   @id
+  userId              String   @unique
   encryptedPrivateKey Json
-  publicKey          Json
-  salt               String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicKey           Json
+  salt                String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PasswordShare {
-  id                String    @id
-  passwordId        String
-  sharedWithId      String
-  sharedById        String
-  encryptedItemKey  String?
+  id                  String        @id
+  passwordId          String
+  sharedWithId        String
+  sharedById          String
+  encryptedItemKey    String?
   reEncryptedPassword String?
-  reEncryptedNote   String?
-  reEncryptedFields String?
-  createdAt         DateTime  @default(now())
-
-  password   PasswordEntry @relation(fields: [passwordId], references: [id], onDelete: Cascade)
-  sharedWith User          @relation("PasswordSharedWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
-  sharedBy   User          @relation("PasswordSharedBy", fields: [sharedById], references: [id], onDelete: Cascade)
+  reEncryptedNote     String?
+  reEncryptedFields   String?
+  createdAt           DateTime      @default(now())
+  password            PasswordEntry @relation(fields: [passwordId], references: [id], onDelete: Cascade)
+  sharedBy            User          @relation("PasswordSharedBy", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWith          User          @relation("PasswordSharedWith", fields: [sharedWithId], references: [id], onDelete: Cascade)
 
   @@unique([passwordId, sharedWithId])
   @@index([sharedWithId])
   @@index([sharedById])
+}
+
+model LoginActivity {
+  id        String      @id
+  userId    String
+  ipAddress String?
+  userAgent String?
+  status    LoginStatus
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum Role {
@@ -327,32 +352,4 @@ enum NotificationType {
   SHARE_VAULT
   WEAK_PASSWORD
   DEPARTMENT
-}
-
-model LoginActivity {
-  id        String      @id
-  userId    String
-  ipAddress String?
-  userAgent String?
-  status    LoginStatus
-  createdAt DateTime    @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model Notification {
-  id        String         @id
-  userId    String
-  title     String
-  message   String
-  type      NotificationType
-  isRead    Boolean        @default(false)
-  metadata  Json?
-  createdAt DateTime       @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
 }

@@ -9,6 +9,8 @@ const storeKeyPair = async (req, res) => {
       return res.status(400).json({ message: 'encryptedPrivateKey, publicKey, and salt are required' });
     }
 
+    console.log('Storing keypair for user:', req.user.id, 'pubKey type:', typeof publicKey, 'encPrivKey type:', typeof encryptedPrivateKey);
+
     const existing = await prisma.userKeyPair.findUnique({
       where: { userId: req.user.id },
     });
@@ -16,14 +18,18 @@ const storeKeyPair = async (req, res) => {
     if (existing) {
       await prisma.userKeyPair.update({
         where: { userId: req.user.id },
-        data: { encryptedPrivateKey, publicKey, salt },
+        data: {
+          encryptedPrivateKey: typeof encryptedPrivateKey === 'string' ? JSON.parse(encryptedPrivateKey) : encryptedPrivateKey,
+          publicKey,
+          salt,
+        },
       });
     } else {
       await prisma.userKeyPair.create({
         data: {
           id: await generateId('keyPair'),
           userId: req.user.id,
-          encryptedPrivateKey,
+          encryptedPrivateKey: typeof encryptedPrivateKey === 'string' ? JSON.parse(encryptedPrivateKey) : encryptedPrivateKey,
           publicKey,
           salt,
         },
@@ -32,8 +38,8 @@ const storeKeyPair = async (req, res) => {
 
     res.status(201).json({ message: 'Key pair stored successfully' });
   } catch (error) {
-    console.error('Store key pair error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Store key pair error:', error.message, error.stack);
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 };
 
