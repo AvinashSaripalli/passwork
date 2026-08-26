@@ -89,7 +89,8 @@ function App() {
             dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
           }
         }
-      } catch {
+      } catch (err) {
+        console.error('Failed to load encryption keys:', err);
         if (!cancelled) {
           window.location.href = '/enter-master-password';
         }

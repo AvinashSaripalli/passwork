@@ -12,6 +12,7 @@ const {
   getFolderById,
   updateFolderPermission,
   deleteFolderPermission,
+  getFolderWrapRecipients,
 } = require('../controllers/folderController');
 const { requireFolderAccess } = require('../utils/permissions');
 
@@ -53,6 +54,12 @@ router.delete(
   authenticate,
   requireFolderAccess(['ADMINISTRATOR']),
   deleteFolder
+);
+
+router.get(
+  '/:id/wrap-recipients',
+  authenticate,
+  getFolderWrapRecipients
 );
 
 router.get(

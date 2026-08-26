@@ -162,21 +162,16 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
       const wrappedUpdates = [];
       for (const pw of folderPasswords) {
-        const existingWrappedKey = pw.wrappedKeys?.[recipient.id];
-        if (existingWrappedKey) continue;
-
-        const myWrappedKey = pw.myWrappedKey;
-        if (!myWrappedKey) continue;
+        if (!pw.myWrappedKey) continue;
 
         try {
-          const aesKeyJwk = await unwrapItemKey(myWrappedKey, sessionRsaPrivateKey);
+          // Send only the recipient's addition — the server merges it into
+          // the existing wrappedKeys so other users keep their access.
+          const aesKeyJwk = await unwrapItemKey(pw.myWrappedKey, sessionRsaPrivateKey);
           const newWrappedKey = await wrapItemKey(aesKeyJwk, recipientPublicKey);
           wrappedUpdates.push({
             id: pw.id,
-            wrappedKeys: {
-              ...(pw.wrappedKeys || {}),
-              [recipient.id]: newWrappedKey,
-            },
+            wrappedKeys: { [recipient.id]: newWrappedKey },
           });
         } catch {
           // skip items that fail to re-wrap

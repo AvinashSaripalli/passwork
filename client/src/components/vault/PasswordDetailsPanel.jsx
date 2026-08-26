@@ -16,9 +16,10 @@ import {
   selectPassword,
 } from '../../features/vault/vaultSlice';
 import ConfirmModal from '../common/ConfirmModal';
-import { unwrapItemKey, decryptTextWithAesKey, decryptText, safeDecryptText } from '../../utils/crypto';
+import { unwrapItemKey, decryptTextWithAesKey, decryptText, safeDecryptText, decryptPrivateKey } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
+import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
 function PasswordDetailsPanel() {
   const dispatch = useDispatch();
@@ -36,6 +37,7 @@ function PasswordDetailsPanel() {
     token,
     sessionMasterPassword,
     sessionRsaPrivateKey,
+    sessionRsaPublicKey,
   } = useSelector((state) => state.auth);
 
   const selectedPassword = passwords.find(
@@ -69,9 +71,6 @@ function PasswordDetailsPanel() {
     user?.role === 'ADMIN' ||
     ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
 
-  const isFolderAdministrator =
-    user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR';
-
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [decryptedPasswords, setDecryptedPasswords] = useState({});
   const [decryptedNotes, setDecryptedNotes] = useState({});
@@ -95,8 +94,6 @@ function PasswordDetailsPanel() {
       </div>
     );
   }
-
-  const requireVerify = () => false;
 
   const handleAction = (actionName, item) => {
     if (!item) return;
@@ -129,10 +126,43 @@ function PasswordDetailsPanel() {
     return item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) || [];
   };
 
-  const decryptPasswordItem = async (item) => {
-    if (item.myWrappedKey && sessionRsaPrivateKey) {
+  const ensureSessionKeys = async () => {
+    let rsaPrivateKey = sessionRsaPrivateKey;
+    let rsaPublicKey = sessionRsaPublicKey;
+
+    // Self-heal: if session keys were lost (refresh, stale unlock), recover
+    // them from the server-stored keypair using the session master password.
+    if ((!rsaPrivateKey || !rsaPublicKey) && user?.id && sessionMasterPassword) {
       try {
-        const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
+        const kpRes = await api.get('/keypair', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (kpRes.data?.encryptedPrivateKey) {
+          rsaPrivateKey = await decryptPrivateKey(
+            kpRes.data.encryptedPrivateKey,
+            sessionMasterPassword,
+            kpRes.data.salt
+          );
+          dispatch(setSessionRsaPrivateKey(rsaPrivateKey));
+          if (kpRes.data.publicKey) {
+            rsaPublicKey = kpRes.data.publicKey;
+            dispatch(setSessionRsaPublicKey(rsaPublicKey));
+          }
+        }
+      } catch (err) {
+        console.error('Key recovery failed:', err);
+      }
+    }
+
+    return { rsaPrivateKey };
+  };
+
+  const decryptPasswordItem = async (item) => {
+    const { rsaPrivateKey } = await ensureSessionKeys();
+
+    if (item.myWrappedKey && rsaPrivateKey) {
+      try {
+        const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, rsaPrivateKey);
         const originalPassword = await decryptTextWithAesKey(
           item.encryptedPassword,
           aesKeyJwk
@@ -169,6 +199,29 @@ function PasswordDetailsPanel() {
     throw new Error('Failed to decrypt. This password may not have been shared with you.');
   };
 
+  const decryptWithRefreshRetry = async (passwordId) => {
+    const activePassword = getPasswordById(passwordId);
+
+    try {
+      return await decryptPasswordItem(activePassword);
+    } catch (error) {
+      // Another key-holder may have wrapped this item for us after the
+      // list was loaded — fetch the fresh copy once and retry.
+      try {
+        const res = await api.get(`/passwords/${passwordId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.myWrappedKey) {
+          return await decryptPasswordItem(res.data);
+        }
+      } catch {
+        // fall through
+      }
+
+      throw error;
+    }
+  };
+
   const executeAction = async (actionName, passwordId) => {
     try {
       const activePassword = getPasswordById(passwordId);
@@ -185,7 +238,7 @@ function PasswordDetailsPanel() {
         return;
       }
 
-      const { originalPassword, originalNote } = await decryptPasswordItem(activePassword);
+      const { originalPassword, originalNote } = await decryptWithRefreshRetry(passwordId);
 
       if (actionName === 'view' && canView) {
         setDecryptedPasswords((prev) => ({

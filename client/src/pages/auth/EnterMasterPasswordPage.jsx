@@ -87,8 +87,15 @@ function EnterMasterPasswordPage() {
             dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
           }
         }
-      } catch {
-        // key pair may not exist yet
+      } catch (err) {
+        // Keys are mandatory for encrypting/decrypting vault items —
+        // surface the failure instead of continuing with a broken session.
+        console.error('Failed to load encryption keys:', err);
+        setError(
+          'Vault unlocked, but encryption keys could not be loaded. Please try again.'
+        );
+        dispatch(setMasterVerified(false));
+        return;
       }
 
       navigate('/dashboard');

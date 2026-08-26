@@ -172,6 +172,78 @@ const getVaultAccess = async (vaultId, userId) => {
   return getHighestVaultLevel([permission?.accessLevel, departmentAccess]);
 };
 
+const getFolderAuthorizedUserIds = async (folderId) => {
+  try {
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      select: {
+        vault: { select: { type: true, ownerId: true } },
+        permissions: { select: { userId: true } },
+      },
+    });
+
+    if (!folder) return [];
+
+    if (folder.vault.type === 'PERSONAL') {
+      return [folder.vault.ownerId];
+    }
+
+    const userIds = new Set([folder.vault.ownerId]);
+
+    for (const perm of folder.permissions) {
+      if (perm.userId) userIds.add(perm.userId);
+    }
+
+    const [admins, grants] = await Promise.all([
+      prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } }),
+      prisma.departmentPermission.findMany({
+        where: { folderId },
+        select: { departmentId: true },
+      }),
+    ]);
+
+    for (const admin of admins) {
+      userIds.add(admin.id);
+    }
+
+    if (grants.length > 0) {
+      const [allDepartments, memberships] = await Promise.all([
+        prisma.department.findMany({ select: { id: true, parentId: true } }),
+        prisma.departmentMember.findMany({
+          select: { departmentId: true, userId: true },
+        }),
+      ]);
+
+      const childrenMap = new Map();
+      for (const dept of allDepartments) {
+        if (!childrenMap.has(dept.parentId)) childrenMap.set(dept.parentId, []);
+        childrenMap.get(dept.parentId).push(dept.id);
+      }
+
+      const expanded = new Set();
+      const stack = grants.map((grant) => grant.departmentId);
+
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (expanded.has(current)) continue;
+        expanded.add(current);
+        for (const child of childrenMap.get(current) || []) stack.push(child);
+      }
+
+      for (const member of memberships) {
+        if (member.userId && expanded.has(member.departmentId)) {
+          userIds.add(member.userId);
+        }
+      }
+    }
+
+    return [...userIds];
+  } catch (error) {
+    console.error('Get folder authorized user ids error:', error);
+    return [];
+  }
+};
+
 const requireFolderAccess = (allowedLevels = []) => {
   return async (req, res, next) => {
     try {
@@ -222,6 +294,7 @@ module.exports = {
   getDepartmentIdsWithAncestors,
   getVaultAccess,
   getFolderAccess,
+  getFolderAuthorizedUserIds,
   requireFolderAccess,
   DEPT_TO_FOLDER_MAP,
 };

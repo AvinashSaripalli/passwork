@@ -281,9 +281,13 @@ export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
   });
 }
 
-export async function decryptPrivateKey(encryptedPrivateKeyStr, masterPassword, salt) {
+export async function decryptPrivateKey(encryptedPrivateKey, masterPassword, salt) {
   const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
-  const parsed = JSON.parse(encryptedPrivateKeyStr);
+  // Prisma returns Json columns already parsed — accept object or string.
+  const parsed =
+    typeof encryptedPrivateKey === 'string'
+      ? JSON.parse(encryptedPrivateKey)
+      : encryptedPrivateKey;
   const decrypted = await window.crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
     aesKey,

@@ -14,8 +14,10 @@ import FolderHistoryPanel from '../../components/folder/FolderHistoryPanel';
 import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, encryptTextWithAesKey, wrapItemKey, isEncryptedFormat } from '../../utils/crypto';
+import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, decryptPrivateKey, encryptTextWithAesKey, wrapItemKey, isEncryptedFormat } from '../../utils/crypto';
+import { getWrapRecipients, getPublicKeyForUser, wrapItemKeysForUsers } from '../../utils/keyWrapping';
 import { showToast } from '../../utils/toast';
+import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -98,39 +100,46 @@ function VaultPage() {
       !sessionRsaPublicKey
     ) return;
 
-    const unmigratedPasswords = passwords.filter((p) => !p.myWrappedKey && p.encryptedPassword);
+    const itemsMissingMyKey = passwords.filter(
+      (p) => !p.myWrappedKey && p.encryptedPassword
+    );
+    const itemsWithMyKey = passwords.filter((p) => p.myWrappedKey);
 
-    if (unmigratedPasswords.length === 0) return;
+    if (itemsWithMyKey.length === 0 && itemsMissingMyKey.length === 0) return;
 
     let cancelled = false;
 
-    const migrate = async () => {
-      const publicKeysCache = {};
+    const heal = async () => {
+      const updates = [];
 
-      const getPublicKeyForUser = async (uid) => {
-        if (publicKeysCache[uid]) return publicKeysCache[uid];
-        try {
-          const res = await api.get(`/keypair/${uid}/public`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          publicKeysCache[uid] = res.data.publicKey;
-          return res.data.publicKey;
-        } catch {
-          return null;
-        }
-      };
-
-      const getAllUserIdsWithAccess = (folderId) => {
-        const folder = folders.find((f) => f.id === folderId);
-        if (!folder?.permissions) return [];
-        return folder.permissions.map((p) => p.userId).filter(Boolean);
-      };
-
-      const passwordUpdates = [];
-
-      for (const item of unmigratedPasswords) {
+      // 1) Self-heal: I hold the item key — wrap it for any authorized user
+      //    who is missing an entry (admins, department members, later-added members).
+      for (const item of itemsWithMyKey) {
         if (cancelled) return;
-        if (!sessionMasterPassword) return;
+
+        try {
+          const recipientIds = await getWrapRecipients(item.folderId, user?.id);
+          const have = new Set(item.wrappedUserIds || [user?.id]);
+          const missing = recipientIds.filter((uid) => !have.has(uid));
+
+          if (missing.length === 0) continue;
+
+          const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
+          const additions = await wrapItemKeysForUsers(aesKeyJwk, missing);
+
+          if (Object.keys(additions).length > 0) {
+            updates.push({ id: item.id, wrappedKeys: additions });
+          }
+        } catch {
+          // skip items that fail to re-wrap
+        }
+      }
+
+      // 2) Legacy migration: no wrapped key for me — try master-password
+      //    decryption (works when I created the item under the old scheme),
+      //    re-encrypt with a fresh AES key and wrap for all recipients.
+      for (const item of itemsMissingMyKey) {
+        if (cancelled || !sessionMasterPassword) break;
 
         try {
           const plainPassword = await safeDecryptText(
@@ -154,18 +163,10 @@ function VaultPage() {
             }
           }
 
-          const userIds = getAllUserIdsWithAccess(item.folderId);
-          if (!userIds.includes(user.id)) userIds.push(user.id);
+          const recipientIds = await getWrapRecipients(item.folderId, user?.id);
+          const wrappedKeys = await wrapItemKeysForUsers(aesKeyJwk, recipientIds);
 
-          const wrappedKeys = {};
-          for (const uid of userIds) {
-            const pubKey = await getPublicKeyForUser(uid);
-            if (pubKey) {
-              wrappedKeys[uid] = await wrapItemKey(aesKeyJwk, pubKey);
-            }
-          }
-
-          passwordUpdates.push({
+          updates.push({
             id: item.id,
             encryptedPassword: reEncrypted,
             ...(reEncryptedNote !== undefined && { encryptedNote: reEncryptedNote }),
@@ -176,11 +177,11 @@ function VaultPage() {
         }
       }
 
-      if (cancelled || passwordUpdates.length === 0) return;
+      if (cancelled || updates.length === 0) return;
 
       try {
         await api.post('/passwords/batch-wrap', {
-          wrappedPasswords: passwordUpdates,
+          wrappedPasswords: updates,
         }, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -192,10 +193,10 @@ function VaultPage() {
       }
     };
 
-    migrate();
+    heal();
 
     return () => { cancelled = true; };
-  }, [passwords, selectedVault?.id, sessionRsaPrivateKey, sessionRsaPublicKey, sessionMasterPassword, user, token, dispatch, folders]);
+  }, [passwords, selectedVault?.id, sessionRsaPrivateKey, sessionRsaPublicKey, sessionMasterPassword, user, token, dispatch]);
 
   const folderPasswords = useMemo(() => {
     if (!selectedFolder?.id) return [];
@@ -236,15 +237,38 @@ function VaultPage() {
 
   const handleExportVerified = async () => {
     try {
+      // Self-heal session keys before attempting bulk decryption.
+      let rsaKey = sessionRsaPrivateKey;
+      if (!rsaKey && user?.id && sessionMasterPassword) {
+        try {
+          const kpRes = await api.get('/keypair', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (kpRes.data?.encryptedPrivateKey) {
+            rsaKey = await decryptPrivateKey(
+              kpRes.data.encryptedPrivateKey,
+              sessionMasterPassword,
+              kpRes.data.salt
+            );
+            dispatch(setSessionRsaPrivateKey(rsaKey));
+            if (kpRes.data.publicKey) {
+              dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
+            }
+          }
+        } catch (err) {
+          console.error('Key recovery failed during export:', err);
+        }
+      }
+
       const rows = [];
 
       for (const item of folderPasswords) {
         let originalPassword = '';
         let originalNote = '';
 
-        if (item.myWrappedKey && sessionRsaPrivateKey) {
+        if (item.myWrappedKey && rsaKey) {
           try {
-            const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
+            const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, rsaKey);
             originalPassword = await decryptTextWithAesKey(item.encryptedPassword, aesKeyJwk);
             originalNote = item.encryptedNote
               ? await decryptTextWithAesKey(item.encryptedNote, aesKeyJwk)
@@ -442,41 +466,36 @@ function VaultPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const allPasswords = passwordsRes.data || [];
-      const folderPasswords = allPasswords.filter((pw) => pw.folderId === selectedFolder.id);
+      const currentFolderPasswords = allPasswords.filter((pw) => pw.folderId === selectedFolder.id);
 
-      const folderRes = await api.get(`/folders/${selectedFolder.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const folderData = folderRes.data;
-      const permissions = folderData?.permissions || [];
+      let recipientIds = [];
+      try {
+        const recipientsRes = await api.get(`/folders/${selectedFolder.id}/wrap-recipients`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        recipientIds = recipientsRes.data?.userIds || [];
+      } catch {
+        recipientIds = [];
+      }
 
-      const memberIds = permissions
-        .map((p) => p.userId || p.user?.id)
-        .filter((id) => id && id !== user.id);
+      if (!recipientIds.includes(user.id)) recipientIds.push(user.id);
 
-      if (memberIds.length === 0) {
+      if (recipientIds.length <= 1) {
         showToast('No other members to wrap keys for', 'error');
         return;
       }
 
       const publicKeysCache = {};
-      for (const memberId of memberIds) {
-        try {
-          const keyRes = await api.get(`/keypair/${memberId}/public`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (keyRes.data?.publicKey) {
-            publicKeysCache[memberId] = keyRes.data.publicKey;
-          }
-        } catch {
-          // skip
-        }
+      for (const memberId of recipientIds) {
+        if (memberId === user.id) continue;
+        const publicKey = await getPublicKeyForUser(memberId);
+        if (publicKey) publicKeysCache[memberId] = publicKey;
       }
 
       let wrappedCount = 0;
       const wrappedUpdates = [];
 
-      for (const pw of folderPasswords) {
+      for (const pw of currentFolderPasswords) {
         const myWrappedKey = pw.myWrappedKey;
         if (!myWrappedKey) continue;
 
@@ -487,28 +506,22 @@ function VaultPage() {
           continue;
         }
 
-        const newWrappedKeys = { [user.id]: myWrappedKey };
-        let changed = false;
+        const have = new Set(pw.wrappedUserIds || [user.id]);
+        const missingMembers = recipientIds.filter(
+          (memberId) => memberId !== user.id && !have.has(memberId) && publicKeysCache[memberId]
+        );
 
-        for (const memberId of memberIds) {
-          if (newWrappedKeys[memberId]) continue;
+        if (missingMembers.length === 0) continue;
 
-          const memberPublicKey = publicKeysCache[memberId];
-          if (!memberPublicKey) continue;
+        // Send only the additions — the server merges them into the
+        // existing wrappedKeys so nobody else loses access.
+        const additions = await wrapItemKeysForUsers(aesKeyJwk, missingMembers);
 
-          try {
-            newWrappedKeys[memberId] = await wrapItemKey(aesKeyJwk, memberPublicKey);
-            changed = true;
-            wrappedCount++;
-          } catch {
-            // skip
-          }
-        }
-
-        if (changed) {
+        if (Object.keys(additions).length > 0) {
+          wrappedCount += Object.keys(additions).length;
           wrappedUpdates.push({
             id: pw.id,
-            wrappedKeys: newWrappedKeys,
+            wrappedKeys: additions,
           });
         }
       }
@@ -520,7 +533,7 @@ function VaultPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         dispatch(fetchPasswordsByVault(selectedVault.id));
-        showToast(`Wrapped keys for ${wrappedCount} passwords`);
+        showToast(`Wrapped keys for ${wrappedCount} members`);
       } else {
         showToast('All passwords already have wrapped keys for members');
       }

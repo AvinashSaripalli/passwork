@@ -36,7 +36,10 @@ export async function verifyMasterPassword(
     return true;
   }
 
-  if (local === false) {
+  // A sample-based "false" is NOT definitive: owned items encrypted with
+  // per-item AES keys can never validate locally. Only trust a negative
+  // result when the cryptographic verifier exists.
+  if (local === false && effectiveVerifier) {
     return false;
   }
 

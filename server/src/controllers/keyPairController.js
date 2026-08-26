@@ -184,37 +184,59 @@ const reWrapVaultKeys = async (req, res) => {
     const { folders, passwords } = req.body;
     const userId = req.user.id;
 
-    const operations = [];
+    let count = 0;
 
-    if (folders && Array.isArray(folders)) {
-      for (const item of folders) {
-        if (!item.id || !item.wrappedKeys) continue;
-        operations.push(
-          prisma.folder.update({
+    await prisma.$transaction(async (tx) => {
+      if (Array.isArray(folders)) {
+        for (const item of folders) {
+          if (!item.id || !item.wrappedKeys) continue;
+
+          const existing = await tx.folder.findUnique({
             where: { id: item.id },
-            data: { wrappedKeys: item.wrappedKeys },
-          })
-        );
-      }
-    }
+            select: { wrappedKeys: true },
+          });
 
-    if (passwords && Array.isArray(passwords)) {
-      for (const item of passwords) {
-        if (!item.id || !item.wrappedKeys) continue;
-        operations.push(
-          prisma.passwordEntry.update({
+          // Replace only the caller's own entry — preserve everyone else's
+          // wrapped keys (their public keys are still valid).
+          const mergedWrappedKeys = {
+            ...(existing?.wrappedKeys || {}),
+          };
+          delete mergedWrappedKeys[userId];
+          Object.assign(mergedWrappedKeys, item.wrappedKeys);
+
+          await tx.folder.update({
             where: { id: item.id },
-            data: { wrappedKeys: item.wrappedKeys },
-          })
-        );
+            data: { wrappedKeys: mergedWrappedKeys },
+          });
+          count += 1;
+        }
       }
-    }
 
-    if (operations.length > 0) {
-      await prisma.$transaction(operations);
-    }
+      if (Array.isArray(passwords)) {
+        for (const item of passwords) {
+          if (!item.id || !item.wrappedKeys) continue;
 
-    res.json({ message: 'Vault keys re-wrapped successfully', count: operations.length });
+          const existing = await tx.passwordEntry.findUnique({
+            where: { id: item.id },
+            select: { wrappedKeys: true },
+          });
+
+          const mergedWrappedKeys = {
+            ...(existing?.wrappedKeys || {}),
+          };
+          delete mergedWrappedKeys[userId];
+          Object.assign(mergedWrappedKeys, item.wrappedKeys);
+
+          await tx.passwordEntry.update({
+            where: { id: item.id },
+            data: { wrappedKeys: mergedWrappedKeys },
+          });
+          count += 1;
+        }
+      }
+    });
+
+    res.json({ message: 'Vault keys re-wrapped successfully', count });
   } catch (error) {
     console.error('Re-wrap vault keys error:', error);
     res.status(500).json({ message: 'Server error' });

@@ -12,6 +12,7 @@ import {
   reWrapItemKey,
   rsaDecrypt,
   rsaEncrypt,
+  isEncryptedFormat,
 } from '../../utils/crypto';
 import {
   clearSecureSession,
@@ -150,6 +151,7 @@ export const changeMasterPassword = createAsyncThunk(
     try {
       const { auth } = thunkAPI.getState();
       const salt = auth.user.encryptionSalt;
+      const userId = auth.user.id;
       const oldPrivateKey = thunkAPI.getState().auth.sessionRsaPrivateKey;
 
       const ownedRes = await api.get('/passwords/owned');
@@ -157,26 +159,44 @@ export const changeMasterPassword = createAsyncThunk(
 
       const reencrypted = [];
       for (const pw of ownedPasswords) {
-        const decrypted = await decryptText(
-          pw.encryptedPassword,
-          currentMasterPassword,
-          salt
-        );
+        // Items encrypted with per-item AES keys (wrapped-keys scheme) are
+        // not derived from the master password — skip them; their wrapped
+        // keys are re-wrapped separately below.
+        if (!pw.encryptedPassword || isEncryptedFormat(pw.encryptedPassword)) {
+          continue;
+        }
+
+        let decrypted;
+        try {
+          decrypted = await decryptText(
+            pw.encryptedPassword,
+            currentMasterPassword,
+            salt
+          );
+        } catch {
+          // Not decryptable with the current master password — leave as-is.
+          continue;
+        }
+
         const newEncrypted = await encryptText(decrypted, newMasterPassword, salt);
 
         const update = { id: pw.id, encryptedPassword: newEncrypted };
 
-        if (pw.encryptedNote) {
-          const decryptedNote = await decryptText(
-            pw.encryptedNote,
-            currentMasterPassword,
-            salt
-          );
-          update.encryptedNote = await encryptText(
-            decryptedNote,
-            newMasterPassword,
-            salt
-          );
+        if (pw.encryptedNote && isEncryptedFormat(pw.encryptedNote)) {
+          try {
+            const decryptedNote = await decryptText(
+              pw.encryptedNote,
+              currentMasterPassword,
+              salt
+            );
+            update.encryptedNote = await encryptText(
+              decryptedNote,
+              newMasterPassword,
+              salt
+            );
+          } catch {
+            // skip note that cannot be decrypted
+          }
         }
 
         if (pw.encryptedFields) {
@@ -263,7 +283,7 @@ export const changeMasterPassword = createAsyncThunk(
               const newWrappedKey = await rsaEncrypt(aesKeyJson, newKeyPair.publicKeyJwk);
               reWrappedFolders.push({
                 id: item.id,
-                wrappedKeys: { [user.id]: newWrappedKey },
+                wrappedKeys: { [userId]: newWrappedKey },
               });
             } catch {
               // skip
@@ -277,7 +297,7 @@ export const changeMasterPassword = createAsyncThunk(
               const newWrappedKey = await rsaEncrypt(aesKeyJson, newKeyPair.publicKeyJwk);
               reWrappedPasswords.push({
                 id: item.id,
-                wrappedKeys: { [user.id]: newWrappedKey },
+                wrappedKeys: { [userId]: newWrappedKey },
               });
             } catch {
               // skip

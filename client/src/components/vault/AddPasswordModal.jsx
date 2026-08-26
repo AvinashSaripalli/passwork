@@ -6,10 +6,15 @@ import {
   createPassword,
 } from '../../features/vault/vaultSlice';
 import TagInput from '../common/TagInput';
-import { encryptTextWithAesKey, wrapItemKey } from '../../utils/crypto';
+import { encryptTextWithAesKey, wrapItemKey, decryptPrivateKey } from '../../utils/crypto';
+import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
 import api from '../../services/api';
+import {
+  setSessionRsaPrivateKey,
+  setSessionRsaPublicKey,
+} from '../../features/auth/authSlice';
 
 const SUGGESTED_TAGS = [
   'Production',
@@ -43,9 +48,7 @@ function AddPasswordModal() {
     folders,
   } = useSelector((state) => state.vault);
 
-  const { user, sessionMasterPassword, sessionRsaPublicKey } = useSelector((state) => state.auth);
-
-  const isAdminUser = user?.role === 'ADMIN';
+  const { user, sessionMasterPassword, sessionRsaPublicKey, sessionRsaPrivateKey } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -146,6 +149,38 @@ function AddPasswordModal() {
     try {
       if (!payload) return;
 
+      let rsaPrivateKey = sessionRsaPrivateKey;
+      let rsaPublicKey = sessionRsaPublicKey;
+
+      // Self-heal: if session keys were lost (refresh, race), recover them
+      // from the server-stored keypair using the session master password.
+      if ((!rsaPrivateKey || !rsaPublicKey) && user?.id && sessionMasterPassword) {
+        try {
+          const kpRes = await api.get('/keypair');
+          if (kpRes.data?.encryptedPrivateKey) {
+            rsaPrivateKey = await decryptPrivateKey(
+              kpRes.data.encryptedPrivateKey,
+              sessionMasterPassword,
+              kpRes.data.salt
+            );
+            dispatch(setSessionRsaPrivateKey(rsaPrivateKey));
+            if (kpRes.data.publicKey) {
+              rsaPublicKey = kpRes.data.publicKey;
+              dispatch(setSessionRsaPublicKey(rsaPublicKey));
+            }
+          }
+        } catch (err) {
+          console.error('Key recovery failed:', err);
+        }
+      }
+
+      if (!user?.id || !rsaPrivateKey || !rsaPublicKey) {
+        setLocalError(
+          'Encryption keys are not ready. Please lock the vault and re-enter your master password, then try again.'
+        );
+        return;
+      }
+
       const { encryptedData: encryptedPassword, aesKeyJwk } = await encryptTextWithAesKey(
         payload.password
       );
@@ -155,33 +190,25 @@ function AddPasswordModal() {
         : { encryptedData: '' };
 
       const wrappedKeys = {};
-      if (aesKeyJwk && sessionRsaPublicKey) {
-        const wrappedKey = await wrapItemKey(aesKeyJwk, sessionRsaPublicKey);
-        wrappedKeys[user.id] = wrappedKey;
-      }
-
       if (aesKeyJwk) {
-        try {
-          const folderRes = await api.get(`/folders/${payload.folderId}`);
-          const folderData = folderRes.data;
-          const permissions = folderData?.permissions || [];
+        // Wrap for every authorized user: folder members, admins and
+        // department members — so anyone with access can decrypt.
+        const recipientIds = await getWrapRecipients(
+          payload.folderId,
+          user.id,
+          selectedFolder?.permissions || []
+        );
 
-          for (const perm of permissions) {
-            const memberId = perm.userId || perm.user?.id;
-            if (!memberId || memberId === user.id) continue;
+        const wrapped = await wrapItemKeysForUsers(aesKeyJwk, recipientIds);
+        Object.assign(wrappedKeys, wrapped);
 
-            try {
-              const keyRes = await api.get(`/keypair/${memberId}/public`);
-              const memberPublicKey = keyRes.data?.publicKey;
-              if (memberPublicKey) {
-                wrappedKeys[memberId] = await wrapItemKey(aesKeyJwk, memberPublicKey);
-              }
-            } catch {
-              // skip members whose public key is not available
-            }
+        // Always guarantee the creator can decrypt their own item.
+        if (!wrappedKeys[user.id] && sessionRsaPublicKey) {
+          try {
+            wrappedKeys[user.id] = await wrapItemKey(aesKeyJwk, sessionRsaPublicKey);
+          } catch {
+            // skip
           }
-        } catch {
-          // best-effort: continue with just creator's wrapped key
         }
       }
 
@@ -216,8 +243,13 @@ function AddPasswordModal() {
       } else {
         setLocalError(result.payload || 'Failed to create password');
       }
-    } catch {
-      setLocalError('Encryption failed. Please try again.');
+    } catch (err) {
+      console.error('Add password failed:', err);
+      setLocalError(
+        err?.response?.data?.message ||
+          err?.message ||
+          'Encryption failed. Please try again.'
+      );
     }
   };
 

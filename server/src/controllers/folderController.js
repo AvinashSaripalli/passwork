@@ -1,5 +1,9 @@
 const prisma = require('../config/prisma');
-const { isAdminUser, getFolderAccess } = require('../utils/permissions');
+const {
+  isAdminUser,
+  getFolderAccess,
+  getFolderAuthorizedUserIds,
+} = require('../utils/permissions');
 const generateId = require('../utils/generateId');
 
 const ALLOWED_ACCESS_LEVELS = [
@@ -534,6 +538,31 @@ const deleteFolder = async (req, res) => {
   }
 };
 
+const getFolderWrapRecipients = async (req, res) => {
+  try {
+    const folder = await prisma.folder.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found' });
+    }
+
+    const access = await getFolderAccess(folder.id, req.user.id);
+    if (!access) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const userIds = await getFolderAuthorizedUserIds(folder.id);
+
+    res.json({ userIds });
+  } catch (error) {
+    console.error('Get folder wrap recipients error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createFolder,
   updateFolder,
@@ -544,4 +573,5 @@ module.exports = {
   deleteFolder,
   updateFolderPermission,
   deleteFolderPermission,
+  getFolderWrapRecipients,
 };

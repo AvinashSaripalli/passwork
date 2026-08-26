@@ -1,5 +1,10 @@
 const prisma = require('../config/prisma');
-const { getFolderAccess, isAdminUser } = require('../utils/permissions');
+const {
+  getFolderAccess,
+  isAdminUser,
+  getFolderAuthorizedUserIds,
+  getVaultAccess,
+} = require('../utils/permissions');
 const XLSX = require('xlsx');
 const generateId = require('../utils/generateId');
 
@@ -13,6 +18,16 @@ const getVaultType = async (vaultId) => {
   } catch {
     return null;
   }
+};
+
+const toClientPassword = (pw, userId) => {
+  const allWrappedKeys = pw.wrappedKeys || {};
+  const { wrappedKeys, ...rest } = pw;
+  return {
+    ...rest,
+    myWrappedKey: allWrappedKeys[userId] || null,
+    wrappedUserIds: Object.keys(allWrappedKeys),
+  };
 };
 
 const createPassword = async (req, res) => {
@@ -39,6 +54,23 @@ const createPassword = async (req, res) => {
     const access = await getFolderAccess(folderId, req.user.id);
     if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const vaultTypeForGuard = await getVaultType(vaultId);
+
+    // Company/client vault items must carry a wrapped key for the creator,
+    // otherwise the AES item key would be discarded and the data lost forever.
+    if (
+      vaultTypeForGuard &&
+      vaultTypeForGuard !== 'PERSONAL' &&
+      (!wrappedKeys ||
+        typeof wrappedKeys !== 'object' ||
+        !wrappedKeys[req.user.id])
+    ) {
+      return res.status(400).json({
+        message:
+          'Encryption keys not ready — missing wrapped key for creator. Please re-enter your master password and retry.',
+      });
     }
 
     const isWeak = req.body.isWeak ?? false;
@@ -110,7 +142,7 @@ const createPassword = async (req, res) => {
     const myWrappedKey = allWrappedKeys[req.user.id] || null;
     const { wrappedKeys: _wk, ...passwordData } = passwordEntry;
 
-    res.status(201).json({ ...passwordData, myWrappedKey });
+    res.status(201).json({ ...passwordData, myWrappedKey, wrappedUserIds: Object.keys(allWrappedKeys) });
   } catch (error) {
     console.error('Create password error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -136,6 +168,25 @@ const importPasswordsFromExcel = async (req, res) => {
     const access = await getFolderAccess(folderId, req.user.id);
     if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const vaultTypeForGuard = await getVaultType(vaultId);
+
+    for (const row of rows) {
+      if (!row.name || !row.login || !row.encryptedPassword) continue;
+
+      if (
+        vaultTypeForGuard &&
+        vaultTypeForGuard !== 'PERSONAL' &&
+        (!row.wrappedKeys ||
+          typeof row.wrappedKeys !== 'object' ||
+          !row.wrappedKeys[req.user.id])
+      ) {
+        return res.status(400).json({
+          message:
+            'Encryption keys not ready — missing wrapped key for importer. Please re-enter your master password and retry.',
+        });
+      }
     }
 
     const createdPasswords = [];
@@ -182,12 +233,7 @@ const importPasswordsFromExcel = async (req, res) => {
       createdPasswords.push(created);
     }
 
-    const result = createdPasswords.map((pw) => {
-      const allWrappedKeys = pw.wrappedKeys || {};
-      const myWrappedKey = allWrappedKeys[req.user.id] || null;
-      const { wrappedKeys: _wk, ...rest } = pw;
-      return { ...rest, myWrappedKey };
-    });
+    const result = createdPasswords.map((pw) => toClientPassword(pw, req.user.id));
 
     res.json({
       message: 'Imported successfully',
@@ -245,12 +291,7 @@ const getPasswordsByVault = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const result = passwords.map((pw) => {
-      const allWrappedKeys = pw.wrappedKeys || {};
-      const myWrappedKey = allWrappedKeys[userId] || null;
-      const { wrappedKeys, ...rest } = pw;
-      return { ...rest, myWrappedKey };
-    });
+    const result = passwords.map((pw) => toClientPassword(pw, userId));
 
     res.json(result);
   } catch (error) {
@@ -301,10 +342,13 @@ const getPasswordById = async (req, res) => {
     });
 
     const allWrappedKeys = password.wrappedKeys || {};
-    const myWrappedKey = allWrappedKeys[req.user.id] || null;
     const { wrappedKeys, ...passwordData } = password;
 
-    res.json({ ...passwordData, myWrappedKey });
+    res.json({
+      ...passwordData,
+      myWrappedKey: allWrappedKeys[req.user.id] || null,
+      wrappedUserIds: Object.keys(allWrappedKeys),
+    });
   } catch (error) {
     console.error('Get password by id error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -344,6 +388,25 @@ const updatePassword = async (req, res) => {
       wrappedKeys,
       tags,
     } = req.body;
+
+    const vaultTypeForGuard = await getVaultType(existingPassword.vaultId);
+
+    // When the secret itself is re-encrypted, a wrapped key for the editor is
+    // mandatory — otherwise every other user (and possibly the editor) would
+    // permanently lose decrypt access.
+    if (
+      vaultTypeForGuard &&
+      vaultTypeForGuard !== 'PERSONAL' &&
+      encryptedPassword !== undefined &&
+      (!wrappedKeys ||
+        typeof wrappedKeys !== 'object' ||
+        !wrappedKeys[req.user.id])
+    ) {
+      return res.status(400).json({
+        message:
+          'Encryption keys not ready — missing wrapped key for editor. Please re-enter your master password and retry.',
+      });
+    }
 
     const cleanTags = Array.isArray(tags)
       ? tags
@@ -423,10 +486,13 @@ const updatePassword = async (req, res) => {
     });
 
     const allWrappedKeysUpdated = updatedPassword.wrappedKeys || {};
-    const myWrappedKey = allWrappedKeysUpdated[req.user.id] || null;
     const { wrappedKeys: _wk, ...passwordData } = updatedPassword;
 
-    res.json({ ...passwordData, myWrappedKey });
+    res.json({
+      ...passwordData,
+      myWrappedKey: allWrappedKeysUpdated[req.user.id] || null,
+      wrappedUserIds: Object.keys(allWrappedKeysUpdated),
+    });
   } catch (error) {
     console.error('Update password error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -603,11 +669,7 @@ const getPasswordsOwnedByUser = async (req, res) => {
 const getItemsNeedingWrapping = async (req, res) => {
   try {
     const { vaultId } = req.params;
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ message: 'userId query param is required' });
-    }
+    const userId = req.user.id;
 
     const vault = await prisma.vault.findUnique({
       where: { id: vaultId },
@@ -622,7 +684,49 @@ const getItemsNeedingWrapping = async (req, res) => {
       return res.status(400).json({ message: 'Personal vaults do not support key wrapping' });
     }
 
-    const result = await getItemsNeedingWrapping(vaultId, userId);
+    const access = await getVaultAccess(vaultId, userId);
+    if (!access) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const passwords = await prisma.passwordEntry.findMany({
+      where: { vaultId },
+      select: {
+        id: true,
+        name: true,
+        folderId: true,
+        wrappedKeys: true,
+      },
+    });
+
+    const recipientsCache = {};
+    const result = [];
+
+    for (const pw of passwords) {
+      const allWrappedKeys = pw.wrappedKeys || {};
+      const myWrappedKey = allWrappedKeys[userId];
+
+      // Only report items the caller can actually unwrap (they are the
+      // ones who can re-wrap for missing recipients).
+      if (!myWrappedKey) continue;
+
+      if (pw.folderId && !recipientsCache[pw.folderId]) {
+        recipientsCache[pw.folderId] = await getFolderAuthorizedUserIds(pw.folderId);
+      }
+
+      const recipientIds = pw.folderId ? recipientsCache[pw.folderId] : [];
+      const missingUserIds = recipientIds.filter((uid) => !allWrappedKeys[uid]);
+
+      if (missingUserIds.length > 0) {
+        result.push({
+          id: pw.id,
+          name: pw.name,
+          folderId: pw.folderId,
+          missingUserIds,
+        });
+      }
+    }
+
     res.json(result);
   } catch (error) {
     console.error('Get items needing wrapping error:', error);
@@ -638,42 +742,68 @@ const batchWrapKeys = async (req, res) => {
       return res.status(400).json({ message: 'wrappedFolders or wrappedPasswords is required' });
     }
 
-    const operations = [];
+    let count = 0;
 
-    if (wrappedFolders && Array.isArray(wrappedFolders)) {
-      for (const item of wrappedFolders) {
-        if (!item.folderId || !item.wrappedKeys) continue;
-        operations.push(
-          prisma.folder.update({
+    await prisma.$transaction(async (tx) => {
+      if (Array.isArray(wrappedFolders)) {
+        for (const item of wrappedFolders) {
+          if (!item.folderId || !item.wrappedKeys) continue;
+
+          const existing = await tx.folder.findUnique({
             where: { id: item.folderId },
-            data: { wrappedKeys: item.wrappedKeys },
-          })
-        );
-      }
-    }
+            select: { wrappedKeys: true },
+          });
 
-    if (wrappedPasswords && Array.isArray(wrappedPasswords)) {
-      for (const item of wrappedPasswords) {
-        const passwordId = item.id || item.passwordId;
-        if (!passwordId || !item.wrappedKeys) continue;
-        operations.push(
-          prisma.passwordEntry.update({
+          // Merge so we never wipe other users' wrapped keys.
+          const mergedWrappedKeys = {
+            ...(existing?.wrappedKeys || {}),
+            ...item.wrappedKeys,
+          };
+
+          await tx.folder.update({
+            where: { id: item.folderId },
+            data: { wrappedKeys: mergedWrappedKeys },
+          });
+          count += 1;
+        }
+      }
+
+      if (Array.isArray(wrappedPasswords)) {
+        for (const item of wrappedPasswords) {
+          const passwordId = item.id || item.passwordId;
+          if (!passwordId) continue;
+
+          const hasKeyAdditions =
+            item.wrappedKeys && Object.keys(item.wrappedKeys).length > 0;
+          if (!hasKeyAdditions && !item.encryptedPassword && item.encryptedNote === undefined) {
+            continue;
+          }
+
+          const existing = await tx.passwordEntry.findUnique({
+            where: { id: passwordId },
+            select: { wrappedKeys: true },
+          });
+
+          // Merge so we never wipe other users' wrapped keys.
+          const mergedWrappedKeys = {
+            ...(existing?.wrappedKeys || {}),
+            ...(item.wrappedKeys || {}),
+          };
+
+          await tx.passwordEntry.update({
             where: { id: passwordId },
             data: {
-              wrappedKeys: item.wrappedKeys,
+              wrappedKeys: mergedWrappedKeys,
               ...(item.encryptedPassword && { encryptedPassword: item.encryptedPassword }),
               ...(item.encryptedNote !== undefined && { encryptedNote: item.encryptedNote }),
             },
-          })
-        );
+          });
+          count += 1;
+        }
       }
-    }
+    });
 
-    if (operations.length > 0) {
-      await prisma.$transaction(operations);
-    }
-
-    res.json({ message: 'Keys wrapped successfully', count: operations.length });
+    res.json({ message: 'Keys wrapped successfully', count });
   } catch (error) {
     console.error('Batch wrap keys error:', error);
     res.status(500).json({ message: 'Server error' });
