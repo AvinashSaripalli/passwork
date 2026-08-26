@@ -16,7 +16,7 @@ import {
   selectPassword,
 } from '../../features/vault/vaultSlice';
 import ConfirmModal from '../common/ConfirmModal';
-import { unwrapItemKey, decryptTextWithAesKey } from '../../utils/crypto';
+import { unwrapItemKey, decryptTextWithAesKey, decryptText, safeDecryptText } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
@@ -34,6 +34,7 @@ function PasswordDetailsPanel() {
   const {
     user,
     token,
+    sessionMasterPassword,
     sessionRsaPrivateKey,
   } = useSelector((state) => state.auth);
 
@@ -141,11 +142,31 @@ function PasswordDetailsPanel() {
           : '';
         return { originalPassword, originalNote };
       } catch {
-        throw new Error('Failed to decrypt. This password may not have been shared with you.');
+        // fall through to master password fallback
       }
     }
 
-    throw new Error('This password has not been shared with you. Ask the folder owner to re-share it.');
+    if (sessionMasterPassword && item.createdBy?.encryptionSalt) {
+      try {
+        const originalPassword = await decryptText(
+          item.encryptedPassword,
+          sessionMasterPassword,
+          item.createdBy.encryptionSalt
+        );
+        const originalNote = item.encryptedNote
+          ? await safeDecryptText(
+              item.encryptedNote,
+              sessionMasterPassword,
+              item.createdBy.encryptionSalt
+            )
+          : '';
+        return { originalPassword, originalNote };
+      } catch {
+        // fall through to error
+      }
+    }
+
+    throw new Error('Failed to decrypt. This password may not have been shared with you.');
   };
 
   const executeAction = async (actionName, passwordId) => {

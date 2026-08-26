@@ -106,7 +106,11 @@ const createPassword = async (req, res) => {
       },
     });
 
-    res.status(201).json(passwordEntry);
+    const allWrappedKeys = passwordEntry.wrappedKeys || {};
+    const myWrappedKey = allWrappedKeys[req.user.id] || null;
+    const { wrappedKeys: _wk, ...passwordData } = passwordEntry;
+
+    res.status(201).json({ ...passwordData, myWrappedKey });
   } catch (error) {
     console.error('Create password error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -156,6 +160,7 @@ const importPasswordsFromExcel = async (req, res) => {
           isOld: row.isOld ?? false,
           isAtRisk: row.isAtRisk ?? false,
           isSensitive: row.isSensitive ?? false,
+          wrappedKeys: row.wrappedKeys || null,
           tags: {
             create: Array.isArray(row.tags)
               ? row.tags.map((tagName) => ({
@@ -177,9 +182,17 @@ const importPasswordsFromExcel = async (req, res) => {
       createdPasswords.push(created);
     }
 
+    const result = createdPasswords.map((pw) => {
+      const allWrappedKeys = pw.wrappedKeys || {};
+      const myWrappedKey = allWrappedKeys[req.user.id] || null;
+      const { wrappedKeys: _wk, ...rest } = pw;
+      return { ...rest, myWrappedKey };
+    });
+
     res.json({
       message: 'Imported successfully',
-      count: createdPasswords.length,
+      count: result.length,
+      passwords: result,
     });
   } catch (error) {
     console.error('Import error:', error);
@@ -409,7 +422,11 @@ const updatePassword = async (req, res) => {
       },
     });
 
-    res.json(updatedPassword);
+    const allWrappedKeysUpdated = updatedPassword.wrappedKeys || {};
+    const myWrappedKey = allWrappedKeysUpdated[req.user.id] || null;
+    const { wrappedKeys: _wk, ...passwordData } = updatedPassword;
+
+    res.json({ ...passwordData, myWrappedKey });
   } catch (error) {
     console.error('Update password error:', error);
     res.status(500).json({ message: 'Server error' });

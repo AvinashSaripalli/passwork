@@ -14,7 +14,7 @@ import FolderHistoryPanel from '../../components/folder/FolderHistoryPanel';
 import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, encryptTextWithAesKey, wrapItemKey } from '../../utils/crypto';
+import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, encryptTextWithAesKey, wrapItemKey, isEncryptedFormat } from '../../utils/crypto';
 import { showToast } from '../../utils/toast';
 
 import * as XLSX from 'xlsx';
@@ -136,6 +136,11 @@ function VaultPage() {
           const plainPassword = await safeDecryptText(
             item.encryptedPassword, sessionMasterPassword, user?.encryptionSalt
           );
+
+          if (!plainPassword || (isEncryptedFormat(plainPassword))) {
+            continue;
+          }
+
           const { encryptedData: reEncrypted, aesKeyJwk } = await encryptTextWithAesKey(plainPassword);
 
           let reEncryptedNote = undefined;
@@ -143,7 +148,7 @@ function VaultPage() {
             const plainNote = await safeDecryptText(
               item.encryptedNote, sessionMasterPassword, user?.encryptionSalt
             );
-            if (plainNote) {
+            if (plainNote && !isEncryptedFormat(plainNote)) {
               const { encryptedData } = await encryptTextWithAesKey(plainNote);
               reEncryptedNote = encryptedData;
             }
@@ -272,11 +277,8 @@ function VaultPage() {
         workbook,
         `${selectedFolder?.name || selectedVault?.name || 'passwords'}.xlsx`
       );
-
-      setExportVerifyOpen(false);
     } catch {
       showToast('Export failed. Unable to decrypt passwords.', 'error');
-      setExportVerifyOpen(false);
     }
   };
 
@@ -314,6 +316,35 @@ function VaultPage() {
         defval: '',
       });
 
+      const publicKeysCache = {};
+      const getPublicKeyForUser = async (uid) => {
+        if (publicKeysCache[uid]) return publicKeysCache[uid];
+        try {
+          const res = await api.get(`/keypair/${uid}/public`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          publicKeysCache[uid] = res.data.publicKey;
+          return res.data.publicKey;
+        } catch {
+          return null;
+        }
+      };
+
+      let folderMemberIds = [];
+      try {
+        const folderRes = await api.get(`/folders/${selectedFolder.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const permissions = folderRes.data?.permissions || [];
+        folderMemberIds = permissions.map((p) => p.userId || p.user?.id).filter(Boolean);
+      } catch {
+        // best-effort
+      }
+
+      if (!folderMemberIds.includes(user.id)) {
+        folderMemberIds.push(user.id);
+      }
+
       const encryptedRows = [];
 
       for (const row of rows) {
@@ -341,6 +372,20 @@ function VaultPage() {
               .filter(Boolean)
           : [];
 
+        const wrappedKeys = {};
+        if (aesKeyJwk) {
+          for (const uid of folderMemberIds) {
+            const pubKey = await getPublicKeyForUser(uid);
+            if (pubKey) {
+              try {
+                wrappedKeys[uid] = await wrapItemKey(aesKeyJwk, pubKey);
+              } catch {
+                // skip
+              }
+            }
+          }
+        }
+
         encryptedRows.push({
           name: String(name).trim(),
           login: String(login).trim(),
@@ -348,12 +393,12 @@ function VaultPage() {
           encryptedNote,
           url: String(url).trim(),
           tags,
+          wrappedKeys: Object.keys(wrappedKeys).length > 0 ? wrappedKeys : null,
         });
       }
 
       if (!encryptedRows.length) {
         showToast('No valid rows found. Required columns: Name, Login, Password', 'error');
-        setImportVerifyOpen(false);
         setImportFile(null);
         return;
       }
@@ -375,11 +420,9 @@ function VaultPage() {
       dispatch(fetchPasswordsByVault(selectedVault.id));
       showToast(`${encryptedRows.length} passwords imported successfully`);
 
-      setImportVerifyOpen(false);
       setImportFile(null);
     } catch (error) {
       showToast(error.response?.data?.message || 'Failed to import Excel', 'error');
-      setImportVerifyOpen(false);
     }
   };
 
@@ -444,7 +487,7 @@ function VaultPage() {
           continue;
         }
 
-        const newWrappedKeys = { ...(pw.wrappedKeys || {}) };
+        const newWrappedKeys = { [user.id]: myWrappedKey };
         let changed = false;
 
         for (const memberId of memberIds) {

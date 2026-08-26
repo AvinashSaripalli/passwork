@@ -61,7 +61,6 @@ function AddPasswordModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [pendingPayload, setPendingPayload] = useState(null);
 
   if (!isAddPasswordModalOpen) return null;
 
@@ -82,7 +81,6 @@ function AddPasswordModal() {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setLocalError('');
-    setPendingPayload(null);
   };
 
   const handleClose = () => {
@@ -129,7 +127,7 @@ function AddPasswordModal() {
       return;
     }
 
-    setPendingPayload({
+    const payload = {
       name: formData.name.trim(),
       login: formData.login.trim(),
       password: formData.encryptedPassword,
@@ -139,21 +137,21 @@ function AddPasswordModal() {
       folderId: selectedFolderId,
       tags: formData.tags,
       isSensitive: formData.isSensitive,
-    });
+    };
 
-    await handleAdminVerified();
+    await handleAdminVerified(payload);
   };
 
-  const handleAdminVerified = async () => {
+  const handleAdminVerified = async (payload) => {
     try {
-      if (!pendingPayload) return;
+      if (!payload) return;
 
       const { encryptedData: encryptedPassword, aesKeyJwk } = await encryptTextWithAesKey(
-        pendingPayload.password
+        payload.password
       );
 
-      const { encryptedData: encryptedNote } = pendingPayload.note
-        ? await encryptTextWithAesKey(pendingPayload.note)
+      const { encryptedData: encryptedNote } = payload.note
+        ? await encryptTextWithAesKey(payload.note)
         : { encryptedData: '' };
 
       const wrappedKeys = {};
@@ -164,7 +162,7 @@ function AddPasswordModal() {
 
       if (aesKeyJwk) {
         try {
-          const folderRes = await api.get(`/folders/${pendingPayload.folderId}`);
+          const folderRes = await api.get(`/folders/${payload.folderId}`);
           const folderData = folderRes.data;
           const permissions = folderData?.permissions || [];
 
@@ -187,20 +185,20 @@ function AddPasswordModal() {
         }
       }
 
-      const strength = getPasswordStrength(pendingPayload.password);
+      const strength = getPasswordStrength(payload.password);
 
       const result = await dispatch(
         createPassword({
-          name: pendingPayload.name,
-          login: pendingPayload.login,
+          name: payload.name,
+          login: payload.login,
           encryptedPassword,
           encryptedNote,
           wrappedKeys: Object.keys(wrappedKeys).length > 0 ? wrappedKeys : null,
-          url: pendingPayload.url,
-          vaultId: pendingPayload.vaultId,
-          folderId: pendingPayload.folderId,
-          tags: pendingPayload.tags,
-          isSensitive: pendingPayload.isSensitive,
+          url: payload.url,
+          vaultId: payload.vaultId,
+          folderId: payload.folderId,
+          tags: payload.tags,
+          isSensitive: payload.isSensitive,
           strengthScore:
             strength?.label === 'Strong'
               ? 90
@@ -209,7 +207,7 @@ function AddPasswordModal() {
                 : 40,
           isWeak: strength?.label === 'Weak',
           isOld: false,
-          isAtRisk: isPasswordAtRisk(pendingPayload.password),
+          isAtRisk: isPasswordAtRisk(payload.password),
         })
       );
 

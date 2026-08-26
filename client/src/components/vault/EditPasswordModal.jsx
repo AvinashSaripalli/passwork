@@ -70,7 +70,6 @@ function EditPasswordModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [pendingPayload, setPendingPayload] = useState(null);
 
   const currentFolder = folders.find((f) => f.id === formData.folderId);
 
@@ -96,7 +95,6 @@ function EditPasswordModal() {
       setLocalError('');
       setShowPassword(false);
       setShowConfirmPassword(false);
-      setPendingPayload(null);
     }
   }, [selectedPassword, isEditPasswordModalOpen]);
 
@@ -107,7 +105,6 @@ function EditPasswordModal() {
     setLocalError('');
     setShowPassword(false);
     setShowConfirmPassword(false);
-    setPendingPayload(null);
     dispatch(closeEditPasswordModal());
   };
 
@@ -147,7 +144,7 @@ function EditPasswordModal() {
       return;
     }
 
-    setPendingPayload({
+    const payload = {
       name: formData.name.trim(),
       login: formData.login.trim(),
       password: formData.encryptedPassword,
@@ -156,21 +153,21 @@ function EditPasswordModal() {
       folderId: formData.folderId,
       tags: formData.tags,
       isSensitive: formData.isSensitive,
-    });
+    };
 
-    await handleAdminVerified();
+    await handleAdminVerified(payload);
   };
 
-  const handleAdminVerified = async () => {
+  const handleAdminVerified = async (formDataPayload) => {
     try {
-      if (!pendingPayload) return;
+      if (!formDataPayload) return;
 
       const { encryptedData: encryptedPassword, aesKeyJwk } = await encryptTextWithAesKey(
-        pendingPayload.password
+        formDataPayload.password
       );
 
-      const { encryptedData: encryptedNote } = pendingPayload.note
-        ? await encryptTextWithAesKey(pendingPayload.note)
+      const { encryptedData: encryptedNote } = formDataPayload.note
+        ? await encryptTextWithAesKey(formDataPayload.note)
         : { encryptedData: '' };
 
       const wrappedKeys = {};
@@ -181,7 +178,7 @@ function EditPasswordModal() {
 
       if (aesKeyJwk) {
         try {
-          const folderRes = await api.get(`/folders/${pendingPayload.folderId}`);
+          const folderRes = await api.get(`/folders/${formDataPayload.folderId}`);
           const folderData = folderRes.data;
           const permissions = folderData?.permissions || [];
 
@@ -204,18 +201,18 @@ function EditPasswordModal() {
         }
       }
 
-      const strength = getPasswordStrength(pendingPayload.password);
+      const strength = getPasswordStrength(formDataPayload.password);
 
-      const payload = {
-        name: pendingPayload.name,
-        login: pendingPayload.login,
+      const resultPayload = {
+        name: formDataPayload.name,
+        login: formDataPayload.login,
         encryptedPassword,
         encryptedNote,
         wrappedKeys: Object.keys(wrappedKeys).length > 0 ? wrappedKeys : null,
-        url: pendingPayload.url,
-        folderId: pendingPayload.folderId,
-        tags: pendingPayload.tags,
-        isSensitive: pendingPayload.isSensitive,
+        url: formDataPayload.url,
+        folderId: formDataPayload.folderId,
+        tags: formDataPayload.tags,
+        isSensitive: formDataPayload.isSensitive,
         strengthScore:
           strength?.label === 'Strong'
             ? 90
@@ -224,19 +221,18 @@ function EditPasswordModal() {
               : 40,
         isWeak: strength?.label === 'Weak',
         isOld: isPasswordOld(selectedPassword.lastUpdatedAt, selectedPassword.createdAt),
-        isAtRisk: isPasswordAtRisk(pendingPayload.password),
+        isAtRisk: isPasswordAtRisk(formDataPayload.password),
       };
 
       const result = await dispatch(
         updatePassword({
           passwordId: selectedPassword.id,
-          payload,
+          payload: resultPayload,
         })
       );
 
       if (updatePassword.fulfilled.match(result)) {
         clearCompanyPasswordEditCache(selectedPassword.id);
-        setPendingPayload(null);
         dispatch(closeEditPasswordModal());
       } else {
         setLocalError(result.payload || 'Failed to update password');
