@@ -287,7 +287,11 @@ const getPasswordById = async (req, res) => {
       },
     });
 
-    res.json(password);
+    const allWrappedKeys = password.wrappedKeys || {};
+    const myWrappedKey = allWrappedKeys[req.user.id] || null;
+    const { wrappedKeys, ...passwordData } = password;
+
+    res.json({ ...passwordData, myWrappedKey });
   } catch (error) {
     console.error('Get password by id error:', error);
     res.status(500).json({ message: 'Server error' });

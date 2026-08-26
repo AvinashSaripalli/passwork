@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSessionAdminMasterPassword } from '../../features/auth/authSlice';
+import { setSessionAdminMasterPassword, setSessionMasterPassword } from '../../features/auth/authSlice';
 import {
   MASTER_VERIFIER_STORAGE_KEY,
 } from '../../utils/crypto';
@@ -11,6 +11,8 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const companyPasswords = useSelector((state) => state.vault.passwords);
+
+  const isAdmin = user?.role === 'ADMIN';
 
   const [masterPassword, setMasterPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -51,8 +53,6 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
       setLoading(true);
       setError('');
 
-      const isAdmin = user?.role === 'ADMIN';
-
       const verifier = isAdmin
         ? sessionStorage.getItem(MASTER_VERIFIER_STORAGE_KEY)
         : null;
@@ -64,13 +64,17 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
       );
 
       if (!verified) {
-        setError('Invalid administrator master password');
+        setError(isAdmin ? 'Invalid administrator master password' : 'Invalid master password');
         return;
       }
 
       const verifiedPassword = masterPassword;
 
-      dispatch(setSessionAdminMasterPassword(verifiedPassword));
+      if (isAdmin) {
+        dispatch(setSessionAdminMasterPassword(verifiedPassword));
+      } else {
+        dispatch(setSessionMasterPassword(verifiedPassword));
+      }
 
       setMasterPassword('');
       setShowPassword(false);
@@ -82,7 +86,7 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
         onVerified(verifiedPassword);
       }
     } catch {
-      setError('Invalid administrator master password');
+      setError(isAdmin ? 'Invalid administrator master password' : 'Invalid master password');
     } finally {
       setLoading(false);
     }
@@ -92,11 +96,11 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[70] px-4">
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
         <h2 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-          Verify Administrator Password
+          {isAdmin ? 'Verify Administrator Password' : 'Verify Master Password'}
         </h2>
 
         <p className="text-slate-500 dark:text-slate-400 mb-5 text-sm">
-          Enter administrator master password to continue.
+          {isAdmin ? 'Enter administrator master password to continue.' : 'Enter your master password to continue.'}
         </p>
 
         {error && (
@@ -109,7 +113,7 @@ function VerifyAdminMasterPasswordModal({ open, onClose, onVerified }) {
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Administrator master password"
+              placeholder={isAdmin ? 'Administrator master password' : 'Master password'}
               value={masterPassword}
               onChange={(e) => setMasterPassword(e.target.value)}
               className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-4 pr-11 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"

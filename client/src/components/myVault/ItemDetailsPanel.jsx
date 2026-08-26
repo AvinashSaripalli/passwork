@@ -27,7 +27,6 @@ import {
 import ItemTypeBadge from './ItemTypeBadge';
 import TotpField from './TotpField';
 import DecryptDialog from '../common/DecryptDialog';
-import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 
 function ItemDetailsPanel({
   item,
@@ -52,8 +51,6 @@ function ItemDetailsPanel({
   const [showDecryptDialog, setShowDecryptDialog] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState('');
-  const [verifyOpen, setVerifyOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
 
   const salt = user?.encryptionSalt;
 
@@ -91,8 +88,6 @@ function ItemDetailsPanel({
     setTotpRevealed(false);
     setShowDecryptDialog(false);
     setDecryptError('');
-    setVerifyOpen(false);
-    setPendingAction(null);
 
     if (!item || !sessionMasterPassword) return;
 
@@ -120,68 +115,19 @@ function ItemDetailsPanel({
     secureCopyText(value, `${label || 'Item'} copied`);
   };
 
-  const applyPendingAction = async (decrypted) => {
-    const action = pendingAction;
-
-    if (action?.type === 'copyPassword') {
-      copyText(decrypted.password);
-    } else if (action?.type === 'revealPassword') {
-      setDecryptedPassword(decrypted.password);
-      setShowPassword(true);
-    } else if (action?.type === 'copyField') {
-      const value = (decrypted.fields || {})[action.key];
-      copyText(value, action.key);
-    } else if (action?.type === 'revealField') {
-      setDecryptedFields(decrypted.fields);
-      setRevealed((prev) => ({ ...prev, [action.key]: true }));
-    } else if (action?.type === 'revealTotp') {
-      setDecryptedFields(decrypted.fields);
-      setTotpRevealed(true);
-    } else if (action?.type === 'copyTotp') {
-      setDecryptedFields(decrypted.fields);
-      const secret = (decrypted.fields || {}).totpSecret;
-      if (secret) {
-        const result = await generateTOTP(secret);
-        copyText(result?.code, 'Code');
-      }
-    }
-  };
-
-  const handleVerified = async (masterPassword) => {
-    try {
-      const decrypted = await decryptAll(masterPassword);
-      await applyPendingAction(decrypted);
-    } catch {
-      showToast('Failed to decrypt. Wrong master password.', 'error');
-    } finally {
-      setPendingAction(null);
-      setVerifyOpen(false);
-    }
-  };
-
   const handleDecryptDialog = async (masterPassword) => {
     try {
       setDecrypting(true);
       setDecryptError('');
       const decrypted = await decryptAll(masterPassword);
-      await applyPendingAction(decrypted);
+      applySessionDecrypt(decrypted);
       setShowDecryptDialog(false);
-      setPendingAction(null);
     } catch {
       setDecryptError('Wrong master password');
       throw new Error('Wrong master password');
     } finally {
       setDecrypting(false);
     }
-  };
-
-  const requireAccess = (action) => {
-    if (item.isSensitive) {
-      setPendingAction(action);
-      setVerifyOpen(true);
-      return false;
-    }
-    return true;
   };
 
   const applySessionDecrypt = (decrypted) => {
@@ -196,8 +142,6 @@ function ItemDetailsPanel({
       return;
     }
 
-    if (!requireAccess({ type: 'revealPassword' })) return;
-
     if (decryptedPassword !== null) {
       setShowPassword(true);
     } else if (sessionMasterPassword) {
@@ -208,19 +152,15 @@ function ItemDetailsPanel({
           setShowPassword(true);
         })
         .catch(() => {
-          setPendingAction({ type: 'revealPassword' });
           setShowDecryptDialog(true);
         })
         .finally(() => setDecrypting(false));
     } else {
-      setPendingAction({ type: 'revealPassword' });
       setShowDecryptDialog(true);
     }
   };
 
   const handlePasswordCopy = () => {
-    if (!requireAccess({ type: 'copyPassword' })) return;
-
     if (decryptedPassword !== null) {
       copyText(decryptedPassword, 'Password');
     } else if (sessionMasterPassword) {
@@ -231,21 +171,15 @@ function ItemDetailsPanel({
           copyText(decrypted.password, 'Password');
         })
         .catch(() => {
-          setPendingAction({ type: 'copyPassword' });
           setShowDecryptDialog(true);
         })
         .finally(() => setDecrypting(false));
     } else {
-      setPendingAction({ type: 'copyPassword' });
       setShowDecryptDialog(true);
     }
   };
 
   const handleFieldAction = (field, mode) => {
-    if (!requireAccess({ type: mode === 'copy' ? 'copyField' : 'revealField', key: field.key })) {
-      return;
-    }
-
     const value = (decryptedFields || {})[field.key];
 
     if (mode === 'copy' && value !== undefined && value !== null) {
@@ -271,12 +205,10 @@ function ItemDetailsPanel({
           }
         })
         .catch(() => {
-          setPendingAction({ type: mode === 'copy' ? 'copyField' : 'revealField', key: field.key });
           setShowDecryptDialog(true);
         })
         .finally(() => setDecrypting(false));
     } else {
-      setPendingAction({ type: mode === 'copy' ? 'copyField' : 'revealField', key: field.key });
       setShowDecryptDialog(true);
     }
   };
@@ -288,8 +220,6 @@ function ItemDetailsPanel({
       setTotpRevealed(false);
       return;
     }
-
-    if (!requireAccess({ type: 'revealTotp' })) return;
 
     if (totpSecret) {
       setTotpRevealed(true);
@@ -304,19 +234,15 @@ function ItemDetailsPanel({
           setTotpRevealed(true);
         })
         .catch(() => {
-          setPendingAction({ type: 'revealTotp' });
           setShowDecryptDialog(true);
         })
         .finally(() => setDecrypting(false));
     } else {
-      setPendingAction({ type: 'revealTotp' });
       setShowDecryptDialog(true);
     }
   };
 
   const handleTotpCopy = () => {
-    if (!requireAccess({ type: 'copyTotp' })) return;
-
     const copyCode = (secret) => {
       generateTOTP(secret).then((result) => copyText(result?.code, 'Code'));
     };
@@ -334,12 +260,10 @@ function ItemDetailsPanel({
           copyCode((decrypted.fields || {}).totpSecret);
         })
         .catch(() => {
-          setPendingAction({ type: 'copyTotp' });
           setShowDecryptDialog(true);
         })
         .finally(() => setDecrypting(false));
     } else {
-      setPendingAction({ type: 'copyTotp' });
       setShowDecryptDialog(true);
     }
   };
@@ -388,19 +312,9 @@ function ItemDetailsPanel({
         onClose={() => {
           setShowDecryptDialog(false);
           setDecryptError('');
-          setPendingAction(null);
         }}
         error={decryptError}
         decrypting={decrypting}
-      />
-      <VerifyMasterPasswordModal
-        open={verifyOpen}
-        onClose={() => {
-          setVerifyOpen(false);
-          setPendingAction(null);
-        }}
-        onVerified={handleVerified}
-        samples={samples}
       />
 
       <div className="flex items-start justify-between mb-6">

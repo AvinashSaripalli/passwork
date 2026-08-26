@@ -4,12 +4,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
 import { shareFolderAccess } from '../../features/vault/vaultSlice';
 import { showToast } from '../../utils/toast';
+import { unwrapItemKey, wrapItemKey } from '../../utils/crypto';
 
 const DEPT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
 
 function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector((state) => state.auth);
   const { actionLoading } = useSelector((state) => state.vault);
 
   const [activeTab, setActiveTab] = useState('USERS');
@@ -134,9 +136,60 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
     );
 
     if (shareFolderAccess.fulfilled.match(result)) {
+      await wrapKeysForNewUser(userEmail);
       handleClose();
     } else {
       setError(result.payload || 'Failed to share');
+    }
+  };
+
+  const wrapKeysForNewUser = async (recipientEmail) => {
+    try {
+      if (!sessionRsaPrivateKey || !sessionRsaPublicKey) return;
+
+      const recipientRes = await api.get(`/users/by-email/${recipientEmail}`);
+      const recipient = recipientRes.data;
+      if (!recipient?.id) return;
+
+      const recipientKeyRes = await api.get(`/keypair/${recipient.id}/public`);
+      const recipientPublicKey = recipientKeyRes.data?.publicKey;
+      if (!recipientPublicKey) return;
+
+      const passwordsRes = await api.get(`/passwords/vault/${vaultId}`);
+      const folderPasswords = (passwordsRes.data || []).filter(
+        (pw) => pw.folderId === folderId
+      );
+
+      const wrappedUpdates = [];
+      for (const pw of folderPasswords) {
+        const existingWrappedKey = pw.wrappedKeys?.[recipient.id];
+        if (existingWrappedKey) continue;
+
+        const myWrappedKey = pw.myWrappedKey;
+        if (!myWrappedKey) continue;
+
+        try {
+          const aesKeyJwk = await unwrapItemKey(myWrappedKey, sessionRsaPrivateKey);
+          const newWrappedKey = await wrapItemKey(aesKeyJwk, recipientPublicKey);
+          wrappedUpdates.push({
+            id: pw.id,
+            wrappedKeys: {
+              ...(pw.wrappedKeys || {}),
+              [recipient.id]: newWrappedKey,
+            },
+          });
+        } catch {
+          // skip items that fail to re-wrap
+        }
+      }
+
+      if (wrappedUpdates.length > 0) {
+        await api.post('/passwords/batch-wrap', {
+          wrappedPasswords: wrappedUpdates,
+        });
+      }
+    } catch {
+      // best-effort key wrapping
     }
   };
 

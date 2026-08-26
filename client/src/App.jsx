@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { dismissSessionWarning, fetchMe } from './features/auth/authSlice';
+import { dismissSessionWarning, fetchMe, setSessionRsaPrivateKey, setSessionRsaPublicKey } from './features/auth/authSlice';
 import useInactivityLogout, { touchActivity } from './hooks/useInactivityLogout';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import useLockVault from './hooks/useLockVault';
 import SessionWarningModal from './components/security/SessionWarningModal';
-import VerifyMasterPasswordModal from './components/security/VerifyMasterPasswordModal';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -25,15 +24,20 @@ import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
 import ProfilePage from './pages/profile/ProfilePage';
 import StatusBar from './components/common/StatusBar';
+import api from './services/api';
+import { decryptPrivateKey } from './utils/crypto';
 
 function App() {
   const dispatch = useDispatch();
-  const { token, userLoaded, isMasterVerified, sessionMasterPassword, sessionWarningOpen, sessionWarningSeconds } = useSelector(
-    (state) => state.auth
-  );
+  const location = useLocation();
+  const {
+    token, user, userLoaded, isMasterVerified,
+    sessionMasterPassword, sessionRsaPublicKey, sessionRsaPrivateKey,
+    sessionWarningOpen, sessionWarningSeconds,
+  } = useSelector((state) => state.auth);
   const { mode } = useSelector((state) => state.theme);
   const [initDone, setInitDone] = useState(false);
-  const [showReEntryModal, setShowReEntryModal] = useState(false);
+  const [keysLoading, setKeysLoading] = useState(false);
   const lockVault = useLockVault();
 
   useInactivityLogout();
@@ -48,18 +52,54 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isMasterVerified && !sessionMasterPassword) {
-      setShowReEntryModal(true);
-    }
-  }, [isMasterVerified, sessionMasterPassword]);
-
-  useEffect(() => {
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
   }, [mode]);
+
+  const isMasterPage = ['/enter-master-password', '/set-master-password', '/login', '/register'].includes(location.pathname);
+
+  useEffect(() => {
+    if (!initDone || !token || !isMasterVerified || isMasterPage || keysLoading) return;
+    if (sessionRsaPublicKey && sessionRsaPrivateKey) return;
+
+    if (!sessionMasterPassword) {
+      window.location.href = '/enter-master-password';
+      return;
+    }
+
+    let cancelled = false;
+    setKeysLoading(true);
+
+    (async () => {
+      try {
+        const kpRes = await api.get('/keypair');
+        if (cancelled) return;
+        if (kpRes.data?.encryptedPrivateKey) {
+          const privateKeyJwk = await decryptPrivateKey(
+            kpRes.data.encryptedPrivateKey,
+            sessionMasterPassword,
+            kpRes.data.salt
+          );
+          if (cancelled) return;
+          dispatch(setSessionRsaPrivateKey(privateKeyJwk));
+          if (kpRes.data.publicKey) {
+            dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          window.location.href = '/enter-master-password';
+        }
+      } finally {
+        if (!cancelled) setKeysLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [initDone, token, isMasterVerified, isMasterPage, sessionRsaPublicKey, sessionRsaPrivateKey, sessionMasterPassword, dispatch, keysLoading]);
 
   if (!initDone) {
     return (
@@ -83,11 +123,6 @@ function App() {
           dispatch(dismissSessionWarning());
         }}
         onLock={() => lockVault()}
-      />
-      <VerifyMasterPasswordModal
-        open={showReEntryModal}
-        onClose={() => setShowReEntryModal(false)}
-        onVerified={() => setShowReEntryModal(false)}
       />
       <Routes>
       <Route path="/login" element={<LoginPage />} />

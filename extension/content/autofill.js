@@ -161,7 +161,6 @@
   function reposition() {
     if (!badge || !activePw || !document.contains(activePw)) {
       if (!document.contains(activePw)) removeBadge();
-      else reposition();
       return;
     }
     positionBadge();

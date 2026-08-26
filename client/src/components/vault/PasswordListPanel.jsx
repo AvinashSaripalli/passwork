@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Lock, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import {
   selectPassword,
   setSearchTerm,
@@ -107,13 +107,6 @@ function PasswordListPanel() {
               <div className="text-sm text-slate-500 mt-1 dark:text-slate-400">
                 {group.items.length} account{group.items.length > 1 ? 's' : ''}
               </div>
-
-              {group.items.some((item) => item.isSensitive) && (
-                <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-0.5 text-xs font-medium dark:bg-emerald-900/20 dark:text-emerald-400">
-                  <Lock size={11} />
-                  Secure
-                </div>
-              )}
             </button>
           );
         })}

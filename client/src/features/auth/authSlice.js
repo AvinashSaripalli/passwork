@@ -20,6 +20,11 @@ import {
   setMasterVerifiedFlag,
   isMasterVerified as getSecureMasterVerified,
   setRsaPrivateKey as storeRsaPrivateKey,
+  setRsaPublicKey as storeRsaPublicKeyPersist,
+  setSessionMasterPassword as storeSessionMasterPassword,
+  getRsaPrivateKey as loadRsaPrivateKey,
+  getRsaPublicKey as loadRsaPublicKey,
+  getSessionMasterPassword as loadSessionMasterPassword,
 } from '../../utils/secureSession';
 
 const saveVerifier = (verifier) => {
@@ -343,6 +348,7 @@ export const setMasterPassword = createAsyncThunk(
         hint: formData.hint || '',
         masterPassword: formData.masterPassword,
         publicKeyJwk,
+        privateKeyJwk,
       };
     } catch (error) {
       return thunkAPI.rejectWithValue(
@@ -362,10 +368,10 @@ const initialState = {
   loading: false,
   error: null,
   isMasterVerified: !!savedToken && getSecureMasterVerified(),
-  sessionMasterPassword: null,
+  sessionMasterPassword: loadSessionMasterPassword(),
   sessionAdminMasterPassword: null,
-  sessionRsaPrivateKey: null,
-  sessionRsaPublicKey: null,
+  sessionRsaPrivateKey: loadRsaPrivateKey(),
+  sessionRsaPublicKey: loadRsaPublicKey(),
   sessionWarningOpen: false,
   sessionWarningSeconds: 0,
   userLoaded: !savedToken,
@@ -383,6 +389,7 @@ const authSlice = createSlice({
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
       storeMasterPassword(action.payload || null);
+      storeSessionMasterPassword(action.payload || null);
     },
 
     setSessionAdminMasterPassword: (state, action) => {
@@ -397,6 +404,7 @@ const authSlice = createSlice({
 
     setSessionRsaPublicKey: (state, action) => {
       state.sessionRsaPublicKey = action.payload || null;
+      storeRsaPublicKeyPersist(action.payload || null);
     },
 
     showSessionWarning: (state, action) => {
@@ -585,7 +593,11 @@ const authSlice = createSlice({
         state.isMasterVerified = true;
         state.sessionMasterPassword = action.payload.masterPassword;
         state.sessionRsaPublicKey = action.payload.publicKeyJwk;
+        state.sessionRsaPrivateKey = action.payload.privateKeyJwk;
         storeMasterPassword(action.payload.masterPassword);
+        storeRsaPrivateKey(action.payload.privateKeyJwk);
+        storeRsaPublicKeyPersist(action.payload.publicKeyJwk);
+        storeSessionMasterPassword(action.payload.masterPassword);
         setMasterVerifiedFlag(true);
         saveUser(state.user);
       })

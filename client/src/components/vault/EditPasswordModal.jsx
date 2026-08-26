@@ -5,7 +5,6 @@ import {
   closeEditPasswordModal,
   updatePassword,
 } from '../../features/vault/vaultSlice';
-import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import TagInput from '../common/TagInput';
 import { encryptTextWithAesKey, wrapItemKey } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/passwordStrength';
@@ -14,6 +13,7 @@ import {
   clearCompanyPasswordEditCache,
   getCompanyPasswordEditCache,
 } from '../../utils/companyPasswordEditCache';
+import api from '../../services/api';
 
 const SUGGESTED_TAGS = [
   'Production',
@@ -70,7 +70,6 @@ function EditPasswordModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [verifyOpen, setVerifyOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState(null);
 
   const currentFolder = folders.find((f) => f.id === formData.folderId);
@@ -159,15 +158,10 @@ function EditPasswordModal() {
       isSensitive: formData.isSensitive,
     });
 
-    if (isAdminUser && sessionMasterPassword) {
-      await handleAdminVerified(sessionMasterPassword);
-      return;
-    }
-
-    setVerifyOpen(true);
+    await handleAdminVerified();
   };
 
-  const handleAdminVerified = async (adminMasterPassword) => {
+  const handleAdminVerified = async () => {
     try {
       if (!pendingPayload) return;
 
@@ -183,6 +177,31 @@ function EditPasswordModal() {
       if (aesKeyJwk && sessionRsaPublicKey) {
         const wrappedKey = await wrapItemKey(aesKeyJwk, sessionRsaPublicKey);
         wrappedKeys[user.id] = wrappedKey;
+      }
+
+      if (aesKeyJwk) {
+        try {
+          const folderRes = await api.get(`/folders/${pendingPayload.folderId}`);
+          const folderData = folderRes.data;
+          const permissions = folderData?.permissions || [];
+
+          for (const perm of permissions) {
+            const memberId = perm.userId || perm.user?.id;
+            if (!memberId || memberId === user.id) continue;
+
+            try {
+              const keyRes = await api.get(`/keypair/${memberId}/public`);
+              const memberPublicKey = keyRes.data?.publicKey;
+              if (memberPublicKey) {
+                wrappedKeys[memberId] = await wrapItemKey(aesKeyJwk, memberPublicKey);
+              }
+            } catch {
+              // skip members whose public key is not available
+            }
+          }
+        } catch {
+          // best-effort: continue with just creator's wrapped key
+        }
       }
 
       const strength = getPasswordStrength(pendingPayload.password);
@@ -217,16 +236,13 @@ function EditPasswordModal() {
 
       if (updatePassword.fulfilled.match(result)) {
         clearCompanyPasswordEditCache(selectedPassword.id);
-        setVerifyOpen(false);
         setPendingPayload(null);
         dispatch(closeEditPasswordModal());
       } else {
         setLocalError(result.payload || 'Failed to update password');
-        setVerifyOpen(false);
       }
     } catch {
       setLocalError('Encryption failed. Please try again.');
-      setVerifyOpen(false);
     }
   };
 
@@ -356,20 +372,6 @@ function EditPasswordModal() {
                   suggestions={SUGGESTED_TAGS}
                 />
               </div>
-
-              <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-300 px-4 py-3 dark:border-slate-600 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isSensitive}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, isSensitive: e.target.checked }))
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Secure — always ask master password before revealing this password
-                </span>
-              </label>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
@@ -392,12 +394,6 @@ function EditPasswordModal() {
           </form>
         </div>
       </div>
-
-      <VerifyAdminMasterPasswordModal
-        open={verifyOpen}
-        onClose={() => setVerifyOpen(false)}
-        onVerified={handleAdminVerified}
-      />
     </>
   );
 }

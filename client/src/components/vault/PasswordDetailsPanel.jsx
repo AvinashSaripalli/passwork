@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  Lock,
   Trash2,
   Pencil,
 } from 'lucide-react';
@@ -16,9 +15,8 @@ import {
   openEditPasswordModal,
   selectPassword,
 } from '../../features/vault/vaultSlice';
-import VerifyAdminMasterPasswordModal from '../security/VerifyAdminMasterPasswordModal';
 import ConfirmModal from '../common/ConfirmModal';
-import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey } from '../../utils/crypto';
+import { unwrapItemKey, decryptTextWithAesKey } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 
@@ -36,8 +34,6 @@ function PasswordDetailsPanel() {
   const {
     user,
     token,
-    sessionMasterPassword,
-    sessionAdminMasterPassword,
     sessionRsaPrivateKey,
   } = useSelector((state) => state.auth);
 
@@ -75,17 +71,9 @@ function PasswordDetailsPanel() {
   const isFolderAdministrator =
     user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR';
 
-  const getDecryptionKey = () =>
-    isFolderAdministrator
-      ? sessionAdminMasterPassword || sessionMasterPassword
-      : sessionAdminMasterPassword;
-
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [decryptedPasswords, setDecryptedPasswords] = useState({});
   const [decryptedNotes, setDecryptedNotes] = useState({});
-  const [verifyOpen, setVerifyOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [activePasswordId, setActivePasswordId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ open: false, name: '', passwordId: null });
 
   const sameNamePasswords = useMemo(() => {
@@ -107,19 +95,7 @@ function PasswordDetailsPanel() {
     );
   }
 
-  const requireVerify = (item, actionName) => {
-    if (isFolderAdministrator) return false;
-
-    if (item.myWrappedKey && sessionRsaPrivateKey) return false;
-
-    if (item.isSensitive) return true;
-
-    if (['view', 'copy-password', 'edit'].includes(actionName)) {
-      return !sessionAdminMasterPassword;
-    }
-
-    return false;
-  };
+  const requireVerify = () => false;
 
   const handleAction = (actionName, item) => {
     if (!item) return;
@@ -132,24 +108,17 @@ function PasswordDetailsPanel() {
       return;
     }
 
-    if (actionName === 'copy-login' && (!item.isSensitive || isFolderAdministrator)) {
+    if (actionName === 'copy-login') {
       secureCopyText(item.login || '', 'Login copied');
       return;
     }
 
-    if (actionName === 'delete' && !item.isSensitive) {
+    if (actionName === 'delete') {
       setConfirmDelete({ open: true, name: item.name, passwordId: item.id });
       return;
     }
 
-    if (requireVerify(item, actionName)) {
-      setPendingAction(actionName);
-      setActivePasswordId(item.id);
-      setVerifyOpen(true);
-      return;
-    }
-
-    executeAction(actionName, item.id, getDecryptionKey());
+    executeAction(actionName, item.id);
   };
 
   const getPasswordById = (passwordId) =>
@@ -159,7 +128,7 @@ function PasswordDetailsPanel() {
     return item.tags?.map((tagItem) => tagItem.tag?.name).filter(Boolean) || [];
   };
 
-  const decryptPasswordItem = async (item, adminMasterPassword) => {
+  const decryptPasswordItem = async (item) => {
     if (item.myWrappedKey && sessionRsaPrivateKey) {
       try {
         const aesKeyJwk = await unwrapItemKey(item.myWrappedKey, sessionRsaPrivateKey);
@@ -172,33 +141,18 @@ function PasswordDetailsPanel() {
           : '';
         return { originalPassword, originalNote };
       } catch {
-        // fallback to master password decryption
+        throw new Error('Failed to decrypt. This password may not have been shared with you.');
       }
     }
 
-    const creatorSalt = item.createdBy?.encryptionSalt || user?.encryptionSalt;
-    const originalPassword = await safeDecryptText(
-      item.encryptedPassword,
-      adminMasterPassword,
-      creatorSalt
-    );
-    const originalNote = item.encryptedNote
-      ? await safeDecryptText(item.encryptedNote, adminMasterPassword, creatorSalt)
-      : '';
-
-    return { originalPassword, originalNote };
+    throw new Error('This password has not been shared with you. Ask the folder owner to re-share it.');
   };
 
-  const executeAction = async (actionName, passwordId, masterPassword) => {
+  const executeAction = async (actionName, passwordId) => {
     try {
       const activePassword = getPasswordById(passwordId);
 
-      if (!activePassword) {
-        setPendingAction(null);
-        setActivePasswordId(null);
-        setVerifyOpen(false);
-        return;
-      }
+      if (!activePassword) return;
 
       if (actionName === 'delete' && canDelete) {
         setConfirmDelete({ open: true, name: activePassword.name, passwordId: activePassword.id });
@@ -210,10 +164,7 @@ function PasswordDetailsPanel() {
         return;
       }
 
-      const { originalPassword, originalNote } = await decryptPasswordItem(
-        activePassword,
-        masterPassword
-      );
+      const { originalPassword, originalNote } = await decryptPasswordItem(activePassword);
 
       if (actionName === 'view' && canView) {
         setDecryptedPasswords((prev) => ({
@@ -265,26 +216,12 @@ function PasswordDetailsPanel() {
         dispatch(selectPassword(activePassword.id));
         dispatch(openEditPasswordModal());
       }
-
-      setPendingAction(null);
-      setActivePasswordId(null);
-      setVerifyOpen(false);
     } catch {
       showToast(
-        'Failed to decrypt password. Please check administrator master password.',
+        'Failed to decrypt password. This password may not have been shared with you.',
         'error'
       );
-      setPendingAction(null);
-      setActivePasswordId(null);
-      setVerifyOpen(false);
     }
-  };
-
-  const handleVerified = async (adminMasterPassword) => {
-    await executeAction(pendingAction, activePasswordId, adminMasterPassword);
-    setPendingAction(null);
-    setActivePasswordId(null);
-    setVerifyOpen(false);
   };
 
   return (
@@ -315,12 +252,6 @@ function PasswordDetailsPanel() {
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight dark:text-slate-100">
                     Account {index + 1}
                   </h3>
-                  {item.isSensitive && (
-                    <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-medium dark:bg-emerald-900/20 dark:text-emerald-400">
-                      <Lock size={12} className="mr-1" />
-                      Secure
-                    </span>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -465,16 +396,6 @@ function PasswordDetailsPanel() {
         })}
       </div>
 
-      <VerifyAdminMasterPasswordModal
-        open={verifyOpen}
-        onClose={() => {
-          setVerifyOpen(false);
-          setPendingAction(null);
-          setActivePasswordId(null);
-        }}
-        onVerified={handleVerified}
-      />
-
       <ConfirmModal
         open={confirmDelete.open}
         title="Delete Password"
@@ -486,20 +407,15 @@ function PasswordDetailsPanel() {
             dispatch(selectPassword(null));
           }
           setConfirmDelete({ open: false, name: '', passwordId: null });
-          setPendingAction(null);
-          setActivePasswordId(null);
-          setVerifyOpen(false);
         }}
         onCancel={() => {
           setConfirmDelete({ open: false, name: '', passwordId: null });
-          setPendingAction(null);
-          setActivePasswordId(null);
-          setVerifyOpen(false);
         }}
       />
     </div>
   );
 }
+
 
 function DetailRow({ label, value, action }) {
   return (
