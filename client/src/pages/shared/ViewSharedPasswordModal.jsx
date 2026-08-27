@@ -9,8 +9,8 @@ function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
   if (!open || !item) return null;
 
   const password = item.password;
-  const displayPassword = decryptedData?.password || password?.encryptedPassword;
-  const displayNote = decryptedData?.note || password?.encryptedNote || 'No note';
+  const displayPassword = decryptedData?.password || '';
+  const displayNote = decryptedData?.note || 'No note';
 
   const handleCopy = (value) => {
     if (!value) return;
@@ -58,7 +58,7 @@ function ViewSharedPasswordModal({ open, item, decryptedData, onClose }) {
           <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 dark:border-slate-600 dark:divide-slate-700">
             <Row label="Login" value={password?.login} onCopy={() => handleCopy(password?.login)} copyIcon />
 
-            <Row label="Password" value={showPw ? (displayPassword || '') : '••••••••••••'}>
+            <Row label="Password" value={showPw ? displayPassword : '••••••••••••'}>
               <IconBtn onClick={() => setShowPw((p) => !p)}>
                 {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </IconBtn>

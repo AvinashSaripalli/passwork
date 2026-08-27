@@ -163,6 +163,9 @@ const getSharedWithMe = async (req, res) => {
                     id: true,
                     fullName: true,
                     email: true,
+                    // Needed by legacy shares that were never re-encrypted
+                    // for the recipient's key pair.
+                    encryptionSalt: true,
                   },
                 },
               },

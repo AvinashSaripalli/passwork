@@ -16,6 +16,7 @@ import {
   selectPassword,
 } from '../../features/vault/vaultSlice';
 import ConfirmModal from '../common/ConfirmModal';
+import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 import { unwrapItemKey, decryptTextWithAesKey, decryptText, safeDecryptText, decryptPrivateKey } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
@@ -52,29 +53,31 @@ function PasswordDetailsPanel() {
 
   const selectedFolderAccess =
     user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
+      ? 'ADMIN'
       : selectedFolderPermission?.accessLevel || null;
 
   const canView =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(
+    ['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER'].includes(
       selectedFolderAccess
     );
 
   const canEdit =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY'].includes(
+    ['ADMIN', 'EDITOR'].includes(
       selectedFolderAccess
     );
 
   const canDelete =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
+    ['ADMIN', 'MANAGER'].includes(selectedFolderAccess);
 
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [decryptedPasswords, setDecryptedPasswords] = useState({});
   const [decryptedNotes, setDecryptedNotes] = useState({});
   const [confirmDelete, setConfirmDelete] = useState({ open: false, name: '', passwordId: null });
+  const [reVerifyOpen, setReVerifyOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   const sameNamePasswords = useMemo(() => {
     if (!selectedPassword) return [];
@@ -113,6 +116,16 @@ function PasswordDetailsPanel() {
 
     if (actionName === 'delete') {
       setConfirmDelete({ open: true, name: item.name, passwordId: item.id });
+      return;
+    }
+
+    if (
+      item.isSensitive &&
+      item.createdById !== user?.id &&
+      (actionName === 'view' || actionName === 'copy-password' || actionName === 'edit')
+    ) {
+      setPendingAction({ actionName, item });
+      setReVerifyOpen(true);
       return;
     }
 
@@ -484,6 +497,22 @@ function PasswordDetailsPanel() {
         }}
         onCancel={() => {
           setConfirmDelete({ open: false, name: '', passwordId: null });
+        }}
+      />
+
+      <VerifyMasterPasswordModal
+        open={reVerifyOpen}
+        onClose={() => {
+          setReVerifyOpen(false);
+          setPendingAction(null);
+        }}
+        onVerified={() => {
+          setReVerifyOpen(false);
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action) {
+            executeAction(action.actionName, action.item.id);
+          }
         }}
       />
     </div>

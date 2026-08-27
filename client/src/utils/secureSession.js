@@ -7,7 +7,6 @@
 const MASTER_VERIFIED_KEY = 'vaultix-master-verified';
 const RSA_PRIVATE_KEY_KEY = 'vaultix-rsa-private-key';
 const RSA_PUBLIC_KEY_KEY = 'vaultix-rsa-public-key';
-const SESSION_MASTER_KEY = 'vaultix-session-master';
 
 const store = {
   masterPassword: null,
@@ -24,7 +23,8 @@ const store = {
   })(),
 };
 
-// Restore RSA keys from sessionStorage on load
+// Restore RSA keys from sessionStorage on load.
+// Master password is NOT persisted — it must be re-entered each session.
 try {
   const storedPrivateKey = sessionStorage.getItem(RSA_PRIVATE_KEY_KEY);
   if (storedPrivateKey) {
@@ -33,10 +33,6 @@ try {
   const storedPublicKey = sessionStorage.getItem(RSA_PUBLIC_KEY_KEY);
   if (storedPublicKey) {
     store.rsaPublicKey = JSON.parse(storedPublicKey);
-  }
-  const storedMasterPw = sessionStorage.getItem(SESSION_MASTER_KEY);
-  if (storedMasterPw) {
-    store.sessionMasterPassword = storedMasterPw;
   }
 } catch {
   // ignore
@@ -98,15 +94,6 @@ export function getSessionMasterPassword() {
 
 export function setSessionMasterPassword(value) {
   store.sessionMasterPassword = value || null;
-  try {
-    if (value) {
-      sessionStorage.setItem(SESSION_MASTER_KEY, value);
-    } else {
-      sessionStorage.removeItem(SESSION_MASTER_KEY);
-    }
-  } catch {
-    // ignore
-  }
 }
 
 export function isMasterVerified() {
@@ -137,7 +124,6 @@ export function clearSecureSession() {
     sessionStorage.removeItem(MASTER_VERIFIED_KEY);
     sessionStorage.removeItem(RSA_PRIVATE_KEY_KEY);
     sessionStorage.removeItem(RSA_PUBLIC_KEY_KEY);
-    sessionStorage.removeItem(SESSION_MASTER_KEY);
   } catch {
     // ignore
   }

@@ -22,7 +22,7 @@ function FolderMembersSummary({ onClick }) {
         {
           id: `owner-${owner.id}`,
           user: owner,
-          accessLevel: 'ADMINISTRATOR',
+          accessLevel: 'ADMIN',
           isOwner: true,
         },
         ...permissions.filter((item) => item.user?.id !== owner.id),

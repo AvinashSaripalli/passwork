@@ -25,46 +25,65 @@ export const sharePasswordToUser = createAsyncThunk(
   'sharedPasswords/sharePasswordToUser',
   async ({ passwordId, userId, password }, thunkAPI) => {
     try {
+      const masterPassword = getMasterPassword();
+      const rsaPrivateKey = getRsaPrivateKey();
+
+      if (!masterPassword || !rsaPrivateKey) {
+        return thunkAPI.rejectWithValue(
+          'Your encryption keys are not ready. Please unlock your vault (re-enter your master password) and share again.'
+        );
+      }
+
       let encryptedItemKey = null;
       let reEncryptedPassword = null;
       let reEncryptedNote = null;
       let reEncryptedFields = null;
 
-      const masterPassword = getMasterPassword();
-      const rsaPrivateKey = getRsaPrivateKey();
+      try {
+        const recipientKeyRes = await api.get(`/keypair/${userId}/public`);
+        const recipientPublicKey = recipientKeyRes.data.publicKey;
 
-      if (masterPassword && rsaPrivateKey) {
-        try {
-          const recipientKeyRes = await api.get(`/keypair/${userId}/public`);
-          const recipientPublicKey = recipientKeyRes.data.publicKey;
-
-          const salt = thunkAPI.getState().auth.user?.encryptionSalt;
-          const decryptedPassword = await decryptText(
-            password.encryptedPassword,
-            masterPassword,
-            salt
+        if (!recipientPublicKey) {
+          return thunkAPI.rejectWithValue(
+            "The recipient hasn't set up encryption keys yet. Ask them to log in and set their master password first."
           );
-
-          const { encryptedData: reEncryptedPwd, aesKeyJwk } = await encryptTextWithAesKey(decryptedPassword);
-          reEncryptedPassword = reEncryptedPwd;
-          encryptedItemKey = await rsaEncrypt(aesKeyJwk, recipientPublicKey);
-
-          if (password.encryptedNote) {
-            const decryptedNote = await decryptText(password.encryptedNote, masterPassword, salt);
-            const { encryptedData: reEncryptedNt } = await encryptTextWithAesKey(decryptedNote);
-            reEncryptedNote = reEncryptedNt;
-          }
-
-          if (password.encryptedFields) {
-            const decryptedFields = await decryptText(password.encryptedFields, masterPassword, salt);
-            if (decryptedFields) {
-              const { encryptedData: reEncryptedFlds } = await encryptTextWithAesKey(decryptedFields);
-              reEncryptedFields = reEncryptedFlds;
-            }
-          }
-        } catch {
-          // recipient may not have keys yet; share without re-encryption (fallback)
         }
+
+        const salt = thunkAPI.getState().auth.user?.encryptionSalt;
+        const decryptedPassword = await decryptText(
+          password.encryptedPassword,
+          masterPassword,
+          salt
+        );
+
+        const { encryptedData: reEncryptedPwd, aesKeyJwk } = await encryptTextWithAesKey(decryptedPassword);
+        reEncryptedPassword = reEncryptedPwd;
+        encryptedItemKey = await rsaEncrypt(aesKeyJwk, recipientPublicKey);
+
+        if (!encryptedItemKey || !reEncryptedPassword) {
+          return thunkAPI.rejectWithValue(
+            'Failed to encrypt this item for the recipient. Share not created.'
+          );
+        }
+
+        if (password.encryptedNote) {
+          const decryptedNote = await decryptText(password.encryptedNote, masterPassword, salt);
+          const { encryptedData: reEncryptedNt } = await encryptTextWithAesKey(decryptedNote);
+          reEncryptedNote = reEncryptedNt;
+        }
+
+        if (password.encryptedFields) {
+          const decryptedFields = await decryptText(password.encryptedFields, masterPassword, salt);
+          if (decryptedFields) {
+            const { encryptedData: reEncryptedFlds } = await encryptTextWithAesKey(decryptedFields);
+            reEncryptedFields = reEncryptedFlds;
+          }
+        }
+      } catch (err) {
+        console.error('Share re-encryption failed:', err);
+        return thunkAPI.rejectWithValue(
+          'Failed to encrypt this item for the recipient. Share not created.'
+        );
       }
 
       const response = await api.post(`/password-shares/${passwordId}/share`, {

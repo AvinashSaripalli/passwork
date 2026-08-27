@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, Eye, EyeOff, Copy, ExternalLink } from 'lucide-react';
+import { X, Eye, EyeOff, Copy, ExternalLink, ShieldAlert } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { decryptText, isEncryptedFormat } from '../../utils/crypto';
 import { secureCopyText } from '../../utils/clipboard';
+import VerifyMasterPasswordModal from '../security/VerifyMasterPasswordModal';
 
 function ViewMyVaultPasswordModal({ open, password, onClose }) {
   const { user, sessionMasterPassword } = useSelector((state) => state.auth);
@@ -12,6 +13,7 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
   const [decryptedPassword, setDecryptedPassword] = useState(null);
   const [decryptedNote, setDecryptedNote] = useState(null);
   const [showDecrypted, setShowDecrypted] = useState(false);
+  const [reVerifyOpen, setReVerifyOpen] = useState(false);
 
   useEffect(() => {
     if (open && password) {
@@ -29,8 +31,8 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
       }
 
       if (!sessionMasterPassword) {
-        setError('Session expired. Please re-enter your master password.');
         setLoading(false);
+        setReVerifyOpen(true);
         return;
       }
 
@@ -193,6 +195,17 @@ function ViewMyVaultPasswordModal({ open, password, onClose }) {
           Done
         </button>
       </div>
+
+      <VerifyMasterPasswordModal
+        open={reVerifyOpen}
+        onClose={() => {
+          setReVerifyOpen(false);
+          handleClose();
+        }}
+        onVerified={() => {
+          setReVerifyOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -39,13 +39,13 @@ function VaultSidebar() {
 
   const selectedFolderAccess =
     user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
+      ? 'ADMIN'
       : selectedFolderPermission?.accessLevel || null;
 
   const canCreateFolder = user?.role === 'ADMIN';
 
   const canDeleteFolder =
-    user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR';
+    user?.role === 'ADMIN' || selectedFolderAccess === 'ADMIN';
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 

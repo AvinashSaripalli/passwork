@@ -14,10 +14,10 @@ import { useSelector } from 'react-redux';
 import api from '../../services/api';
 
 const ACCESS_OPTIONS = [
-  { value: 'ADMINISTRATOR', label: 'Administrator', icon: Crown },
-  { value: 'FULL_ACCESS', label: 'Full access', icon: ShieldCheck },
-  { value: 'EDIT_ONLY', label: 'Edit only', icon: PencilLine },
-  { value: 'READ_ONLY', label: 'Read only', icon: Eye },
+  { value: 'ADMIN', label: 'Administrator', icon: Crown },
+  { value: 'MANAGER', label: 'Manager', icon: ShieldCheck },
+  { value: 'EDITOR', label: 'Editor', icon: PencilLine },
+  { value: 'VIEWER', label: 'Viewer', icon: Eye },
 ];
 
 function getInitials(name = '') {
@@ -57,11 +57,11 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
 
   const currentUserAccess =
     user?.role === 'ADMIN' || isCurrentUserOwner
-      ? 'ADMINISTRATOR'
+      ? 'ADMIN'
       : currentUserPermission?.accessLevel || null;
 
   const canManageMembers =
-    user?.role === 'ADMIN' || currentUserAccess === 'ADMINISTRATOR';
+    user?.role === 'ADMIN' || currentUserAccess === 'ADMIN';
 
   useEffect(() => {
     if (!open || !folderId) return;
@@ -80,6 +80,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
 
         const currentPermissions = folder?.permissions || [];
         const folderOwner = folder?.vault?.owner || null;
+        const deptMembers = folder?.departmentMembers || [];
 
         const finalMembers = folderOwner
           ? [
@@ -87,7 +88,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                 id: `owner-${folderOwner.id}`,
                 userId: folderOwner.id,
                 user: folderOwner,
-                accessLevel: 'ADMINISTRATOR',
+                accessLevel: 'ADMIN',
                 isOwner: true,
               },
               ...currentPermissions.filter(
@@ -95,8 +96,15 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                   item.userId !== folderOwner.id &&
                   item.user?.id !== folderOwner.id
               ),
+              ...deptMembers.filter(
+                (dm) =>
+                  dm.user?.id !== folderOwner.id &&
+                  !currentPermissions.some(
+                    (p) => p.userId === dm.user?.id || p.user?.id === dm.user?.id
+                  )
+              ),
             ]
-          : currentPermissions;
+          : [...currentPermissions, ...deptMembers];
 
         setMembers(finalMembers);
         setChangedMembers({});
@@ -275,6 +283,11 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                               Owner
                             </span>
                           )}
+                          {item.viaDepartment && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 font-semibold">
+                              {item.departmentName}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {item.user?.email || '-'}
@@ -286,6 +299,11 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                           <div className="h-8 px-3 rounded-lg border border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-400">
                             <Crown size={13} />
                             <span>Administrator</span>
+                          </div>
+                        ) : item.viaDepartment ? (
+                          <div className="h-8 px-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            <Users size={13} />
+                            <span>{accessMeta.label}</span>
                           </div>
                         ) : canManageMembers ? (
                           <div className="relative">
@@ -309,7 +327,7 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
                           </div>
                         )}
 
-                        {canManageMembers && !item.isOwner && (
+                        {canManageMembers && !item.isOwner && !item.viaDepartment && (
                           <button
                             onClick={() => handleRemoveMember(item.id)}
                             className="w-8 h-8 rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center"

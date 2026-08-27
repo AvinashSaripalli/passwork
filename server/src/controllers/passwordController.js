@@ -52,7 +52,7 @@ const createPassword = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
+    if (!access || !['ADMIN', 'EDITOR'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -166,7 +166,7 @@ const importPasswordsFromExcel = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
+    if (!access || !['ADMIN', 'EDITOR'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -319,7 +319,7 @@ const getPasswordById = async (req, res) => {
     }
 
     const access = await getFolderAccess(password.folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(access)) {
+    if (!access || !['ADMIN', 'EDITOR', 'VIEWER'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -372,7 +372,7 @@ const updatePassword = async (req, res) => {
 
     if (
       !access ||
-      !['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY'].includes(access)
+      !['ADMIN', 'EDITOR'].includes(access)
     ) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -510,7 +510,7 @@ const deletePassword = async (req, res) => {
     }
 
     const access = await getFolderAccess(password.folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'FULL_ACCESS'].includes(access)) {
+    if (!access || !['ADMIN', 'MANAGER'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -561,7 +561,7 @@ const logCopyPassword = async (req, res) => {
       },
     });
 
-    const hasAccessViaFolder = hasFolderAccess && ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(hasFolderAccess);
+    const hasAccessViaFolder = hasFolderAccess && ['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER'].includes(hasFolderAccess);
 
     if (!hasAccessViaFolder && !hasShare) {
       return res.status(403).json({ message: 'Access denied' });
@@ -610,7 +610,7 @@ const logViewPassword = async (req, res) => {
       },
     });
 
-    const hasAccessViaFolder = hasFolderAccess && ['ADMINISTRATOR', 'FULL_ACCESS', 'EDIT_ONLY', 'READ_ONLY'].includes(hasFolderAccess);
+    const hasAccessViaFolder = hasFolderAccess && ['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER'].includes(hasFolderAccess);
 
     if (!hasAccessViaFolder && !hasShare) {
       return res.status(403).json({ message: 'Access denied' });

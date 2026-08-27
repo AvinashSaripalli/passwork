@@ -77,7 +77,7 @@ function VaultPage() {
 
   const selectedFolderAccess =
     user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
+      ? 'ADMIN'
       : selectedFolderPermission?.accessLevel || null;
 
   useEffect(() => {
@@ -206,15 +206,15 @@ function VaultPage() {
 
   const canAddPassword =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
+    ['ADMIN', 'EDITOR'].includes(selectedFolderAccess);
 
   const canShareFolder =
     !!selectedFolder &&
-    (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR');
+    (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMIN');
 
   const canDeleteFolder =
     !!selectedFolder &&
-    (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR');
+    (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMIN');
 
   const handleExportExcel = () => {
     if (!selectedVault?.id) {

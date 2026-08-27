@@ -3,14 +3,15 @@ const {
   isAdminUser,
   getFolderAccess,
   getFolderAuthorizedUserIds,
+  getFolderDepartmentMembers,
 } = require('../utils/permissions');
 const generateId = require('../utils/generateId');
 
 const ALLOWED_ACCESS_LEVELS = [
-  'ADMINISTRATOR',
-  'FULL_ACCESS',
-  'READ_ONLY',
-  'EDIT_ONLY',
+  'ADMIN',
+  'EDITOR',
+  'VIEWER',
+  'MANAGER',
 ];
 
 const createFolder = async (req, res) => {
@@ -104,7 +105,7 @@ const shareFolder = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || access !== 'ADMINISTRATOR') {
+    if (!access || access !== 'ADMIN') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -190,7 +191,7 @@ const updateFolder = async (req, res) => {
     }
 
     const access = await getFolderAccess(existingFolder.id, req.user.id);
-    if (!access || access !== 'ADMINISTRATOR') {
+    if (!access || access !== 'ADMIN') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -366,7 +367,9 @@ const getFolderById = async (req, res) => {
     const myWrappedKey = allWrappedKeys[req.user.id] || null;
     const { wrappedKeys, ...folderData } = folder;
 
-    res.json({ ...folderData, myWrappedKey });
+    const departmentMembers = await getFolderDepartmentMembers(folder.id);
+
+    res.json({ ...folderData, myWrappedKey, departmentMembers });
   } catch (error) {
     console.error('Get folder by id error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -434,7 +437,7 @@ const updateFolderPermission = async (req, res) => {
     }
 
     const adminAccess = await getFolderAccess(existing.folderId, req.user.id);
-    if (!adminAccess || adminAccess !== 'ADMINISTRATOR') {
+    if (!adminAccess || adminAccess !== 'ADMIN') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -466,7 +469,7 @@ const deleteFolderPermission = async (req, res) => {
     }
 
     const adminAccess = await getFolderAccess(existing.folderId, req.user.id);
-    if (!adminAccess || adminAccess !== 'ADMINISTRATOR') {
+    if (!adminAccess || adminAccess !== 'ADMIN') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -498,7 +501,7 @@ const deleteFolder = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || access !== 'ADMINISTRATOR') {
+    if (!access || access !== 'ADMIN') {
       return res.status(403).json({ message: 'Access denied' });
     }
 

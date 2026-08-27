@@ -3,7 +3,7 @@ const generateId = require('../utils/generateId');
 const { getVaultAccess } = require('../utils/permissions');
 const { revokeWrappedKeysForUser } = require('../utils/wrappedKeys');
 
-const ALLOWED_VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const ALLOWED_VAULT_ACCESS_LEVELS = ['VIEWER', 'EDITOR', 'MANAGER', 'ADMIN'];
 
 const makeSlug = (name) =>
   name

@@ -400,6 +400,23 @@ function EditPasswordModal() {
                   suggestions={SUGGESTED_TAGS}
                 />
               </div>
+
+              <label className="flex items-center gap-3 sm:col-span-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={formData.isSensitive}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, isSensitive: e.target.checked }))}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700"
+                />
+                <div>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">
+                    Secure — require master password verification before revealing
+                  </span>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Users must verify their master password every time they view or copy this password
+                  </p>
+                </div>
+              </label>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

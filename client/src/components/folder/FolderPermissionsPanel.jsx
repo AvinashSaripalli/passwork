@@ -12,7 +12,7 @@ function FolderPermissionsPanel() {
         {
           id: `owner-${owner.id}`,
           user: owner,
-          accessLevel: 'ADMINISTRATOR',
+          accessLevel: 'ADMIN',
           isOwner: true,
         },
         ...permissions.filter((item) => item.user?.id !== owner.id),
@@ -43,7 +43,7 @@ function FolderPermissionsPanel() {
                 <td className="py-4">{item.user?.fullName || '-'}</td>
                 <td className="py-4">{item.user?.email || '-'}</td>
                 <td className="py-4">
-                  {item.isOwner ? 'ADMINISTRATOR (Owner)' : item.accessLevel}
+                  {item.isOwner ? 'ADMIN (Owner)' : item.accessLevel}
                 </td>
               </tr>
             ))}

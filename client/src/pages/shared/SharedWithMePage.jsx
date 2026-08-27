@@ -1,26 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, ExternalLink, Globe, KeyRound, Search, Share2, User, Folder, ChevronRight, Lock } from 'lucide-react';
+import { Eye, ExternalLink, Globe, KeyRound, Search, Share2, User, Folder, ChevronRight } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import AppLayout from '../../components/layout/AppLayout';
 import ViewSharedPasswordModal from './ViewSharedPasswordModal';
+import VerifyMasterPasswordModal from '../../components/security/VerifyMasterPasswordModal';
 import { fetchSharedWithMe } from '../../features/sharedPasswords/sharedPasswordsSlice';
-import { decryptText, isEncryptedFormat, rsaDecrypt, decryptTextWithAesKey } from '../../utils/crypto';
+import { decryptText, isEncryptedFormat, rsaDecrypt, decryptTextWithAesKey, decryptPrivateKey } from '../../utils/crypto';
 import api from '../../services/api';
+import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
 function SharedWithMePage() {
   const dispatch = useDispatch();
-  const { sharedWithMe, loading, error, userEncryptionSalt, userKeyPair } = useSelector(
+  const { sharedWithMe, loading, error } = useSelector(
     (state) => state.sharedPasswords
   );
-  const { sessionMasterPassword, sessionRsaPrivateKey } = useSelector(
+  const { sessionMasterPassword, sessionRsaPrivateKey, user, token } = useSelector(
     (state) => state.auth
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedShare, setSelectedShare] = useState(null);
-  const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState('');
   const [decryptedData, setDecryptedData] = useState({});
+  const [reVerifyOpen, setReVerifyOpen] = useState(false);
+  const [pendingViewItem, setPendingViewItem] = useState(null);
 
   useEffect(() => { dispatch(fetchSharedWithMe()); }, [dispatch]);
 
@@ -34,31 +37,63 @@ function SharedWithMePage() {
     );
   }, [sharedWithMe, searchTerm]);
 
-  const handleView = async (item) => {
+  const handleView = (item) => {
+    setPendingViewItem(item);
+    setReVerifyOpen(true);
+  };
+
+  const handleRequestDecrypt = async (item) => {
     const password = item.password;
     const isEncrypted = isEncryptedFormat(password?.encryptedPassword);
 
     if (!isEncrypted) {
-      setSelectedShare(item);
-      setViewOpen(true);
-      return;
+      setDecryptedData((prev) => ({
+        ...prev,
+        [item.id]: { password: password.encryptedPassword, note: password.encryptedNote || null },
+      }));
+      return password.encryptedPassword;
     }
 
-    if (!sessionMasterPassword || !sessionRsaPrivateKey) {
-      setDecryptError('Please verify your master password first');
-      setSelectedShare(item);
+    if (!sessionMasterPassword) {
+      setPendingViewItem(item);
+      setReVerifyOpen(true);
+      return null;
+    }
+
+    let rsaPrivateKey = sessionRsaPrivateKey;
+    if (!rsaPrivateKey && user?.id) {
+      try {
+        const kpRes = await api.get('/keypair', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (kpRes.data?.encryptedPrivateKey) {
+          rsaPrivateKey = await decryptPrivateKey(
+            kpRes.data.encryptedPrivateKey,
+            sessionMasterPassword,
+            kpRes.data.salt
+          );
+          dispatch(setSessionRsaPrivateKey(rsaPrivateKey));
+          if (kpRes.data.publicKey) {
+            dispatch(setSessionRsaPublicKey(kpRes.data.publicKey));
+          }
+        }
+      } catch (err) {
+        console.error('Key recovery failed:', err);
+      }
+    }
+
+    if (!rsaPrivateKey && item.encryptedItemKey) {
       setDecryptError('Unable to decrypt. Please verify your master password.');
-      return;
+      return null;
     }
 
     try {
-      setDecrypting(true);
       setDecryptError('');
 
       let decrypted, noteText = null;
 
-      if (item.encryptedItemKey && sessionRsaPrivateKey) {
-        const aesKeyJwk = await rsaDecrypt(item.encryptedItemKey, sessionRsaPrivateKey);
+      if (item.encryptedItemKey && rsaPrivateKey) {
+        const aesKeyJwk = await rsaDecrypt(item.encryptedItemKey, rsaPrivateKey);
         const encryptedData = item.reEncryptedPassword || password.encryptedPassword;
         decrypted = await decryptTextWithAesKey(encryptedData, aesKeyJwk);
 
@@ -70,7 +105,7 @@ function SharedWithMePage() {
         const ownerSalt = password?.vault?.owner?.encryptionSalt;
         if (!ownerSalt) {
           setDecryptError('Encryption salt not available');
-          return;
+          return null;
         }
         decrypted = await decryptText(password.encryptedPassword, sessionMasterPassword, ownerSalt);
 
@@ -83,14 +118,12 @@ function SharedWithMePage() {
         ...prev,
         [item.id]: { password: decrypted, note: noteText },
       }));
-      setSelectedShare(item);
-      setViewOpen(true);
 
       api.post(`/passwords/${password.id}/view-log`).catch(() => {});
+      return decrypted;
     } catch {
       setDecryptError('Decryption failed. Your master password may be incorrect or the item was not re-encrypted for you.');
-    } finally {
-      setDecrypting(false);
+      return null;
     }
   };
 
@@ -206,11 +239,10 @@ function SharedWithMePage() {
 
                     <button
                       onClick={() => handleView(item)}
-                      disabled={decrypting}
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-60"
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
                     >
-                      {decrypting ? <Lock size={14} className="animate-spin" /> : <Eye size={14} />}
-                      {decrypting ? 'Decrypting...' : 'View'}
+                      <Eye size={14} />
+                      View
                     </button>
                   </div>
                 ))}
@@ -248,6 +280,26 @@ function SharedWithMePage() {
           item={selectedShare}
           decryptedData={decryptedData[selectedShare?.id]}
           onClose={() => { setViewOpen(false); setSelectedShare(null); }}
+        />
+
+        <VerifyMasterPasswordModal
+          open={reVerifyOpen}
+          onClose={() => {
+            setReVerifyOpen(false);
+            setPendingViewItem(null);
+          }}
+          onVerified={async () => {
+            setReVerifyOpen(false);
+            const itemToView = pendingViewItem;
+            setPendingViewItem(null);
+            if (itemToView) {
+              const decrypted = await handleRequestDecrypt(itemToView);
+              if (decrypted) {
+                setSelectedShare(itemToView);
+                setViewOpen(true);
+              }
+            }
+          }}
         />
       </div>
     </AppLayout>

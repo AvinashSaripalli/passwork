@@ -1,24 +1,22 @@
 const prisma = require('../config/prisma');
 
-const VAULT_LEVEL_RANK = {
-  READ_ONLY: 0,
-  READ_WRITE: 1,
-  DELETE: 2,
+const LEVEL_RANK = {
+  VIEWER: 0,
+  EDITOR: 1,
+  MANAGER: 2,
   ADMIN: 3,
 };
 
-const FOLDER_LEVEL_RANK = {
-  READ_ONLY: 0,
-  EDIT_ONLY: 1,
-  FULL_ACCESS: 2,
-  ADMINISTRATOR: 3,
-};
+const VAULT_LEVEL_RANK = LEVEL_RANK;
+const FOLDER_LEVEL_RANK = LEVEL_RANK;
 
 const DEPT_TO_FOLDER_MAP = {
-  READ_ONLY: 'READ_ONLY',
-  READ_WRITE: 'FULL_ACCESS',
-  DELETE: 'FULL_ACCESS',
-  ADMIN: 'ADMINISTRATOR',
+  NOT_SET: null,
+  FORBIDDEN: null,
+  READ_ONLY: 'VIEWER',
+  READ_WRITE: 'EDITOR',
+  FULL_ACCESS: 'MANAGER',
+  ADMINISTRATOR: 'ADMIN',
 };
 
 const isAdminUser = async (userId) => {
@@ -66,14 +64,14 @@ const getDepartmentIdsWithAncestors = async (departmentIds) => {
 const getHighestVaultLevel = (levels) =>
   levels.reduce(
     (best, level) =>
-      level && (!best || VAULT_LEVEL_RANK[level] > VAULT_LEVEL_RANK[best]) ? level : best,
+      level && (!best || LEVEL_RANK[level] > LEVEL_RANK[best]) ? level : best,
     null
   );
 
 const getHighestFolderLevel = (levels) =>
   levels.reduce(
     (best, level) =>
-      level && (!best || FOLDER_LEVEL_RANK[level] > FOLDER_LEVEL_RANK[best]) ? level : best,
+      level && (!best || LEVEL_RANK[level] > LEVEL_RANK[best]) ? level : best,
     null
   );
 
@@ -84,7 +82,7 @@ const getDepartmentVaultAccess = async (vaultId, userId) => {
 
   const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
 
-  const grant = await prisma.departmentPermission.findFirst({
+  const grants = await prisma.departmentPermission.findMany({
     where: {
       vaultId,
       departmentId: { in: departmentIds },
@@ -92,7 +90,15 @@ const getDepartmentVaultAccess = async (vaultId, userId) => {
     orderBy: { createdAt: 'asc' },
   });
 
-  return grant ? grant.accessLevel : null;
+  if (!grants.length) return null;
+
+  // FORBIDDEN is an explicit deny
+  const hasForbidden = grants.some((g) => g.accessLevel === 'FORBIDDEN');
+  if (hasForbidden) return 'FORBIDDEN';
+
+  // VaultAccessLevel shares same rank as LEVEL_RANK
+  const levels = grants.map((g) => g.accessLevel).filter((l) => l !== 'FORBIDDEN' && l !== 'NOT_SET');
+  return getHighestVaultLevel(levels);
 };
 
 const getDepartmentFolderAccess = async (folderId, userId) => {
@@ -102,7 +108,7 @@ const getDepartmentFolderAccess = async (folderId, userId) => {
 
   const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
 
-  const grant = await prisma.departmentPermission.findFirst({
+  const grants = await prisma.departmentPermission.findMany({
     where: {
       folderId,
       departmentId: { in: departmentIds },
@@ -110,9 +116,15 @@ const getDepartmentFolderAccess = async (folderId, userId) => {
     orderBy: { createdAt: 'asc' },
   });
 
-  if (!grant) return null;
+  if (!grants.length) return null;
 
-  return DEPT_TO_FOLDER_MAP[grant.accessLevel] || null;
+  // FORBIDDEN is an explicit deny — wins over any other grant
+  const hasForbidden = grants.some((g) => g.accessLevel === 'FORBIDDEN');
+  if (hasForbidden) return 'FORBIDDEN';
+
+  // Among remaining grants, pick the highest level
+  const levels = grants.map((g) => DEPT_TO_FOLDER_MAP[g.accessLevel]).filter(Boolean);
+  return getHighestFolderLevel(levels);
 };
 
 const getFolderAccess = async (folderId, userId) => {
@@ -127,19 +139,21 @@ const getFolderAccess = async (folderId, userId) => {
   if (!folder) return null;
 
   if (folder.vault.type === 'PERSONAL') {
-    return folder.vault.ownerId === userId ? 'ADMINISTRATOR' : null;
+    return folder.vault.ownerId === userId ? 'ADMIN' : null;
   }
 
   const admin = await isAdminUser(userId);
-  if (admin) return 'ADMINISTRATOR';
+  if (admin) return 'ADMIN';
 
   if (folder.vault.ownerId === userId) {
-    return 'ADMINISTRATOR';
+    return 'ADMIN';
   }
 
-  const permission = folder.permissions.find((item) => item.userId === userId);
-
+  // Check department access — FORBIDDEN is an explicit deny
   const departmentAccess = await getDepartmentFolderAccess(folder.id, userId);
+  if (departmentAccess === 'FORBIDDEN') return null;
+
+  const permission = folder.permissions.find((item) => item.userId === userId);
 
   return getHighestFolderLevel([permission?.accessLevel, departmentAccess]);
 };
@@ -165,9 +179,11 @@ const getVaultAccess = async (vaultId, userId) => {
     return 'ADMIN';
   }
 
-  const permission = vault.permissions.find((item) => item.userId === userId);
-
+  // Check department access — FORBIDDEN is an explicit deny
   const departmentAccess = await getDepartmentVaultAccess(vault.id, userId);
+  if (departmentAccess === 'FORBIDDEN') return null;
+
+  const permission = vault.permissions.find((item) => item.userId === userId);
 
   return getHighestVaultLevel([permission?.accessLevel, departmentAccess]);
 };
@@ -288,6 +304,61 @@ const requireFolderAccess = (allowedLevels = []) => {
   };
 };
 
+const getFolderDepartmentMembers = async (folderId) => {
+  try {
+    const grants = await prisma.departmentPermission.findMany({
+      where: { folderId },
+      include: {
+        department: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, fullName: true, email: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!grants.length) return [];
+
+    const membersByUser = new Map();
+
+    for (const grant of grants) {
+      const deptAccess = grant.accessLevel;
+      const folderAccess = DEPT_TO_FOLDER_MAP[deptAccess];
+
+      // NOT_SET and FORBIDDEN don't grant any usable access
+      if (!folderAccess) continue;
+
+      for (const member of grant.department.members) {
+        if (!member.user) continue;
+
+        const uid = member.user.id;
+        const existing = membersByUser.get(uid);
+
+        if (!existing || LEVEL_RANK[folderAccess] > LEVEL_RANK[existing.accessLevel]) {
+          membersByUser.set(uid, {
+            user: member.user,
+            accessLevel: folderAccess,
+            departmentName: grant.department.name,
+            departmentId: grant.department.id,
+            viaDepartment: true,
+          });
+        }
+      }
+    }
+
+    return [...membersByUser.values()];
+  } catch (error) {
+    console.error('Get folder department members error:', error);
+    return [];
+  }
+};
+
 module.exports = {
   isAdminUser,
   getUserDepartmentIds,
@@ -295,6 +366,7 @@ module.exports = {
   getVaultAccess,
   getFolderAccess,
   getFolderAuthorizedUserIds,
+  getFolderDepartmentMembers,
   requireFolderAccess,
   DEPT_TO_FOLDER_MAP,
 };

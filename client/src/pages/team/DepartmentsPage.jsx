@@ -10,7 +10,16 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import api from '../../services/api';
 import { showToast } from '../../utils/toast';
 
-const VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const VAULT_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
+
+const DEPT_ACCESS_LABELS = {
+  NOT_SET: 'Not set',
+  FORBIDDEN: 'Forbidden',
+  READ_ONLY: 'Read only',
+  READ_WRITE: 'Read and edit',
+  FULL_ACCESS: 'Full access',
+  ADMINISTRATOR: 'Administrator',
+};
 const MEMBER_ROLES = ['MEMBER', 'MANAGER'];
 
 function buildTree(departments) {
@@ -939,7 +948,7 @@ function DepartmentsPage() {
                     >
                       {VAULT_ACCESS_LEVELS.map((level) => (
                         <option key={level} value={level}>
-                          {level.replace('_', ' ')}
+                          {DEPT_ACCESS_LABELS[level]}
                         </option>
                       ))}
                     </select>

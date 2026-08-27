@@ -22,7 +22,6 @@ import {
   isMasterVerified as getSecureMasterVerified,
   setRsaPrivateKey as storeRsaPrivateKey,
   setRsaPublicKey as storeRsaPublicKeyPersist,
-  setSessionMasterPassword as storeSessionMasterPassword,
   getRsaPrivateKey as loadRsaPrivateKey,
   getRsaPublicKey as loadRsaPublicKey,
   getSessionMasterPassword as loadSessionMasterPassword,
@@ -409,7 +408,6 @@ const authSlice = createSlice({
     setSessionMasterPassword: (state, action) => {
       state.sessionMasterPassword = action.payload || null;
       storeMasterPassword(action.payload || null);
-      storeSessionMasterPassword(action.payload || null);
     },
 
     setSessionAdminMasterPassword: (state, action) => {
@@ -617,7 +615,6 @@ const authSlice = createSlice({
         storeMasterPassword(action.payload.masterPassword);
         storeRsaPrivateKey(action.payload.privateKeyJwk);
         storeRsaPublicKeyPersist(action.payload.publicKeyJwk);
-        storeSessionMasterPassword(action.payload.masterPassword);
         setMasterVerifiedFlag(true);
         saveUser(state.user);
       })

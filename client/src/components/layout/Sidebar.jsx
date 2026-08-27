@@ -218,9 +218,9 @@ function Sidebar() {
                           (item) => item.userId === user?.id || item.user?.id === user?.id
                         );
                         const folderAccess = user?.role === 'ADMIN'
-                          ? 'ADMINISTRATOR'
+                          ? 'ADMIN'
                           : folderPermission?.accessLevel || null;
-                        const canManageFolder = user?.role === 'ADMIN' || folderAccess === 'ADMINISTRATOR';
+                        const canManageFolder = user?.role === 'ADMIN' || folderAccess === 'ADMIN';
 
                         return (
                           <div

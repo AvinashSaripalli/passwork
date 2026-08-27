@@ -15,6 +15,7 @@ import EditMyVaultPasswordModal from '../../components/myVault/EditMyVaultPasswo
 import SharePasswordModal from '../../components/myVault/SharePasswordModal';
 import ManagePasswordSharesModal from '../../components/myVault/ManagePasswordSharesModal';
 import ViewMyVaultPasswordModal from '../../components/myVault/ViewMyVaultPasswordModal';
+import VerifyMasterPasswordModal from '../../components/security/VerifyMasterPasswordModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 
 import {
@@ -62,6 +63,10 @@ function MyVaultPage() {
   const [selectedPasswordForView, setSelectedPasswordForView] = useState(null);
   const [selectedPasswordId, setSelectedPasswordId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ open: false, type: '', item: null });
+  const [reVerifyOpen, setReVerifyOpen] = useState(false);
+  const [pendingSharePassword, setPendingSharePassword] = useState(null);
+
+  const { sessionMasterPassword } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(fetchMyVault());
@@ -169,6 +174,12 @@ function MyVaultPage() {
   };
 
   const handleOpenShare = (password) => {
+    if (!sessionMasterPassword) {
+      dispatch(clearShareError());
+      setPendingSharePassword(password);
+      setReVerifyOpen(true);
+      return;
+    }
     dispatch(clearShareError());
     setSelectedPassword(password);
     setShareModalOpen(true);
@@ -312,6 +323,24 @@ function MyVaultPage() {
           confirmLabel="Delete"
           onConfirm={executeDelete}
           onCancel={() => setConfirmDelete({ open: false, type: '', item: null })}
+        />
+
+        <VerifyMasterPasswordModal
+          open={reVerifyOpen}
+          onClose={() => {
+            setReVerifyOpen(false);
+            setPendingSharePassword(null);
+          }}
+          onVerified={() => {
+            setReVerifyOpen(false);
+            const pw = pendingSharePassword;
+            setPendingSharePassword(null);
+            if (pw) {
+              dispatch(clearShareError());
+              setSelectedPassword(pw);
+              setShareModalOpen(true);
+            }
+          }}
         />
       </div>
     </AppLayout>

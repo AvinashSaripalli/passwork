@@ -4,14 +4,23 @@ import { useSelector } from 'react-redux';
 import api from '../../services/api';
 import { showToast } from '../../utils/toast';
 
-const DEPT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const DEPT_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
+
+const DEPT_ACCESS_LABELS = {
+  NOT_SET: 'Not set',
+  FORBIDDEN: 'Forbidden',
+  READ_ONLY: 'Read only',
+  READ_WRITE: 'Read and edit',
+  FULL_ACCESS: 'Full access',
+  ADMINISTRATOR: 'Administrator',
+};
 
 function ShareVaultModal({ open, onClose, vaultId }) {
   const { user } = useSelector((state) => state.auth);
   const [activeTab, setActiveTab] = useState('USERS');
   const [users, setUsers] = useState([]);
   const [userEmail, setUserEmail] = useState('');
-  const [accessLevel, setAccessLevel] = useState('READ_ONLY');
+  const [accessLevel, setAccessLevel] = useState('VIEWER');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState('');
   const [sharing, setSharing] = useState(false);
@@ -190,9 +199,9 @@ function ShareVaultModal({ open, onClose, vaultId }) {
                 <label className="text-sm text-slate-600 dark:text-slate-300 mb-1 block">Access level</label>
                 <select value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)}
                   className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-3 py-2 text-sm">
-                  <option value="READ_ONLY">Read Only</option>
-                  <option value="READ_WRITE">Read Write</option>
-                  <option value="DELETE">Delete</option>
+                  <option value="VIEWER">Viewer</option>
+                  <option value="EDITOR">Editor</option>
+                  <option value="MANAGER">Manager</option>
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
@@ -236,7 +245,7 @@ function ShareVaultModal({ open, onClose, vaultId }) {
                           {checked && (
                             <select value={deptLevels[dept.id] || 'READ_ONLY'} onChange={(e) => setDeptLevel(dept.id, e.target.value)}
                               className="h-8 shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
-                              {DEPT_ACCESS_LEVELS.map((level) => (<option key={level} value={level}>{level.replace('_', ' ')}</option>))}
+                              {DEPT_ACCESS_LEVELS.map((level) => (<option key={level} value={level}>{DEPT_ACCESS_LABELS[level]}</option>))}
                             </select>
                           )}
                         </div>

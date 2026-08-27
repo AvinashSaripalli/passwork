@@ -288,6 +288,7 @@ function ActivityLogPage() {
   const { activityLogs, activityLoading, error } = useSelector(
     (state) => state.vault
   );
+  const { user } = useSelector((state) => state.auth);
 
   const [activeTab, setActiveTab] = useState('actions');
   const [currentPage, setCurrentPage] = useState(1);
@@ -322,6 +323,9 @@ function ActivityLogPage() {
   }, [dispatch, deptFilter]);
 
   useEffect(() => {
+    // The departments endpoint is admin-only; skip for regular users.
+    if (user?.role !== 'ADMIN') return;
+
     const fetchDepts = async () => {
       try {
         const res = await api.get('/departments');
@@ -331,7 +335,7 @@ function ActivityLogPage() {
       }
     };
     fetchDepts();
-  }, []);
+  }, [user?.role]);
 
   const fetchLoginActivities = useCallback(async () => {
     setLoginLoading(true);

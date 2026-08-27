@@ -270,10 +270,10 @@ enum Role {
 }
 
 enum FolderAccessLevel {
-  ADMINISTRATOR
-  FULL_ACCESS
-  READ_ONLY
-  EDIT_ONLY
+  VIEWER
+  EDITOR
+  MANAGER
+  ADMIN
 }
 
 enum VaultType {
@@ -283,9 +283,9 @@ enum VaultType {
 }
 
 enum VaultAccessLevel {
-  READ_ONLY
-  READ_WRITE
-  DELETE
+  VIEWER
+  EDITOR
+  MANAGER
   ADMIN
 }
 
@@ -295,10 +295,12 @@ enum DepartmentRole {
 }
 
 enum DepartmentAccessLevel {
+  NOT_SET
+  FORBIDDEN
   READ_ONLY
   READ_WRITE
-  DELETE
-  ADMIN
+  FULL_ACCESS
+  ADMINISTRATOR
 }
 
 enum ItemType {

@@ -2,7 +2,7 @@
 const generateId = require('../utils/generateId');
 const createNotification = require('../utils/createNotification');
 
-const ALLOWED_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const ALLOWED_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
 const VALID_MEMBER_ROLES = ['MANAGER', 'MEMBER'];
 
 const logActivity = async (userId, action, targetType, targetId, metadata) => {

@@ -31,28 +31,28 @@ router.get(
 router.put(
   '/:id',
   authenticate,
-  requireFolderAccess(['ADMINISTRATOR']),
+  requireFolderAccess(['ADMIN']),
   updateFolder
 );
 
 router.post(
   '/:id/share',
   authenticate,
-  requireFolderAccess(['ADMINISTRATOR']),
+  requireFolderAccess(['ADMIN']),
   shareFolder
 );
 
 router.get(
   '/:id/history',
   authenticate,
-  requireFolderAccess(['ADMINISTRATOR', 'FULL_ACCESS', 'READ_ONLY', 'EDIT_ONLY']),
+  requireFolderAccess(['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER']),
   getFolderActivityLogs
 );
 
 router.delete(
   '/:id',
   authenticate,
-  requireFolderAccess(['ADMINISTRATOR']),
+  requireFolderAccess(['ADMIN']),
   deleteFolder
 );
 

@@ -6,7 +6,16 @@ import { shareFolderAccess } from '../../features/vault/vaultSlice';
 import { showToast } from '../../utils/toast';
 import { unwrapItemKey, wrapItemKey } from '../../utils/crypto';
 
-const DEPT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'DELETE', 'ADMIN'];
+const DEPT_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
+
+const DEPT_ACCESS_LABELS = {
+  NOT_SET: 'Not set',
+  FORBIDDEN: 'Forbidden',
+  READ_ONLY: 'Read only',
+  READ_WRITE: 'Read and edit',
+  FULL_ACCESS: 'Full access',
+  ADMINISTRATOR: 'Administrator',
+};
 
 function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const dispatch = useDispatch();
@@ -18,7 +27,7 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
   const [users, setUsers] = useState([]);
   const [userEmail, setUserEmail] = useState('');
-  const [accessLevel, setAccessLevel] = useState('READ_ONLY');
+  const [accessLevel, setAccessLevel] = useState('VIEWER');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState('');
 
@@ -101,7 +110,7 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
   const resetForm = () => {
     setUserEmail('');
-    setAccessLevel('READ_ONLY');
+    setAccessLevel('VIEWER');
     setError('');
     setActiveTab('USERS');
     setSelectedDepts({});
@@ -333,10 +342,10 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
                     onChange={(e) => setAccessLevel(e.target.value)}
                     className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-3 py-2 text-sm"
                   >
-                    <option value="READ_ONLY">Read Only</option>
-                    <option value="EDIT_ONLY">Edit Only</option>
-                    <option value="FULL_ACCESS">Full Access</option>
-                    <option value="ADMINISTRATOR">Administrator</option>
+                    <option value="VIEWER">Viewer</option>
+                    <option value="EDITOR">Editor</option>
+                    <option value="MANAGER">Manager</option>
+                    <option value="ADMIN">Administrator</option>
                   </select>
                 </div>
 
@@ -428,7 +437,7 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
                               >
                                 {DEPT_ACCESS_LEVELS.map((level) => (
                                   <option key={level} value={level}>
-                                    {level.replace('_', ' ')}
+                                    {DEPT_ACCESS_LABELS[level]}
                                   </option>
                                 ))}
                               </select>

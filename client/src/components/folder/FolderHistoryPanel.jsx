@@ -90,14 +90,14 @@ function getTargetName(log) {
 
 function formatAccess(access) {
   switch (access) {
-    case 'ADMINISTRATOR':
+    case 'ADMIN':
       return 'Administrator';
-    case 'FULL_ACCESS':
-      return 'Full access';
-    case 'EDIT_ONLY':
-      return 'Edit only';
-    case 'READ_ONLY':
-      return 'Read only';
+    case 'MANAGER':
+      return 'Manager';
+    case 'EDITOR':
+      return 'Editor';
+    case 'VIEWER':
+      return 'Viewer';
     default:
       return access || '-';
   }
