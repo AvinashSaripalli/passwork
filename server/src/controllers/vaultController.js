@@ -1,9 +1,13 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
-const { getVaultAccess } = require('../utils/permissions');
+const {
+  getVaultAccess,
+  getUserDepartmentIds,
+  getDepartmentIdsWithAncestors,
+} = require('../utils/permissions');
 const { revokeWrappedKeysForUser } = require('../utils/wrappedKeys');
 
-const ALLOWED_VAULT_ACCESS_LEVELS = ['VIEWER', 'EDITOR', 'MANAGER', 'ADMIN'];
+const ALLOWED_VAULT_ACCESS_LEVELS = ['READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
 
 const makeSlug = (name) =>
   name
@@ -52,7 +56,7 @@ const createVault = async (req, res) => {
         id: vaultPermissionId,
         vaultId: vault.id,
         userId: req.user.id,
-        accessLevel: 'ADMIN',
+        accessLevel: 'ADMINISTRATOR',
       },
     });
 
@@ -122,30 +126,49 @@ const getVaults = async (req, res) => {
   orderBy: { createdAt: 'desc' },
 });
     } else {
-      const folderPermissions = await prisma.folderPermission.findMany({
-        where: { userId: req.user.id },
-        include: {
-          folder: {
-            include: {
-              vault: true,
+      const memberOfIds = await getUserDepartmentIds(req.user.id);
+      const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
+
+      // A folder is visible if the user has a direct (non-forbidden) grant,
+      // OR access via a department they belong to (including parent
+      // departments), granted directly on the folder.
+      const folderAccessFilter = {
+        OR: [
+          {
+            permissions: {
+              some: {
+                userId: req.user.id,
+                accessLevel: { not: 'FORBIDDEN' },
+              },
             },
           },
-        },
+          ...(departmentIds.length
+            ? [
+                {
+                  departmentPermissions: {
+                    some: {
+                      departmentId: { in: departmentIds },
+                      accessLevel: { notIn: ['FORBIDDEN', 'NOT_SET'] },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      };
+
+      const accessibleFolders = await prisma.folder.findMany({
+        where: folderAccessFilter,
+        select: { vaultId: true },
       });
 
-      const vaultIds = [...new Set(folderPermissions.map((item) => item.folder.vaultId))];
+      const vaultIds = [...new Set(accessibleFolders.map((item) => item.vaultId))];
 
       vaults = await prisma.vault.findMany({
         where: { id: { in: vaultIds } },
         include: {
           folders: {
-            where: {
-              permissions: {
-                some: {
-                  userId: req.user.id,
-                },
-              },
-            },
+            where: folderAccessFilter,
             include: {
               permissions: {
                 include: {
@@ -231,29 +254,41 @@ const getVaultBySlug = async (req, res) => {
         return res.status(404).json({ message: 'Vault not found' });
       }
 
-      const folderPermissions = await prisma.folderPermission.findMany({
-        where: {
-          userId: req.user.id,
-          folder: {
-            vaultId: targetVault.id,
-          },
-        },
-        include: {
-          folder: {
-            include: {
-              permissions: {
-                include: {
-                  user: {
-                    select: { id: true, fullName: true, email: true },
-                  },
-                },
+      const memberOfIds = await getUserDepartmentIds(req.user.id);
+      const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
+
+      const folderAccessFilter = {
+        vaultId: targetVault.id,
+        OR: [
+          {
+            permissions: {
+              some: {
+                userId: req.user.id,
+                accessLevel: { not: 'FORBIDDEN' },
               },
             },
           },
-        },
+          ...(departmentIds.length
+            ? [
+                {
+                  departmentPermissions: {
+                    some: {
+                      departmentId: { in: departmentIds },
+                      accessLevel: { notIn: ['FORBIDDEN', 'NOT_SET'] },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      };
+
+      const accessibleFolders = await prisma.folder.findMany({
+        where: folderAccessFilter,
+        select: { id: true },
       });
 
-      if (!folderPermissions.length) {
+      if (!accessibleFolders.length) {
         return res.status(403).json({ message: 'Access denied' });
       }
 
@@ -268,13 +303,7 @@ const getVaultBySlug = async (req, res) => {
             },
           },
           folders: {
-            where: {
-              permissions: {
-                some: {
-                  userId: req.user.id,
-                },
-              },
-            },
+            where: folderAccessFilter,
             include: {
               permissions: {
                 include: {
@@ -349,7 +378,7 @@ const shareVault = async (req, res) => {
     }
 
     const access = await getVaultAccess(vaultId, req.user.id);
-    if (access !== 'ADMIN') {
+    if (access !== 'ADMINISTRATOR') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -430,7 +459,7 @@ const unshareVault = async (req, res) => {
     }
 
     const access = await getVaultAccess(vaultId, req.user.id);
-    if (access !== 'ADMIN') {
+    if (access !== 'ADMINISTRATOR') {
       return res.status(403).json({ message: 'Access denied' });
     }
 

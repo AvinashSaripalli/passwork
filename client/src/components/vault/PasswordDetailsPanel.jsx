@@ -53,24 +53,24 @@ function PasswordDetailsPanel() {
 
   const selectedFolderAccess =
     user?.role === 'ADMIN'
-      ? 'ADMIN'
+      ? 'ADMINISTRATOR'
       : selectedFolderPermission?.accessLevel || null;
 
   const canView =
     user?.role === 'ADMIN' ||
-    ['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER'].includes(
+    ['ADMINISTRATOR', 'READ_WRITE', 'READ_ONLY', 'FULL_ACCESS'].includes(
       selectedFolderAccess
     );
 
   const canEdit =
     user?.role === 'ADMIN' ||
-    ['ADMIN', 'EDITOR'].includes(
+    ['ADMINISTRATOR', 'READ_WRITE'].includes(
       selectedFolderAccess
     );
 
   const canDelete =
     user?.role === 'ADMIN' ||
-    ['ADMIN', 'MANAGER'].includes(selectedFolderAccess);
+    ['ADMINISTRATOR', 'FULL_ACCESS'].includes(selectedFolderAccess);
 
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [decryptedPasswords, setDecryptedPasswords] = useState({});

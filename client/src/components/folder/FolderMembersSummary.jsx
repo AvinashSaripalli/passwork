@@ -15,19 +15,32 @@ function FolderMembersSummary({ onClick }) {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
   const permissions = selectedFolder?.permissions || [];
+  const departmentMembers = selectedFolder?.departmentMembers || [];
   const owner = selectedFolder?.vault?.owner || null;
+
+  const directAndDeptMembers = [
+    ...permissions,
+    ...departmentMembers
+      .filter(
+        (dm) =>
+          !permissions.some(
+            (p) => p.userId === dm.user?.id || p.user?.id === dm.user?.id
+          )
+      )
+      .map((dm) => ({ ...dm, id: `dept-${dm.user?.id}` })),
+  ];
 
   const allMembers = owner
     ? [
         {
           id: `owner-${owner.id}`,
           user: owner,
-          accessLevel: 'ADMIN',
+          accessLevel: 'ADMINISTRATOR',
           isOwner: true,
         },
-        ...permissions.filter((item) => item.user?.id !== owner.id),
+        ...directAndDeptMembers.filter((item) => item.user?.id !== owner.id),
       ]
-    : permissions;
+    : directAndDeptMembers;
 
   if (!selectedFolderId || !allMembers.length) return null;
 

@@ -5,19 +5,32 @@ function FolderPermissionsPanel() {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
   const permissions = selectedFolder?.permissions || [];
+  const departmentMembers = selectedFolder?.departmentMembers || [];
   const owner = selectedFolder?.vault?.owner || null;
+
+  const directAndDeptMembers = [
+    ...permissions,
+    ...departmentMembers
+      .filter(
+        (dm) =>
+          !permissions.some(
+            (p) => p.userId === dm.user?.id || p.user?.id === dm.user?.id
+          )
+      )
+      .map((dm) => ({ ...dm, id: `dept-${dm.user?.id}` })),
+  ];
 
   const allMembers = owner
     ? [
         {
           id: `owner-${owner.id}`,
           user: owner,
-          accessLevel: 'ADMIN',
+          accessLevel: 'ADMINISTRATOR',
           isOwner: true,
         },
-        ...permissions.filter((item) => item.user?.id !== owner.id),
+        ...directAndDeptMembers.filter((item) => item.user?.id !== owner.id),
       ]
-    : permissions;
+    : directAndDeptMembers;
 
   if (!selectedFolderId) return null;
 
@@ -40,10 +53,17 @@ function FolderPermissionsPanel() {
                 key={item.id}
                 className={`border-b last:border-0 ${item.isOwner ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''}`}
               >
-                <td className="py-4">{item.user?.fullName || '-'}</td>
+                <td className="py-4">
+                  {item.user?.fullName || '-'}
+                  {item.viaDepartment && (
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 font-semibold">
+                      {item.departmentName}
+                    </span>
+                  )}
+                </td>
                 <td className="py-4">{item.user?.email || '-'}</td>
                 <td className="py-4">
-                  {item.isOwner ? 'ADMIN (Owner)' : item.accessLevel}
+                  {item.isOwner ? 'ADMINISTRATOR (Owner)' : item.accessLevel}
                 </td>
               </tr>
             ))}

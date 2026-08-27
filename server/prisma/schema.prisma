@@ -78,6 +78,7 @@ model Folder {
   vaultId               String
   parentId              String?
   wrappedKeys           Json?
+  blockedUserIds        Json?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   departmentPermissions DepartmentPermission[]
@@ -270,10 +271,11 @@ enum Role {
 }
 
 enum FolderAccessLevel {
-  VIEWER
-  EDITOR
-  MANAGER
-  ADMIN
+  READ_ONLY
+  READ_WRITE
+  FULL_ACCESS
+  ADMINISTRATOR
+  FORBIDDEN
 }
 
 enum VaultType {
@@ -283,10 +285,10 @@ enum VaultType {
 }
 
 enum VaultAccessLevel {
-  VIEWER
-  EDITOR
-  MANAGER
-  ADMIN
+  READ_ONLY
+  READ_WRITE
+  FULL_ACCESS
+  ADMINISTRATOR
 }
 
 enum DepartmentRole {

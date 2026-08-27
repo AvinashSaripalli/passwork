@@ -292,7 +292,6 @@ function DepartmentsPage() {
     targetType: 'VAULT',
     vaultId: '',
     folderId: '',
-    accessLevel: 'READ_ONLY',
   });
   const [foldersCache, setFoldersCache] = useState({});
 
@@ -525,14 +524,14 @@ function DepartmentsPage() {
 
     const payload =
       grantForm.targetType === 'FOLDER'
-        ? { folderId: grantForm.folderId, accessLevel: grantForm.accessLevel }
-        : { vaultId: grantForm.vaultId, accessLevel: grantForm.accessLevel };
+        ? { folderId: grantForm.folderId }
+        : { vaultId: grantForm.vaultId };
 
     try {
       await api.post(`/departments/${selectedDept.id}/grants`, payload, authHeaders);
       showToast('Access granted');
 
-      setGrantForm((prev) => ({ ...prev, folderId: '', accessLevel: 'READ_ONLY' }));
+      setGrantForm((prev) => ({ ...prev, folderId: '' }));
 
       await fetchDepartments();
     } catch (err) {
@@ -826,7 +825,7 @@ function DepartmentsPage() {
 
                       <div className="flex items-center gap-2 shrink-0 ml-3">
                         <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                          {grant.accessLevel}
+                          {DEPT_ACCESS_LABELS[grant.accessLevel] || grant.accessLevel}
                         </span>
 
                         <button
@@ -934,31 +933,17 @@ function DepartmentsPage() {
 
                   <p className="text-[11px] text-slate-400 dark:text-slate-500">
                     {grantForm.targetType === 'FOLDER'
-                      ? 'Members get this access level only inside the selected folder.'
-                      : 'Members get this access level across the whole vault.'}
+                      ? 'All department members get access to this folder.'
+                      : 'All department members get access across this vault.'}
                   </p>
 
                   <div className="flex gap-2">
-                    <select
-                      value={grantForm.accessLevel}
-                      onChange={(e) =>
-                        setGrantForm((prev) => ({ ...prev, accessLevel: e.target.value }))
-                      }
-                      className="h-10 flex-1 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                    >
-                      {VAULT_ACCESS_LEVELS.map((level) => (
-                        <option key={level} value={level}>
-                          {DEPT_ACCESS_LABELS[level]}
-                        </option>
-                      ))}
-                    </select>
-
                     <button
                       onClick={handleAddGrant}
                       disabled={!vaults.length}
-                      className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-10 flex-1 rounded-xl bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Grant
+                      Grant Access
                     </button>
                   </div>
                 </div>

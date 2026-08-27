@@ -7,6 +7,15 @@ import {
 import AppLayout from '../../components/layout/AppLayout';
 import api from '../../services/api';
 
+const DEPT_ACCESS_LABELS = {
+  NOT_SET: 'Not set',
+  FORBIDDEN: 'Forbidden',
+  READ_ONLY: 'Read only',
+  READ_WRITE: 'Read and edit',
+  FULL_ACCESS: 'Full access',
+  ADMINISTRATOR: 'Administrator',
+};
+
 function buildTree(departments) {
   const byId = new Map(departments.map((d) => [d.id, { ...d, children: [] }]));
   const roots = [];
@@ -363,8 +372,8 @@ function MyDepartmentsPage() {
                         )}
                       </div>
 
-                      <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 shrink-0 ml-3">
-                        {grant.accessLevel}
+<span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 shrink-0 ml-3">
+                        {DEPT_ACCESS_LABELS[grant.accessLevel] || grant.accessLevel}
                       </span>
                     </div>
                   ))}

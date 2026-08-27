@@ -1,10 +1,10 @@
 const prisma = require('../config/prisma');
 
 const LEVEL_RANK = {
-  VIEWER: 0,
-  EDITOR: 1,
-  MANAGER: 2,
-  ADMIN: 3,
+  READ_ONLY: 0,
+  READ_WRITE: 1,
+  FULL_ACCESS: 2,
+  ADMINISTRATOR: 3,
 };
 
 const VAULT_LEVEL_RANK = LEVEL_RANK;
@@ -13,10 +13,10 @@ const FOLDER_LEVEL_RANK = LEVEL_RANK;
 const DEPT_TO_FOLDER_MAP = {
   NOT_SET: null,
   FORBIDDEN: null,
-  READ_ONLY: 'VIEWER',
-  READ_WRITE: 'EDITOR',
-  FULL_ACCESS: 'MANAGER',
-  ADMINISTRATOR: 'ADMIN',
+  READ_ONLY: 'READ_ONLY',
+  READ_WRITE: 'READ_WRITE',
+  FULL_ACCESS: 'FULL_ACCESS',
+  ADMINISTRATOR: 'ADMINISTRATOR',
 };
 
 const isAdminUser = async (userId) => {
@@ -64,14 +64,14 @@ const getDepartmentIdsWithAncestors = async (departmentIds) => {
 const getHighestVaultLevel = (levels) =>
   levels.reduce(
     (best, level) =>
-      level && (!best || LEVEL_RANK[level] > LEVEL_RANK[best]) ? level : best,
+      level && (!best || VAULT_LEVEL_RANK[level] > VAULT_LEVEL_RANK[best]) ? level : best,
     null
   );
 
 const getHighestFolderLevel = (levels) =>
   levels.reduce(
     (best, level) =>
-      level && (!best || LEVEL_RANK[level] > LEVEL_RANK[best]) ? level : best,
+      level && (!best || FOLDER_LEVEL_RANK[level] > FOLDER_LEVEL_RANK[best]) ? level : best,
     null
   );
 
@@ -139,14 +139,14 @@ const getFolderAccess = async (folderId, userId) => {
   if (!folder) return null;
 
   if (folder.vault.type === 'PERSONAL') {
-    return folder.vault.ownerId === userId ? 'ADMIN' : null;
+    return folder.vault.ownerId === userId ? 'ADMINISTRATOR' : null;
   }
 
   const admin = await isAdminUser(userId);
-  if (admin) return 'ADMIN';
+  if (admin) return 'ADMINISTRATOR';
 
   if (folder.vault.ownerId === userId) {
-    return 'ADMIN';
+    return 'ADMINISTRATOR';
   }
 
   // Check department access — FORBIDDEN is an explicit deny
@@ -155,7 +155,18 @@ const getFolderAccess = async (folderId, userId) => {
 
   const permission = folder.permissions.find((item) => item.userId === userId);
 
-  return getHighestFolderLevel([permission?.accessLevel, departmentAccess]);
+  if (permission) {
+    // FORBIDDEN direct permission is an explicit deny — wins over department access
+    if (permission.accessLevel === 'FORBIDDEN') return null;
+    return getHighestFolderLevel([permission.accessLevel, departmentAccess]);
+  }
+
+  // Blocked users are explicitly removed from this folder — no department
+  // access can restore them (unless a direct permission is added later).
+  const blocked = Array.isArray(folder.blockedUserIds) ? folder.blockedUserIds : [];
+  if (blocked.includes(userId)) return null;
+
+  return departmentAccess;
 };
 
 const getVaultAccess = async (vaultId, userId) => {
@@ -169,14 +180,14 @@ const getVaultAccess = async (vaultId, userId) => {
   if (!vault) return null;
 
   if (vault.type === 'PERSONAL') {
-    return vault.ownerId === userId ? 'ADMIN' : null;
+    return vault.ownerId === userId ? 'ADMINISTRATOR' : null;
   }
 
   const admin = await isAdminUser(userId);
-  if (admin) return 'ADMIN';
+  if (admin) return 'ADMINISTRATOR';
 
   if (vault.ownerId === userId) {
-    return 'ADMIN';
+    return 'ADMINISTRATOR';
   }
 
   // Check department access — FORBIDDEN is an explicit deny
@@ -194,7 +205,8 @@ const getFolderAuthorizedUserIds = async (folderId) => {
       where: { id: folderId },
       select: {
         vault: { select: { type: true, ownerId: true } },
-        permissions: { select: { userId: true } },
+        permissions: { select: { userId: true, accessLevel: true } },
+        blockedUserIds: true,
       },
     });
 
@@ -204,10 +216,17 @@ const getFolderAuthorizedUserIds = async (folderId) => {
       return [folder.vault.ownerId];
     }
 
+    const blocked = new Set(
+      Array.isArray(folder.blockedUserIds) ? folder.blockedUserIds : []
+    );
     const userIds = new Set([folder.vault.ownerId]);
 
+    for (const blockedId of blocked) {
+      userIds.delete(blockedId);
+    }
+
     for (const perm of folder.permissions) {
-      if (perm.userId) userIds.add(perm.userId);
+      if (perm.userId && perm.accessLevel !== 'FORBIDDEN') userIds.add(perm.userId);
     }
 
     const [admins, grants] = await Promise.all([
@@ -248,7 +267,7 @@ const getFolderAuthorizedUserIds = async (folderId) => {
 
       for (const member of memberships) {
         if (member.userId && expanded.has(member.departmentId)) {
-          userIds.add(member.userId);
+          if (!blocked.has(member.userId)) userIds.add(member.userId);
         }
       }
     }
@@ -306,25 +325,39 @@ const requireFolderAccess = (allowedLevels = []) => {
 
 const getFolderDepartmentMembers = async (folderId) => {
   try {
-    const grants = await prisma.departmentPermission.findMany({
-      where: { folderId },
-      include: {
-        department: {
-          include: {
-            members: {
-              include: {
-                user: {
-                  select: { id: true, fullName: true, email: true },
+    const [grants, folder] = await Promise.all([
+      prisma.departmentPermission.findMany({
+        where: { folderId },
+        include: {
+          department: {
+            include: {
+              members: {
+                include: {
+                  user: {
+                    select: { id: true, fullName: true, email: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.folder.findUnique({
+        where: { id: folderId },
+        select: { blockedUserIds: true, permissions: { select: { userId: true, accessLevel: true } } },
+      }),
+    ]);
 
     if (!grants.length) return [];
 
+    const blocked = new Set(
+      Array.isArray(folder?.blockedUserIds) ? folder.blockedUserIds : []
+    );
+    const forbidden = new Set(
+      (folder?.permissions || [])
+        .filter((p) => p.accessLevel === 'FORBIDDEN')
+        .map((p) => p.userId)
+    );
     const membersByUser = new Map();
 
     for (const grant of grants) {
@@ -338,6 +371,10 @@ const getFolderDepartmentMembers = async (folderId) => {
         if (!member.user) continue;
 
         const uid = member.user.id;
+
+        // Users explicitly removed or forbidden in this folder are excluded
+        if (blocked.has(uid) || forbidden.has(uid)) continue;
+
         const existing = membersByUser.get(uid);
 
         if (!existing || LEVEL_RANK[folderAccess] > LEVEL_RANK[existing.accessLevel]) {

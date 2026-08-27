@@ -528,7 +528,7 @@ const createGrant = async (req, res) => {
       return res.status(404).json({ message: 'Department not found' });
     }
 
-    const { vaultId, folderId, accessLevel } = req.body;
+const { vaultId, folderId, accessLevel } = req.body;
 
     if (!vaultId && !folderId) {
       return res.status(400).json({ message: 'Either vaultId or folderId is required' });
@@ -538,7 +538,9 @@ const createGrant = async (req, res) => {
       return res.status(400).json({ message: 'Provide either vaultId or folderId, not both' });
     }
 
-    if (!ALLOWED_ACCESS_LEVELS.includes(accessLevel)) {
+    const effectiveLevel = accessLevel || 'READ_ONLY';
+
+    if (!ALLOWED_ACCESS_LEVELS.includes(effectiveLevel)) {
       return res.status(400).json({
         message: `Invalid access level. Must be one of: ${ALLOWED_ACCESS_LEVELS.join(', ')}`,
       });
@@ -603,9 +605,9 @@ const createGrant = async (req, res) => {
 
     const grant = await prisma.departmentPermission.create({
       data: {
-        id: await generateId('departmentPermission'),
+id: await generateId('departmentPermission'),
         departmentId: department.id,
-        accessLevel,
+        accessLevel: effectiveLevel,
         ...grantData,
       },
       include: {
@@ -616,10 +618,10 @@ const createGrant = async (req, res) => {
       },
     });
 
-    await logActivity(req.user.id, 'GRANT_DEPARTMENT_ACCESS', 'Department', department.id, {
+await logActivity(req.user.id, 'GRANT_DEPARTMENT_ACCESS', 'Department', department.id, {
       departmentName: department.name,
       ...metadataTarget,
-      accessLevel,
+      accessLevel: effectiveLevel,
     });
 
     const members = await prisma.departmentMember.findMany({
@@ -628,12 +630,12 @@ const createGrant = async (req, res) => {
     });
 
     for (const m of members) {
-      await createNotification({
+await createNotification({
         userId: m.userId,
         title: 'Department Access Granted',
-        message: `Your department "${department.name}" received ${accessLevel} access to ${targetName}`,
+        message: `Your department "${department.name}" received ${effectiveLevel} access to ${targetName}`,
         type: 'DEPARTMENT',
-        metadata: { departmentId: department.id, departmentName: department.name, accessLevel },
+        metadata: { departmentId: department.id, departmentName: department.name, accessLevel: effectiveLevel },
       });
     }
 

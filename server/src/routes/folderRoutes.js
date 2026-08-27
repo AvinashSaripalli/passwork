@@ -13,6 +13,7 @@ const {
   updateFolderPermission,
   deleteFolderPermission,
   getFolderWrapRecipients,
+  blockFolderUser,
 } = require('../controllers/folderController');
 const { requireFolderAccess } = require('../utils/permissions');
 
@@ -31,28 +32,35 @@ router.get(
 router.put(
   '/:id',
   authenticate,
-  requireFolderAccess(['ADMIN']),
+  requireFolderAccess(['ADMINISTRATOR']),
   updateFolder
 );
 
 router.post(
   '/:id/share',
   authenticate,
-  requireFolderAccess(['ADMIN']),
+  requireFolderAccess(['ADMINISTRATOR']),
   shareFolder
+);
+
+router.post(
+  '/:id/block',
+  authenticate,
+  requireFolderAccess(['ADMINISTRATOR']),
+  blockFolderUser
 );
 
 router.get(
   '/:id/history',
   authenticate,
-  requireFolderAccess(['ADMIN', 'EDITOR', 'VIEWER', 'MANAGER']),
+  requireFolderAccess(['ADMINISTRATOR', 'READ_WRITE', 'READ_ONLY', 'FULL_ACCESS']),
   getFolderActivityLogs
 );
 
 router.delete(
   '/:id',
   authenticate,
-  requireFolderAccess(['ADMIN']),
+  requireFolderAccess(['ADMINISTRATOR']),
   deleteFolder
 );
 

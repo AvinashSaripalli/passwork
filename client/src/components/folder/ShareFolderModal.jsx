@@ -6,17 +6,6 @@ import { shareFolderAccess } from '../../features/vault/vaultSlice';
 import { showToast } from '../../utils/toast';
 import { unwrapItemKey, wrapItemKey } from '../../utils/crypto';
 
-const DEPT_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
-
-const DEPT_ACCESS_LABELS = {
-  NOT_SET: 'Not set',
-  FORBIDDEN: 'Forbidden',
-  READ_ONLY: 'Read only',
-  READ_WRITE: 'Read and edit',
-  FULL_ACCESS: 'Full access',
-  ADMINISTRATOR: 'Administrator',
-};
-
 function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -27,7 +16,7 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
   const [users, setUsers] = useState([]);
   const [userEmail, setUserEmail] = useState('');
-  const [accessLevel, setAccessLevel] = useState('VIEWER');
+  const [accessLevel, setAccessLevel] = useState('READ_ONLY');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,7 +25,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
   const [deptsError, setDeptsError] = useState('');
   const [existingGrants, setExistingGrants] = useState({});
   const [selectedDepts, setSelectedDepts] = useState({});
-  const [deptLevels, setDeptLevels] = useState({});
   const [savingDepts, setSavingDepts] = useState(false);
 
   useEffect(() => {
@@ -79,7 +67,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
         const grants = {};
         const selected = {};
-        const levels = {};
 
         list.forEach((dept) => {
           const grant = dept.permissions.find((p) => p.folderId === folderId);
@@ -87,13 +74,11 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
           if (grant) {
             grants[dept.id] = grant;
             selected[dept.id] = true;
-            levels[dept.id] = grant.accessLevel;
           }
         });
 
         setExistingGrants(grants);
         setSelectedDepts(selected);
-        setDeptLevels(levels);
       } catch (err) {
         setDeptsError(
           err.response?.status === 403
@@ -110,11 +95,10 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
   const resetForm = () => {
     setUserEmail('');
-    setAccessLevel('VIEWER');
+    setAccessLevel('READ_ONLY');
     setError('');
     setActiveTab('USERS');
     setSelectedDepts({});
-    setDeptLevels({});
     setExistingGrants({});
   };
 
@@ -201,10 +185,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
     setSelectedDepts((prev) => ({ ...prev, [deptId]: !prev[deptId] }));
   };
 
-  const setDeptLevel = (deptId, level) => {
-    setDeptLevels((prev) => ({ ...prev, [deptId]: level }));
-  };
-
   const buildDeptLabel = (dept, byId) => {
     if (!dept.parentId || !byId.has(dept.parentId)) return dept.name;
     return `${buildDeptLabel(byId.get(dept.parentId), byId)} / ${dept.name}`;
@@ -223,27 +203,17 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
       setSavingDepts(true);
 
       let created = 0;
-      let updated = 0;
       let revoked = 0;
 
       for (const dept of departments) {
         const isSelected = !!selectedDepts[dept.id];
         const existing = existingGrants[dept.id];
-        const wantedLevel = deptLevels[dept.id];
 
         if (isSelected && !existing) {
           await api.post(`/departments/${dept.id}/grants`, {
             folderId,
-            accessLevel: wantedLevel || 'READ_ONLY',
           });
           created += 1;
-        } else if (isSelected && existing && existing.accessLevel !== wantedLevel) {
-          await api.delete(`/departments/${dept.id}/grants/${existing.id}`);
-          await api.post(`/departments/${dept.id}/grants`, {
-            folderId,
-            accessLevel: wantedLevel,
-          });
-          updated += 1;
         } else if (!isSelected && existing) {
           await api.delete(`/departments/${dept.id}/grants/${existing.id}`);
           revoked += 1;
@@ -252,7 +222,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
 
       const parts = [];
       if (created) parts.push(`${created} granted`);
-      if (updated) parts.push(`${updated} updated`);
       if (revoked) parts.push(`${revoked} revoked`);
 
       showToast(parts.length ? `Department access saved (${parts.join(', ')})` : 'No changes');
@@ -342,10 +311,11 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
                     onChange={(e) => setAccessLevel(e.target.value)}
                     className="w-full border border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 rounded-lg px-3 py-2 text-sm"
                   >
-                    <option value="VIEWER">Viewer</option>
-                    <option value="EDITOR">Editor</option>
-                    <option value="MANAGER">Manager</option>
-                    <option value="ADMIN">Administrator</option>
+                    <option value="READ_ONLY">Read only</option>
+                    <option value="READ_WRITE">Read and write</option>
+                    <option value="FULL_ACCESS">Full access</option>
+                    <option value="ADMINISTRATOR">Administrator</option>
+                    <option value="FORBIDDEN">Forbidden</option>
                   </select>
                 </div>
 
@@ -428,20 +398,6 @@ function ShareFolderModal({ open, onClose, folderId, vaultId }) {
                                 </p>
                               </div>
                             </label>
-
-                            {checked && (
-                              <select
-                                value={deptLevels[dept.id] || 'READ_ONLY'}
-                                onChange={(e) => setDeptLevel(dept.id, e.target.value)}
-                                className="h-8 shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                              >
-                                {DEPT_ACCESS_LEVELS.map((level) => (
-                                  <option key={level} value={level}>
-                                    {DEPT_ACCESS_LABELS[level]}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
                           </div>
                         </div>
                       );

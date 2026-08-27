@@ -217,10 +217,10 @@ function Sidebar() {
                         const folderPermission = folder?.permissions?.find(
                           (item) => item.userId === user?.id || item.user?.id === user?.id
                         );
-                        const folderAccess = user?.role === 'ADMIN'
-                          ? 'ADMIN'
-                          : folderPermission?.accessLevel || null;
-                        const canManageFolder = user?.role === 'ADMIN' || folderAccess === 'ADMIN';
+const folderAccess = user?.role === 'ADMIN'
+  ? 'ADMINISTRATOR'
+  : folderPermission?.accessLevel || null;
+                        const canManageFolder = user?.role === 'ADMIN' || folderAccess === 'ADMINISTRATOR';
 
                         return (
                           <div
