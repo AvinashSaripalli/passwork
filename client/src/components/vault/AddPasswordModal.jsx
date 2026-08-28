@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Eye, EyeOff, X, Sparkles } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   closeAddPasswordModal,
@@ -7,6 +7,7 @@ import {
 } from '../../features/vault/vaultSlice';
 import TagInput from '../common/TagInput';
 import { encryptTextWithAesKey, wrapItemKey, decryptPrivateKey } from '../../utils/crypto';
+import { generatePassword } from '../../utils/passwordGenerator';
 import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
 import { getPasswordStrength } from '../../utils/passwordStrength';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
@@ -37,7 +38,7 @@ const SUGGESTED_TAGS = [
   'Temporary',
 ];
 
-function AddPasswordModal() {
+function AddPasswordModal({ prefill, prefillName, onPrefillConsumed }) {
   const dispatch = useDispatch();
 
   const {
@@ -64,6 +65,25 @@ function AddPasswordModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState('');
+
+  const effectivePrefill = prefill || (prefillName ? (typeof prefillName === 'string' ? { name: prefillName } : prefillName) : null);
+
+  useEffect(() => {
+    if (isAddPasswordModalOpen && effectivePrefill) {
+      setFormData((prev) => ({
+        ...prev,
+        name: effectivePrefill.name ?? prev.name,
+        url: effectivePrefill.url ?? prev.url,
+        tags: effectivePrefill.tags?.length ? effectivePrefill.tags : prev.tags,
+      }));
+    }
+  }, [isAddPasswordModalOpen, effectivePrefill]);
+
+  useEffect(() => {
+    if (!isAddPasswordModalOpen && effectivePrefill && onPrefillConsumed) {
+      onPrefillConsumed();
+    }
+  }, [isAddPasswordModalOpen, effectivePrefill, onPrefillConsumed]);
 
   if (!isAddPasswordModalOpen) return null;
 
@@ -98,6 +118,14 @@ function AddPasswordModal() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleGenerate = () => {
+    const pwd = generatePassword({ length: 16, useUppercase: true, useLowercase: true, useNumbers: true, useSymbols: true });
+    setFormData((prev) => ({ ...prev, encryptedPassword: pwd, confirmPassword: pwd }));
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    setLocalError('');
   };
 
   const validateForm = () => {
@@ -307,14 +335,21 @@ function AddPasswordModal() {
                   placeholder="Password"
                   value={formData.encryptedPassword}
                   onChange={handleChange}
-                  className="w-full border border-slate-300 rounded-xl px-4 pr-12 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                  className="w-full border border-slate-300 rounded-xl px-4 pr-20 py-3 outline-none dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                   required
                 />
-
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  title="Generate strong password"
+                  className="absolute right-10 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50 flex items-center justify-center"
+                >
+                  <Sparkles size={14} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

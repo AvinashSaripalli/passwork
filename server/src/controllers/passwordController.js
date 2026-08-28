@@ -54,7 +54,7 @@ const createPassword = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'READ_WRITE'].includes(access)) {
+    if (!access || !['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -168,7 +168,7 @@ const importPasswordsFromExcel = async (req, res) => {
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'READ_WRITE'].includes(access)) {
+    if (!access || !['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -385,7 +385,7 @@ const getPasswordById = async (req, res) => {
     }
 
     const access = await getFolderAccess(password.folderId, req.user.id);
-    if (!access || !['ADMINISTRATOR', 'READ_WRITE', 'READ_ONLY'].includes(access)) {
+    if (!access || !['ADMINISTRATOR', 'READ_WRITE', 'READ_ONLY', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -438,7 +438,7 @@ const updatePassword = async (req, res) => {
 
     if (
       !access ||
-      !['ADMINISTRATOR', 'READ_WRITE'].includes(access)
+      !['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(access)
     ) {
       return res.status(403).json({ message: 'Access denied' });
     }

@@ -164,6 +164,27 @@ function DashboardPage() {
           </div>
         </div>
 
+        {/* Vault context description */}
+        <div className={`rounded-2xl border px-5 py-4 flex items-center gap-3 ${vaultType === 'COMPANY' ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}>
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${vaultType === 'COMPANY' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
+            <Shield size={16} />
+          </div>
+          <div>
+            <p className={`text-sm font-semibold ${vaultType === 'COMPANY' ? 'text-indigo-900 dark:text-indigo-200' : 'text-emerald-900 dark:text-emerald-200'}`}>
+              {vaultType === 'COMPANY' ? 'Company Vault Dashboard' : 'Personal Vault Dashboard'}
+            </p>
+            <p className={`text-xs mt-0.5 ${vaultType === 'COMPANY' ? 'text-indigo-700 dark:text-indigo-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+              {vaultType === 'COMPANY'
+                ? 'Showing organization-wide analytics — shared passwords, team activity, and overall security health for your Company Vault.'
+                : 'Showing private analytics — your personal passwords, weak/old/at-risk counts, and your own security score.'}
+            </p>
+          </div>
+          <span className={`ml-auto hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${vaultType === 'COMPANY' ? 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700' : 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700'}`}>
+            <span className={`h-2 w-2 rounded-full ${vaultType === 'COMPANY' ? 'bg-indigo-600' : 'bg-emerald-600'}`} />
+            {vaultType === 'COMPANY' ? 'Company' : 'Personal'}
+          </span>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl px-5 py-4">

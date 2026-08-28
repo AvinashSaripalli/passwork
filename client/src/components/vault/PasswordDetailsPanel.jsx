@@ -9,6 +9,7 @@ import {
   Pencil,
   Lock,
   ShieldCheck,
+  Plus,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
@@ -24,7 +25,7 @@ import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
-function PasswordDetailsPanel({ onShareVault }) {
+function PasswordDetailsPanel({ onShareVault, onAddLogin }) {
   const dispatch = useDispatch();
 
   const {
@@ -76,7 +77,7 @@ function PasswordDetailsPanel({ onShareVault }) {
 
   const canEdit =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'READ_WRITE'].includes(
+    ['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(
       selectedFolderAccess
     );
 
@@ -333,6 +334,8 @@ function PasswordDetailsPanel({ onShareVault }) {
     }
   };
 
+  const canAddLogin = user?.role === 'ADMIN' || ['ADMINISTRATOR', 'READ_WRITE'].includes(selectedFolderAccess);
+
   return (
     <div className="p-8">
       <div className="mb-8 flex items-start justify-between gap-4">
@@ -354,14 +357,32 @@ function PasswordDetailsPanel({ onShareVault }) {
             {sameNamePasswords.length > 1 ? 's' : ''}
           </p>
         </div>
-        {user?.role === 'ADMIN' && onShareVault && selectedVault && (
-          <button
-            onClick={onShareVault}
-            className="h-10 px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 shrink-0"
-          >
-            Share Vault
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {canAddLogin && onAddLogin && (
+            <button
+              onClick={() =>
+                onAddLogin({
+                  name: selectedPassword.name,
+                  url: selectedPassword.url,
+                  tags: (selectedPassword.tags || []).map((t) => t.tag?.name).filter(Boolean),
+                })
+              }
+              className="h-10 px-5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center gap-1.5"
+              title="Add another login to this service"
+            >
+              <Plus size={16} />
+              Add Login
+            </button>
+          )}
+          {user?.role === 'ADMIN' && onShareVault && selectedVault && (
+            <button
+              onClick={onShareVault}
+              className="h-10 px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
+            >
+              Share Vault
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-5">
@@ -527,6 +548,26 @@ function PasswordDetailsPanel({ onShareVault }) {
             </div>
           );
         })}
+        {canAddLogin && onAddLogin && (
+          <button
+            onClick={() =>
+              onAddLogin({
+                name: selectedPassword.name,
+                url: selectedPassword.url,
+                tags: (selectedPassword.tags || []).map((t) => t.tag?.name).filter(Boolean),
+              })
+            }
+            className="w-full rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-600 p-6 flex flex-col items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
+          >
+            <span className="w-10 h-10 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:border-indigo-200 dark:group-hover:border-indigo-700 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <Plus size={18} />
+            </span>
+            <span className="text-sm font-semibold">Add another login to {selectedPassword.name}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-500 text-center max-w-sm">
+              Same service, different account — e.g., personal vs work Vercel. It will appear as Account {sameNamePasswords.length + 1} in this group.
+            </span>
+          </button>
+        )}
       </div>
 
       <ConfirmModal

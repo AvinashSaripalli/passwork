@@ -52,6 +52,7 @@ function VaultPage() {
   const [importFile, setImportFile] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [rewrapping, setRewrapping] = useState(false);
+  const [prefillData, setPrefillData] = useState(null);
 
   const { user, token, sessionMasterPassword, sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector(
     (state) => state.auth
@@ -216,7 +217,7 @@ function VaultPage() {
 
   const canAddPassword =
     user?.role === 'ADMIN' ||
-    ['ADMINISTRATOR', 'READ_WRITE'].includes(selectedFolderAccess);
+    ['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(selectedFolderAccess);
 
   const canShareFolder =
     !!selectedFolder &&
@@ -709,7 +710,15 @@ function VaultPage() {
             ) : (
               <div className="grid grid-cols-[420px_1fr] min-h-[640px]">
                 <PasswordListPanel />
-                <PasswordDetailsPanel onShareVault={() => setVaultShareOpen(true)} />
+                <PasswordDetailsPanel
+                  onShareVault={() => setVaultShareOpen(true)}
+                  onAddLogin={(data) => {
+                    // data can be string (legacy) or {name, url, tags}
+                    const prefill = typeof data === 'string' ? { name: data } : data;
+                    setPrefillData(prefill);
+                    dispatch(openAddPasswordModal());
+                  }}
+                />
               </div>
             )}
           </>
@@ -760,7 +769,7 @@ function VaultPage() {
       />
 
       <AddFolderModal />
-      <AddPasswordModal />
+      <AddPasswordModal prefill={prefillData} onPrefillConsumed={() => setPrefillData(null)} />
       <EditPasswordModal />
     </AppLayout>
   );
