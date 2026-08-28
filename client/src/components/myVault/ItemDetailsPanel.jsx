@@ -348,6 +348,13 @@ function ItemDetailsPanel({
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => onShare(item)}
+            className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
+            title="Share"
+          >
+            <Share2 size={17} />
+          </button>
+          <button
             onClick={() => onEdit(item)}
             className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
             title="Edit"
@@ -495,13 +502,6 @@ function ItemDetailsPanel({
           >
             <FolderPlus size={16} />
             Add Sub-item
-          </button>
-          <button
-            onClick={() => onShare(item)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-800"
-          >
-            <Share2 size={16} />
-            Share Item
           </button>
           <button
             onClick={() => onManageShares(item)}

@@ -36,11 +36,20 @@ function VaultSidebar() {
   const selectedFolderPermission = selectedFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
   );
-
-  const selectedFolderAccess =
-    user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
-      : selectedFolderPermission?.accessLevel || null;
+  const selectedFolderDeptMember = selectedFolder?.departmentMembers?.find(
+    (dm) => dm.user?.id === user?.id
+  );
+  const selectedFolderAccess = (() => {
+    if (user?.role === 'ADMIN') return 'ADMINISTRATOR';
+    const RANK = { READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 };
+    const getRank = (lvl) => RANK[lvl] ?? -1;
+    const direct = selectedFolderPermission?.accessLevel || null;
+    const dept = selectedFolderDeptMember?.accessLevel || null;
+    if (!direct && !dept) return null;
+    if (!direct) return dept;
+    if (!dept) return direct;
+    return getRank(direct) >= getRank(dept) ? direct : dept;
+  })();
 
   const canCreateFolder = user?.role === 'ADMIN';
 

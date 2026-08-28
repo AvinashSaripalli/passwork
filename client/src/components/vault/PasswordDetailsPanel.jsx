@@ -7,6 +7,8 @@ import {
   ExternalLink,
   Trash2,
   Pencil,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
@@ -22,7 +24,7 @@ import { secureCopyText } from '../../utils/clipboard';
 import { setCompanyPasswordEditCache } from '../../utils/companyPasswordEditCache';
 import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
-function PasswordDetailsPanel() {
+function PasswordDetailsPanel({ onShareVault }) {
   const dispatch = useDispatch();
 
   const {
@@ -31,6 +33,7 @@ function PasswordDetailsPanel() {
     actionLoading,
     folders,
     selectedFolderId,
+    selectedVault,
   } = useSelector((state) => state.vault);
 
   const {
@@ -50,11 +53,20 @@ function PasswordDetailsPanel() {
   const selectedFolderPermission = selectedFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
   );
-
-  const selectedFolderAccess =
-    user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
-      : selectedFolderPermission?.accessLevel || null;
+  const selectedFolderDeptMember = selectedFolder?.departmentMembers?.find(
+    (dm) => dm.user?.id === user?.id
+  );
+  const selectedFolderAccess = (() => {
+    if (user?.role === 'ADMIN') return 'ADMINISTRATOR';
+    const RANK = { READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 };
+    const getRank = (lvl) => RANK[lvl] ?? -1;
+    const direct = selectedFolderPermission?.accessLevel || null;
+    const dept = selectedFolderDeptMember?.accessLevel || null;
+    if (!direct && !dept) return null;
+    if (!direct) return dept;
+    if (!dept) return direct;
+    return getRank(direct) >= getRank(dept) ? direct : dept;
+  })();
 
   const canView =
     user?.role === 'ADMIN' ||
@@ -93,7 +105,17 @@ function PasswordDetailsPanel() {
   if (!selectedPassword) {
     return (
       <div className="p-8">
-        <p className="text-slate-500 dark:text-slate-400">Select a password to view details.</p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-slate-500 dark:text-slate-400">Select a password to view details.</p>
+          {user?.role === 'ADMIN' && onShareVault && selectedVault && (
+            <button
+              onClick={onShareVault}
+              className="h-10 px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 shrink-0"
+            >
+              Share Vault
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -313,15 +335,33 @@ function PasswordDetailsPanel() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <p className="text-sm text-slate-500 dark:text-slate-400">Selected password group</p>
-        <h2 className="text-3xl font-bold text-slate-900 mt-1 dark:text-slate-100">
-          {selectedPassword.name}
-        </h2>
-        <p className="text-slate-500 mt-2 dark:text-slate-400">
-          {sameNamePasswords.length} account
-          {sameNamePasswords.length > 1 ? 's' : ''}
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Selected password group</p>
+          <div className="flex items-center gap-3 mt-1">
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+              {selectedPassword.name}
+            </h2>
+            {selectedPassword.isSensitive && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-xs font-semibold dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <Lock size={12} />
+                Secured
+              </span>
+            )}
+          </div>
+          <p className="text-slate-500 mt-2 dark:text-slate-400">
+            {sameNamePasswords.length} account
+            {sameNamePasswords.length > 1 ? 's' : ''}
+          </p>
+        </div>
+        {user?.role === 'ADMIN' && onShareVault && selectedVault && (
+          <button
+            onClick={onShareVault}
+            className="h-10 px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 shrink-0"
+          >
+            Share Vault
+          </button>
+        )}
       </div>
 
       <div className="space-y-5">
@@ -335,10 +375,16 @@ function PasswordDetailsPanel() {
               className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800"
             >
               <div className="flex items-start justify-between gap-5 mb-5">
-                <div>
+                <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight dark:text-slate-100">
                     Account {index + 1}
                   </h3>
+                  {item.isSensitive && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[11px] font-semibold dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <ShieldCheck size={12} />
+                      Secured
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

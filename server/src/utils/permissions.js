@@ -325,26 +325,20 @@ const requireFolderAccess = (allowedLevels = []) => {
 
 const getFolderDepartmentMembers = async (folderId) => {
   try {
-    const [grants, folder] = await Promise.all([
+    const [grants, folder, allDepts, allMemberships] = await Promise.all([
       prisma.departmentPermission.findMany({
         where: { folderId },
         include: {
-          department: {
-            include: {
-              members: {
-                include: {
-                  user: {
-                    select: { id: true, fullName: true, email: true },
-                  },
-                },
-              },
-            },
-          },
+          department: { select: { id: true, name: true } },
         },
       }),
       prisma.folder.findUnique({
         where: { id: folderId },
         select: { blockedUserIds: true, permissions: { select: { userId: true, accessLevel: true } } },
+      }),
+      prisma.department.findMany({ select: { id: true, parentId: true } }),
+      prisma.departmentMember.findMany({
+        include: { user: { select: { id: true, fullName: true, email: true } } },
       }),
     ]);
 
@@ -358,33 +352,55 @@ const getFolderDepartmentMembers = async (folderId) => {
         .filter((p) => p.accessLevel === 'FORBIDDEN')
         .map((p) => p.userId)
     );
+
+    // Build children map to expand grants to descendant sub-departments (access flows down)
+    const childrenMap = new Map();
+    for (const d of allDepts) {
+      if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
+      childrenMap.get(d.parentId).push(d.id);
+    }
+
+    const membershipsByDept = new Map();
+    for (const m of allMemberships) {
+      if (!membershipsByDept.has(m.departmentId)) membershipsByDept.set(m.departmentId, []);
+      membershipsByDept.get(m.departmentId).push(m);
+    }
+
     const membersByUser = new Map();
 
     for (const grant of grants) {
-      const deptAccess = grant.accessLevel;
-      const folderAccess = DEPT_TO_FOLDER_MAP[deptAccess];
-
-      // NOT_SET and FORBIDDEN don't grant any usable access
+      const folderAccess = DEPT_TO_FOLDER_MAP[grant.accessLevel];
       if (!folderAccess) continue;
 
-      for (const member of grant.department.members) {
-        if (!member.user) continue;
+      // Expand grant department to include all descendants
+      const expanded = new Set([grant.department.id]);
+      const stack = [grant.department.id];
+      while (stack.length) {
+        const cur = stack.pop();
+        for (const child of childrenMap.get(cur) || []) {
+          if (!expanded.has(child)) {
+            expanded.add(child);
+            stack.push(child);
+          }
+        }
+      }
 
-        const uid = member.user.id;
-
-        // Users explicitly removed or forbidden in this folder are excluded
-        if (blocked.has(uid) || forbidden.has(uid)) continue;
-
-        const existing = membersByUser.get(uid);
-
-        if (!existing || LEVEL_RANK[folderAccess] > LEVEL_RANK[existing.accessLevel]) {
-          membersByUser.set(uid, {
-            user: member.user,
-            accessLevel: folderAccess,
-            departmentName: grant.department.name,
-            departmentId: grant.department.id,
-            viaDepartment: true,
-          });
+      for (const deptId of expanded) {
+        const deptMembers = membershipsByDept.get(deptId) || [];
+        for (const member of deptMembers) {
+          if (!member.user) continue;
+          const uid = member.user.id;
+          if (blocked.has(uid) || forbidden.has(uid)) continue;
+          const existing = membersByUser.get(uid);
+          if (!existing || LEVEL_RANK[folderAccess] > LEVEL_RANK[existing.accessLevel]) {
+            membersByUser.set(uid, {
+              user: member.user,
+              accessLevel: folderAccess,
+              departmentName: grant.department.name,
+              departmentId: grant.department.id,
+              viaDepartment: true,
+            });
+          }
         }
       }
     }

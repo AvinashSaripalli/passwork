@@ -4,6 +4,7 @@ const {
   getVaultAccess,
   getUserDepartmentIds,
   getDepartmentIdsWithAncestors,
+  getFolderDepartmentMembers,
 } = require('../utils/permissions');
 const { revokeWrappedKeysForUser } = require('../utils/wrappedKeys');
 
@@ -157,32 +158,61 @@ const getVaults = async (req, res) => {
         ],
       };
 
-      const accessibleFolders = await prisma.folder.findMany({
+      const candidateFoldersForVaults = await prisma.folder.findMany({
         where: folderAccessFilter,
-        select: { vaultId: true },
+        select: { id: true, vaultId: true, blockedUserIds: true, permissions: { select: { userId: true, accessLevel: true } } },
       });
 
-      const vaultIds = [...new Set(accessibleFolders.map((item) => item.vaultId))];
+      const validFoldersForVaults = candidateFoldersForVaults.filter((f) => {
+        const blocked = Array.isArray(f.blockedUserIds) ? f.blockedUserIds : [];
+        if (!blocked.includes(req.user.id)) return true;
+        return f.permissions.some((p) => p.userId === req.user.id && p.accessLevel !== 'FORBIDDEN');
+      });
 
-      vaults = await prisma.vault.findMany({
-        where: { id: { in: vaultIds } },
-        include: {
-          folders: {
-            where: folderAccessFilter,
-            include: {
-              permissions: {
-                include: {
-                  user: {
-                    select: { id: true, fullName: true, email: true },
+      const vaultIds = [...new Set(validFoldersForVaults.map((item) => item.vaultId))];
+      const validFolderIds = validFoldersForVaults.map((f) => f.id);
+
+      if (!vaultIds.length) {
+        vaults = [];
+      } else {
+        vaults = await prisma.vault.findMany({
+          where: { id: { in: vaultIds } },
+          include: {
+            folders: {
+              where: { id: { in: validFolderIds } },
+              include: {
+                permissions: {
+                  include: {
+                    user: {
+                      select: { id: true, fullName: true, email: true },
+                    },
                   },
                 },
               },
             },
+            passwords: false,
+            permissions: false,
           },
-          passwords: false,
-          permissions: false,
-        },
-      });
+        });
+
+        // Attach departmentMembers + myWrappedKey for each folder so sidebar can compute access correctly
+        const allFolderIds = vaults.flatMap((v) => v.folders.map((f) => f.id));
+        if (allFolderIds.length) {
+          const withKeys = await prisma.folder.findMany({
+            where: { id: { in: allFolderIds } },
+            select: { id: true, wrappedKeys: true },
+          });
+          const keyMap = new Map(withKeys.map((f) => [f.id, f.wrappedKeys]));
+          for (const vault of vaults) {
+            for (const folder of vault.folders) {
+              const allWrapped = keyMap.get(folder.id) || {};
+              folder.myWrappedKey = allWrapped[req.user.id] || null;
+              // Attach departmentMembers for access level display
+              folder.departmentMembers = await getFolderDepartmentMembers(folder.id);
+            }
+          }
+        }
+      }
     }
 
     res.json(vaults);
@@ -283,14 +313,22 @@ const getVaultBySlug = async (req, res) => {
         ],
       };
 
-      const accessibleFolders = await prisma.folder.findMany({
+      const candidateAccessible = await prisma.folder.findMany({
         where: folderAccessFilter,
-        select: { id: true },
+        select: { id: true, blockedUserIds: true, permissions: { select: { userId: true, accessLevel: true } } },
       });
 
-      if (!accessibleFolders.length) {
+      const validAccessible = candidateAccessible.filter((f) => {
+        const blocked = Array.isArray(f.blockedUserIds) ? f.blockedUserIds : [];
+        if (!blocked.includes(req.user.id)) return true;
+        return f.permissions.some((p) => p.userId === req.user.id && p.accessLevel !== 'FORBIDDEN');
+      });
+
+      if (!validAccessible.length) {
         return res.status(403).json({ message: 'Access denied' });
       }
+
+      const validIds = validAccessible.map((f) => f.id);
 
       vault = await prisma.vault.findUnique({
         where: { slug: req.params.slug },
@@ -303,7 +341,7 @@ const getVaultBySlug = async (req, res) => {
             },
           },
           folders: {
-            where: folderAccessFilter,
+            where: { id: { in: validIds } },
             include: {
               permissions: {
                 include: {
@@ -326,16 +364,31 @@ const getVaultBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Vault not found' });
     }
 
-    const extractMyWrappedKey = (folders) => {
-      return folders.map((folder) => {
-        const allWrappedKeys = folder.wrappedKeys || {};
-        const myWrappedKey = allWrappedKeys[req.user.id] || null;
-        const { wrappedKeys, ...rest } = folder;
-        return { ...rest, myWrappedKey };
-      });
-    };
-
-    if (vault.folders) {
+    if (vault.folders?.length) {
+      const enriched = await Promise.all(
+        vault.folders.map(async (folder) => {
+          const allWrappedKeys = folder.wrappedKeys || {};
+          const myWrappedKey = allWrappedKeys[req.user.id] || null;
+          const { wrappedKeys, ...rest } = folder;
+          let departmentMembers = [];
+          // Attach department members so client can show them in permissions/members UI and compute access
+          try {
+            departmentMembers = await getFolderDepartmentMembers(folder.id);
+          } catch {
+            departmentMembers = [];
+          }
+          return { ...rest, myWrappedKey, departmentMembers };
+        })
+      );
+      vault = { ...vault, folders: enriched };
+    } else if (vault.folders) {
+      const extractMyWrappedKey = (folders) =>
+        folders.map((folder) => {
+          const allWrappedKeys = folder.wrappedKeys || {};
+          const myWrappedKey = allWrappedKeys[req.user.id] || null;
+          const { wrappedKeys, ...rest } = folder;
+          return { ...rest, myWrappedKey };
+        });
       vault = { ...vault, folders: extractMyWrappedKey(vault.folders) };
     }
 

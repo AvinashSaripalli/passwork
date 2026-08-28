@@ -20,7 +20,7 @@ const DEPT_ACCESS_LABELS = {
   FULL_ACCESS: 'Full access',
   ADMINISTRATOR: 'Administrator',
 };
-const MEMBER_ROLES = ['MEMBER', 'MANAGER'];
+const MEMBER_ROLES = ['MEMBER'];
 
 function buildTree(departments) {
   const byId = new Map(departments.map((d) => [d.id, { ...d, children: [] }]));
@@ -220,19 +220,9 @@ function AddMemberModal({ open, onClose, users, existingMemberIds, onAdd }) {
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{u.email}</p>
               </div>
 
-              <select
-                value={roleByUser[u.id] || 'MEMBER'}
-                onChange={(e) =>
-                  setRoleByUser((prev) => ({ ...prev, [u.id]: e.target.value }))
-                }
-                className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-              >
-                {MEMBER_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
+              <span className="h-9 flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                MEMBER
+              </span>
 
               <button
                 onClick={() => handleAdd(u)}
@@ -743,32 +733,9 @@ function DepartmentsPage() {
                         </p>
                       </div>
 
-                      <select
-                        value={membership.memberRole}
-                        onChange={async (e) => {
-                          try {
-                            await api.put(
-                              `/departments/${selectedDept.id}/members/${membership.userId}`,
-                              { memberRole: e.target.value },
-                              authHeaders
-                            );
-                            showToast('Member role updated');
-                            await fetchDepartments();
-                          } catch (err) {
-                            showToast(
-                              err.response?.data?.message || 'Update failed',
-                              'error'
-                            );
-                          }
-                        }}
-                        className="h-8 shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                      >
-                        {MEMBER_ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="h-8 shrink-0 flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                        MEMBER
+                      </span>
 
                       <button
                         onClick={() =>

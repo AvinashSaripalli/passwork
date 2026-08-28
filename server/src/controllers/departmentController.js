@@ -115,12 +115,25 @@ const getMyDepartments = async (req, res) => {
 
 const getDepartments = async (req, res) => {
   try {
-    if (requireAdmin(req, res)) return;
-
     const departments = await prisma.department.findMany({
       include: getDepartmentInclude(),
       orderBy: { name: 'asc' },
     });
+
+    // Attach myRole for current user if member, for display in MyDepartments view
+    const userId = req.user?.id;
+    if (userId) {
+      const memberships = await prisma.departmentMember.findMany({
+        where: { userId },
+        select: { departmentId: true, memberRole: true },
+      });
+      const roleByDept = new Map(memberships.map((m) => [m.departmentId, m.memberRole]));
+      for (const dept of departments) {
+        if (roleByDept.has(dept.id)) {
+          dept.myRole = roleByDept.get(dept.id);
+        }
+      }
+    }
 
     res.json(departments);
   } catch (error) {
@@ -371,6 +384,51 @@ const addMember = async (req, res) => {
         },
       },
     });
+
+    // If this department (or its ancestors) has folder/vault grants, unblock the newly added user
+    try {
+      const allDepts = await prisma.department.findMany({ select: { id: true, parentId: true } });
+      const parentMap = new Map(allDepts.map((d) => [d.id, d.parentId]));
+      const ancestorIds = new Set([department.id]);
+      let cur = department.id;
+      const guard = new Set();
+      while (cur && !guard.has(cur)) {
+        guard.add(cur);
+        const parentId = parentMap.get(cur);
+        if (parentId) {
+          ancestorIds.add(parentId);
+          cur = parentId;
+        } else break;
+      }
+      const grants = await prisma.departmentPermission.findMany({
+        where: { departmentId: { in: [...ancestorIds] } },
+        select: { folderId: true, vaultId: true },
+      });
+      const folderIdsFromDirect = grants.filter((g) => g.folderId).map((g) => g.folderId);
+      let folderIdsFromVault = [];
+      const vaultIds = grants.filter((g) => g.vaultId).map((g) => g.vaultId);
+      if (vaultIds.length) {
+        const foldersInVaults = await prisma.folder.findMany({
+          where: { vaultId: { in: vaultIds } },
+          select: { id: true },
+        });
+        folderIdsFromVault = foldersInVaults.map((f) => f.id);
+      }
+      const allFolderIds = [...new Set([...folderIdsFromDirect, ...folderIdsFromVault])];
+      for (const fid of allFolderIds) {
+        const f = await prisma.folder.findUnique({ where: { id: fid }, select: { blockedUserIds: true } });
+        const blocked = Array.isArray(f?.blockedUserIds) ? f.blockedUserIds : [];
+        if (blocked.includes(userId)) {
+          const filtered = blocked.filter((id) => id !== userId);
+          await prisma.folder.update({
+            where: { id: fid },
+            data: { blockedUserIds: filtered.length ? filtered : null },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Unblock after addMember error:', e);
+    }
 
     await logActivity(req.user.id, 'ADD_DEPARTMENT_MEMBER', 'Department', department.id, {
       departmentName: department.name,
@@ -629,8 +687,90 @@ await logActivity(req.user.id, 'GRANT_DEPARTMENT_ACCESS', 'Department', departme
       select: { userId: true },
     });
 
+    // Unblock department members from the folder/vault if they were previously blocked individually
+    // This fixes the case where a user was removed via block and later re-granted via department
+    try {
+      if (folderId) {
+        // For folder grants, also include members of descendant sub-departments
+        const allDepts = await prisma.department.findMany({ select: { id: true, parentId: true } });
+        const childrenMap = new Map();
+        for (const d of allDepts) {
+          if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
+          childrenMap.get(d.parentId).push(d.id);
+        }
+        const expandedDeptIds = new Set([department.id]);
+        const stack = [department.id];
+        while (stack.length) {
+          const cur = stack.pop();
+          for (const child of childrenMap.get(cur) || []) {
+            if (!expandedDeptIds.has(child)) {
+              expandedDeptIds.add(child);
+              stack.push(child);
+            }
+          }
+        }
+        const expandedMembers = await prisma.departmentMember.findMany({
+          where: { departmentId: { in: [...expandedDeptIds] } },
+          select: { userId: true },
+        });
+        const memberIds = [...new Set(expandedMembers.map((m) => m.userId))];
+        if (memberIds.length) {
+          const f = await prisma.folder.findUnique({ where: { id: folderId }, select: { blockedUserIds: true } });
+          const blocked = Array.isArray(f?.blockedUserIds) ? f.blockedUserIds : [];
+          const filtered = blocked.filter((id) => !memberIds.includes(id));
+          if (filtered.length !== blocked.length) {
+            await prisma.folder.update({
+              where: { id: folderId },
+              data: { blockedUserIds: filtered.length ? filtered : null },
+            });
+          }
+        }
+      } else if (vaultId) {
+        const allDepts = await prisma.department.findMany({ select: { id: true, parentId: true } });
+        const childrenMap = new Map();
+        for (const d of allDepts) {
+          if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
+          childrenMap.get(d.parentId).push(d.id);
+        }
+        const expandedDeptIds = new Set([department.id]);
+        const stack = [department.id];
+        while (stack.length) {
+          const cur = stack.pop();
+          for (const child of childrenMap.get(cur) || []) {
+            if (!expandedDeptIds.has(child)) {
+              expandedDeptIds.add(child);
+              stack.push(child);
+            }
+          }
+        }
+        const expandedMembers = await prisma.departmentMember.findMany({
+          where: { departmentId: { in: [...expandedDeptIds] } },
+          select: { userId: true },
+        });
+        const memberIds = [...new Set(expandedMembers.map((m) => m.userId))];
+        if (memberIds.length) {
+          const foldersInVault = await prisma.folder.findMany({
+            where: { vaultId },
+            select: { id: true, blockedUserIds: true },
+          });
+          for (const fld of foldersInVault) {
+            const blocked = Array.isArray(fld.blockedUserIds) ? fld.blockedUserIds : [];
+            const filtered = blocked.filter((id) => !memberIds.includes(id));
+            if (filtered.length !== blocked.length) {
+              await prisma.folder.update({
+                where: { id: fld.id },
+                data: { blockedUserIds: filtered.length ? filtered : null },
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Unblock after grant error:', e);
+    }
+
     for (const m of members) {
-await createNotification({
+  await createNotification({
         userId: m.userId,
         title: 'Department Access Granted',
         message: `Your department "${department.name}" received ${effectiveLevel} access to ${targetName}`,

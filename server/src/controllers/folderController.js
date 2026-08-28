@@ -272,7 +272,7 @@ const getFoldersByVault = async (req, res) => {
       const memberOfIds = await getUserDepartmentIds(req.user.id);
       const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
 
-      folders = await prisma.folder.findMany({
+      let candidateFolders = await prisma.folder.findMany({
         where: {
           vaultId: req.params.vaultId,
           OR: [
@@ -320,13 +320,40 @@ const getFoldersByVault = async (req, res) => {
         },
         orderBy: { createdAt: 'asc' },
       });
+
+      // Apply blocked filtering (blocked users lose department-derived access)
+      if (candidateFolders.length) {
+        const fetchedBlocked = await prisma.folder.findMany({
+          where: { id: { in: candidateFolders.map((f) => f.id) } },
+          select: { id: true, blockedUserIds: true, permissions: { select: { userId: true, accessLevel: true } } },
+        });
+        const blockedMap = new Map(fetchedBlocked.map((f) => [f.id, f]));
+        folders = candidateFolders.filter((f) => {
+          const meta = blockedMap.get(f.id);
+          const blocked = Array.isArray(meta?.blockedUserIds) ? meta.blockedUserIds : [];
+          if (!blocked.includes(req.user.id)) return true;
+          const hasDirect = (meta?.permissions || []).some((p) => p.userId === req.user.id && p.accessLevel !== 'FORBIDDEN');
+          return hasDirect;
+        });
+      } else {
+        folders = [];
+      }
     }
 
     const userId = req.user.id;
+    // Fetch wrappedKeys + blocked for myWrappedKey extraction without extra query per folder if possible
+    const wrappedMap = new Map();
+    if (folders.length) {
+      const withKeys = await prisma.folder.findMany({
+        where: { id: { in: folders.map((f) => f.id) } },
+        select: { id: true, wrappedKeys: true },
+      });
+      for (const f of withKeys) wrappedMap.set(f.id, f.wrappedKeys);
+    }
     const result = await Promise.all(
       folders.map(async (folder) => {
-        const allWrappedKeys = folder.wrappedKeys || {};
-        const myWrappedKey = allWrappedKeys[userId] || null;
+        const allWrappedKeys = wrappedMap.get(folder.id) || folder.wrappedKeys || {};
+        const myWrappedKey = allWrappedKeys[req.user.id] || null;
         const { wrappedKeys, ...rest } = folder;
         const departmentMembers = await getFolderDepartmentMembers(folder.id);
         return { ...rest, myWrappedKey, departmentMembers };

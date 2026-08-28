@@ -130,7 +130,7 @@ function MyDepartmentsPage() {
       setLoading(true);
       setError('');
 
-      const res = await api.get('/departments/my', authHeaders);
+      const res = await api.get('/departments', authHeaders);
       setDepartments(res.data);
 
       setSelectedDeptId((prev) =>
@@ -207,9 +207,9 @@ function MyDepartmentsPage() {
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">My Departments</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Departments</h1>
               <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
-                Departments you belong to. Access granted to a parent flows down to all sub-departments.
+                All departments in your organization. Access granted to a parent flows down to all sub-departments.
               </p>
             </div>
 
@@ -238,7 +238,7 @@ function MyDepartmentsPage() {
               <p className="text-slate-500 dark:text-slate-400">
                 {search
                   ? 'No departments match your search.'
-                  : 'You are not a member of any departments yet.'}
+                  : 'No departments yet.'}
               </p>
             </div>
           )}
@@ -299,9 +299,15 @@ function MyDepartmentsPage() {
               </div>
 
               <div className="mt-3">
-                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                  Your role: {selectedDept.myRole}
-                </span>
+                {selectedDept.myRole ? (
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    Your role: {selectedDept.myRole}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                    Not a member
+                  </span>
+                )}
               </div>
             </div>
 

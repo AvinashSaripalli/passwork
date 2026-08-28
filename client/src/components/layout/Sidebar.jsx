@@ -217,9 +217,21 @@ function Sidebar() {
                         const folderPermission = folder?.permissions?.find(
                           (item) => item.userId === user?.id || item.user?.id === user?.id
                         );
-const folderAccess = user?.role === 'ADMIN'
+                        const deptMember = folder?.departmentMembers?.find(
+                          (dm) => dm.user?.id === user?.id
+                        );
+                        const getRank = (lvl) => ({ READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 }[lvl] ?? -1);
+                        const deptAccess = deptMember?.accessLevel || null;
+                        const directAccess = folderPermission?.accessLevel || null;
+                        const bestAccess = (() => {
+                          if (!directAccess && !deptAccess) return null;
+                          if (!directAccess) return deptAccess;
+                          if (!deptAccess) return directAccess;
+                          return getRank(directAccess) >= getRank(deptAccess) ? directAccess : deptAccess;
+                        })();
+                        const folderAccess = user?.role === 'ADMIN'
   ? 'ADMINISTRATOR'
-  : folderPermission?.accessLevel || null;
+  : bestAccess;
                         const canManageFolder = user?.role === 'ADMIN' || folderAccess === 'ADMINISTRATOR';
 
                         return (

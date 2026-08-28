@@ -54,13 +54,23 @@ function FolderUsersModal({ open, onClose, folderId, folderName, onSaved }) {
   const currentUserPermission = activeFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
   );
+  const currentUserDeptMember = activeFolder?.departmentMembers?.find(
+    (dm) => dm.user?.id === user?.id
+  );
 
   const isCurrentUserOwner = owner?.id === user?.id;
 
-  const currentUserAccess =
-    user?.role === 'ADMIN' || isCurrentUserOwner
-      ? 'ADMINISTRATOR'
-      : currentUserPermission?.accessLevel || null;
+  const currentUserAccess = (() => {
+    if (user?.role === 'ADMIN' || isCurrentUserOwner) return 'ADMINISTRATOR';
+    const RANK = { READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 };
+    const getRank = (lvl) => RANK[lvl] ?? -1;
+    const direct = currentUserPermission?.accessLevel || null;
+    const dept = currentUserDeptMember?.accessLevel || null;
+    if (!direct && !dept) return null;
+    if (!direct) return dept;
+    if (!dept) return direct;
+    return getRank(direct) >= getRank(dept) ? direct : dept;
+  })();
 
   const canManageMembers =
     user?.role === 'ADMIN' || currentUserAccess === 'ADMINISTRATOR';

@@ -4,6 +4,8 @@ const {
   isAdminUser,
   getFolderAuthorizedUserIds,
   getVaultAccess,
+  getUserDepartmentIds,
+  getDepartmentIdsWithAncestors,
 } = require('../utils/permissions');
 const XLSX = require('xlsx');
 const generateId = require('../utils/generateId');
@@ -267,27 +269,91 @@ const getPasswordsByVault = async (req, res) => {
         orderBy: { createdAt: 'desc' },
       });
     } else {
-      const allowedFolders = await prisma.folderPermission.findMany({
-        where: { userId: req.user.id },
-        select: { folderId: true },
-      });
+      const memberOfIds = await getUserDepartmentIds(req.user.id);
+      const departmentIds = await getDepartmentIdsWithAncestors(memberOfIds);
 
-      const folderIds = allowedFolders.map((item) => item.folderId);
-
-      passwords = await prisma.passwordEntry.findMany({
+      // Fetch candidate folders where user has ANY relation (direct or via department, including FORBIDDEN) - password visibility will be filtered by effective access
+      const candidateFolders = await prisma.folder.findMany({
         where: {
           vaultId: req.params.vaultId,
-          folderId: { in: folderIds },
+          OR: [
+            { permissions: { some: { userId: req.user.id } } },
+            ...(departmentIds.length
+              ? [{ departmentPermissions: { some: { departmentId: { in: departmentIds } } } }]
+              : []),
+          ],
         },
-        include: {
-          tags: { include: { tag: true } },
-          folder: true,
-          createdBy: {
-            select: { id: true, encryptionSalt: true },
-          },
+        select: {
+          id: true,
+          blockedUserIds: true,
+          permissions: { select: { userId: true, accessLevel: true } },
+          departmentPermissions: { select: { departmentId: true, accessLevel: true } },
         },
-        orderBy: { createdAt: 'desc' },
       });
+
+      const DEPT_TO_FOLDER_MAP = {
+        NOT_SET: null,
+        FORBIDDEN: null,
+        READ_ONLY: 'READ_ONLY',
+        READ_WRITE: 'READ_WRITE',
+        FULL_ACCESS: 'FULL_ACCESS',
+        ADMINISTRATOR: 'ADMINISTRATOR',
+      };
+      const LEVEL_RANK = { READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 };
+      const getHighest = (levels) =>
+        levels.reduce((best, lvl) => (!best || (lvl && LEVEL_RANK[lvl] > LEVEL_RANK[best]) ? lvl : best), null);
+
+      const accessibleFolderIds = [];
+      for (const f of candidateFolders) {
+        // Check blocked: blocked loses department access unless direct non-FORBIDDEN exists
+        const hasDirectNonForbidden = f.permissions.some((p) => p.userId === req.user.id && p.accessLevel !== 'FORBIDDEN');
+        const blocked = Array.isArray(f.blockedUserIds) ? f.blockedUserIds : [];
+        const isBlocked = blocked.includes(req.user.id) && !hasDirectNonForbidden;
+
+        // Department access with FORBIDDEN precedence
+        const deptGrants = f.departmentPermissions.filter((g) => departmentIds.includes(g.departmentId));
+        const hasDeptForbidden = deptGrants.some((g) => g.accessLevel === 'FORBIDDEN');
+        let deptAccess = null;
+        if (!hasDeptForbidden) {
+          const levels = deptGrants.map((g) => DEPT_TO_FOLDER_MAP[g.accessLevel]).filter(Boolean);
+          deptAccess = getHighest(levels);
+        } else {
+          // FORBIDDEN is explicit deny - no access via department or direct (direct cannot override)
+          continue;
+        }
+
+        const directPerm = f.permissions.find((p) => p.userId === req.user.id);
+        if (directPerm) {
+          if (directPerm.accessLevel === 'FORBIDDEN') continue; // explicit deny wins -> no password access
+          const directAccess = directPerm.accessLevel;
+          const effective = getHighest([directAccess, deptAccess]);
+          if (effective && !isBlocked) accessibleFolderIds.push(f.id);
+          continue;
+        }
+
+        if (isBlocked) continue;
+        if (deptAccess) accessibleFolderIds.push(f.id);
+      }
+      const folderIds = accessibleFolderIds.filter(Boolean);
+
+      if (!folderIds.length) {
+        passwords = [];
+      } else {
+        passwords = await prisma.passwordEntry.findMany({
+          where: {
+            vaultId: req.params.vaultId,
+            folderId: { in: folderIds },
+          },
+          include: {
+            tags: { include: { tag: true } },
+            folder: true,
+            createdBy: {
+              select: { id: true, encryptionSalt: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
     }
 
     const userId = req.user.id;

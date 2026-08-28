@@ -74,11 +74,21 @@ function VaultPage() {
   const selectedFolderPermission = selectedFolder?.permissions?.find(
     (item) => item.userId === user?.id || item.user?.id === user?.id
   );
+  const selectedFolderDeptMember = selectedFolder?.departmentMembers?.find(
+    (dm) => dm.user?.id === user?.id
+  );
 
-  const selectedFolderAccess =
-    user?.role === 'ADMIN'
-      ? 'ADMINISTRATOR'
-      : selectedFolderPermission?.accessLevel || null;
+  const selectedFolderAccess = (() => {
+    if (user?.role === 'ADMIN') return 'ADMINISTRATOR';
+    const RANK = { READ_ONLY: 0, READ_WRITE: 1, FULL_ACCESS: 2, ADMINISTRATOR: 3 };
+    const getRank = (lvl) => RANK[lvl] ?? -1;
+    const direct = selectedFolderPermission?.accessLevel || null;
+    const dept = selectedFolderDeptMember?.accessLevel || null;
+    if (!direct && !dept) return null;
+    if (!direct) return dept;
+    if (!dept) return direct;
+    return getRank(direct) >= getRank(dept) ? direct : dept;
+  })();
 
   useEffect(() => {
     if (slug) {
@@ -571,15 +581,6 @@ function VaultPage() {
                 </button>
               )}
 
-              {user?.role === 'ADMIN' && (
-                <button
-                  onClick={() => setVaultShareOpen(true)}
-                  className="h-[46px] px-5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
-                >
-                  Share Vault
-                </button>
-              )}
-
               {selectedFolder && canAddPassword && (
                 <button
                   onClick={() => dispatch(openAddPasswordModal())}
@@ -708,7 +709,7 @@ function VaultPage() {
             ) : (
               <div className="grid grid-cols-[420px_1fr] min-h-[640px]">
                 <PasswordListPanel />
-                <PasswordDetailsPanel />
+                <PasswordDetailsPanel onShareVault={() => setVaultShareOpen(true)} />
               </div>
             )}
           </>
