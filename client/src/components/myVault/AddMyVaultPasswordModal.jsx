@@ -175,10 +175,10 @@ function AddMyVaultPasswordModal({
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {parent ? `Add item to ${parent.name}` : 'Add Item'}
+              {parent ? `Add password to ${parent.name}` : 'Add Password'}
             </h2>
             <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
-              Create a new {parent ? 'sub-item' : 'item'} in Personal Vault
+              Create a new password in Personal Vault
             </p>
           </div>
           <button

@@ -25,7 +25,7 @@ function MyVaultHeader({ folders, onCreateFolder, onCreatePassword }) {
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           <Plus size={18} />
-          Add Item
+          Add Password
         </button>
       </div>
     </div>

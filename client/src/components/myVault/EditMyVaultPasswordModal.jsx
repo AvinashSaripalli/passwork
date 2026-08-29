@@ -200,11 +200,11 @@ function EditMyVaultPasswordModal({
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Edit Item
+              Edit Password
             </h2>
 
             <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
-              Update item details in Personal Vault
+              Update password details in Personal Vault
             </p>
           </div>
 

@@ -501,7 +501,7 @@ function ItemDetailsPanel({
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
           >
             <FolderPlus size={16} />
-            Add Sub-item
+            Add Password
           </button>
           <button
             onClick={() => onManageShares(item)}
@@ -516,7 +516,7 @@ function ItemDetailsPanel({
       {children.length > 0 && (
         <div className="rounded-2xl border border-slate-200 p-6 mt-6 dark:border-slate-700 dark:bg-slate-800">
           <h2 className="text-lg font-semibold text-slate-900 mb-4 dark:text-slate-100">
-            Inside this item ({children.length})
+            Inside this password ({children.length})
           </h2>
           <div className="space-y-2">
             {children.map((child) => (
