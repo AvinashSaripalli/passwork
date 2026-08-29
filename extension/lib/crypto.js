@@ -1,11 +1,27 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+// KDF configuration (must match client/src/utils/crypto.js).
+// New ciphertext uses a strong iteration count + per-ciphertext salt; legacy
+// envelopes used a fixed salt with 100k iterations and still decrypt fine.
+const KDF_ITERATIONS_CURRENT = 600000;
+const KDF_ITERATIONS_LEGACY = 100000;
+const KDF_VERSION = 2;
+
 function getSaltBytes(salt) {
   return encoder.encode(salt || 'vault-salt');
 }
 
-async function deriveKey(masterPassword, salt, usages) {
+const isVersion2 = (parsed) => parsed && parsed.kdf === 'PBKDF2' && parsed.v === 2;
+
+function resolveKdfParams(parsed, salt) {
+  if (isVersion2(parsed)) {
+    return { iterations: parsed.iterations || KDF_ITERATIONS_CURRENT, salt: parsed.salt };
+  }
+  return { iterations: KDF_ITERATIONS_LEGACY, salt };
+}
+
+async function deriveKey(masterPassword, salt, iterations, usages) {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(masterPassword),
@@ -17,8 +33,8 @@ async function deriveKey(masterPassword, salt, usages) {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: getSaltBytes(salt),
-      iterations: 100000,
+      salt,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -41,7 +57,9 @@ export function isEncryptedFormat(value) {
 export async function decryptText(encryptedText, masterPassword, salt) {
   if (!encryptedText) return '';
   const parsed = JSON.parse(encryptedText);
-  const key = await deriveKey(masterPassword, salt, ['decrypt']);
+  const { iterations, salt: kdfSalt } = resolveKdfParams(parsed, salt || 'vault-salt');
+  const keySalt = isVersion2(parsed) && kdfSalt ? new Uint8Array(kdfSalt) : getSaltBytes(kdfSalt);
+  const key = await deriveKey(masterPassword, keySalt, iterations, ['decrypt']);
   const plain = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
     key,
@@ -87,7 +105,7 @@ export async function generateKeyPair() {
   return { publicKeyJwk, privateKeyJwk };
 }
 
-async function getDeriveKeyForPrivateKey(masterPassword, salt) {
+async function getDeriveKeyForPrivateKey(masterPassword, iterations, saltBytes) {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(masterPassword),
@@ -99,8 +117,8 @@ async function getDeriveKeyForPrivateKey(masterPassword, salt) {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: getSaltBytes(salt),
-      iterations: 100000,
+      salt: saltBytes,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -111,7 +129,8 @@ async function getDeriveKeyForPrivateKey(masterPassword, salt) {
 }
 
 export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
-  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const kdfSalt = crypto.getRandomValues(new Uint8Array(16));
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, KDF_ITERATIONS_CURRENT, kdfSalt);
   const privateKeyData = encoder.encode(JSON.stringify(privateKeyJwk));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt(
@@ -120,14 +139,20 @@ export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
     privateKeyData
   );
   return JSON.stringify({
+    v: KDF_VERSION,
+    kdf: 'PBKDF2',
+    iterations: KDF_ITERATIONS_CURRENT,
+    salt: Array.from(kdfSalt),
     iv: Array.from(iv),
     content: Array.from(new Uint8Array(encrypted)),
   });
 }
 
 export async function decryptPrivateKey(encryptedPrivateKeyStr, masterPassword, salt) {
-  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
   const parsed = JSON.parse(encryptedPrivateKeyStr);
+  const { iterations, salt: kdfSalt } = resolveKdfParams(parsed, salt || 'vault-salt');
+  const keySalt = isVersion2(parsed) && kdfSalt ? new Uint8Array(kdfSalt) : getSaltBytes(kdfSalt);
+  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, iterations, keySalt);
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
     aesKey,

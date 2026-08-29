@@ -3,8 +3,49 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
+const sendMail = require('../utils/sendMail');
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=<>?/{}[\]|~`])/;
+
+// Per-account brute-force lockout (in-memory).
+// Tracks consecutive failed login attempts per email so that a single account
+// cannot be hammered regardless of the source IP(s).
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const failedAttempts = new Map(); // email -> { count, lockedUntil }
+
+function trackFailedAttempt(email) {
+  const norm = (email || '').trim().toLowerCase();
+  const record = failedAttempts.get(norm) || { count: 0, lockedUntil: 0 };
+
+  // If already locked, keep the lock.
+  if (record.lockedUntil > Date.now()) {
+    return false;
+  }
+
+  record.count += 1;
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_WINDOW_MS;
+    record.count = 0;
+  }
+  failedAttempts.set(norm, record);
+  return true;
+}
+
+function resetFailedAttempts(email) {
+  failedAttempts.delete((email || '').trim().toLowerCase());
+}
+
+function isAccountLocked(email) {
+  const record = failedAttempts.get((email || '').trim().toLowerCase());
+  if (!record) return false;
+  if (record.lockedUntil > Date.now()) {
+    return true;
+  }
+  // Lock expired — clear it.
+  failedAttempts.delete((email || '').trim().toLowerCase());
+  return false;
+}
 
 const validateEmail = (email) => {
   if (!email) return 'Email is required';
@@ -31,26 +72,86 @@ const validateEmail = (email) => {
   return null;
 };
 
+const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
+const REFRESH_TOKEN_TTL = '30d';
+
 const signToken = (user) => {
   return jwt.sign(
     {
       id: user.id,
       email: user.email,
       role: user.role,
+      type: 'access',
     },
     process.env.JWT_ACCESS_SECRET,
-    { expiresIn: '1d' }
+    { expiresIn: ACCESS_TOKEN_TTL }
   );
 };
 
-const getClientIp = (req) => {
-  return (
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.socket?.remoteAddress ||
-    req.ip ||
-    ''
+const signRefreshToken = (user) => {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      type: 'refresh',
+    },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: REFRESH_TOKEN_TTL }
   );
+};
+
+const refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ message: 'refreshToken is required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    } catch {
+      return res.status(401).json({ message: 'Invalid or expired refresh token' });
+    }
+
+    // Only accept tokens explicitly minted as refresh tokens.
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ message: 'Invalid token type' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user || user.isActive === false) {
+      return res.status(401).json({ message: 'Account unavailable' });
+    }
+
+    const token = signToken(user);
+
+    res.json({ token });
+  } catch (error) {
+    console.error('Refresh error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Only trust proxy-forwarded headers when the deployment runs behind a known
+// reverse proxy (set TRUST_PROXY=true in production). Otherwise honor the
+// actual socket address so clients cannot spoof their IP in audit logs.
+const getClientIp = (req) => {
+  if (process.env.TRUST_PROXY === 'true') {
+    return (
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      ''
+    );
+  }
+  return req.socket?.remoteAddress || req.ip || '';
 };
 
 const saveLoginActivity = async ({ req, userId, status }) => {
@@ -179,6 +280,7 @@ const register = async (req, res) => {
     }
 
     const jwtToken = signToken(user);
+    const refreshToken = signRefreshToken(user);
 
     await saveLoginActivity({
       req,
@@ -189,6 +291,7 @@ const register = async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       token: jwtToken,
+      refreshToken,
       user: {
         id: user.id,
         fullName: user.fullName,
@@ -220,11 +323,20 @@ const login = async (req, res) => {
       return res.status(400).json({ message: emailValidationError });
     }
 
+    // Per-account brute-force lockout: reject early when the account is
+    // currently locked, before doing any expensive work.
+    if (isAccountLocked(email)) {
+      return res.status(429).json({
+        message: 'Too many failed attempts. Please try again in a few minutes.',
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
+      trackFailedAttempt(email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -243,6 +355,7 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
+      trackFailedAttempt(email);
       await saveLoginActivity({
         req,
         userId: user.id,
@@ -252,7 +365,9 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    resetFailedAttempts(email);
     const token = signToken(user);
+    const refreshToken = signRefreshToken(user);
 
     await saveLoginActivity({
       req,
@@ -263,6 +378,7 @@ const login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
+      refreshToken,
       user: {
         id: user.id,
         fullName: user.fullName,
@@ -442,6 +558,143 @@ const changePassword = async (req, res) => {
   }
 };
 
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim() },
+    });
+
+    // Always respond with the same message so we don't reveal whether an
+    // email is registered (prevents account enumeration).
+    const genericMessage =
+      'If an account exists for that email, a password reset link has been sent.';
+
+    if (!user || user.isActive === false) {
+      return res.json({ message: genericMessage });
+    }
+
+    // Bind the token to the current password hash so it becomes unusable as
+    // soon as the password actually changes (single-use per password state).
+    const passwordFingerprint = crypto
+      .createHash('sha256')
+      .update(user.passwordHash)
+      .digest('hex');
+
+    const resetToken = jwt.sign(
+      {
+        sub: user.id,
+        type: 'password-reset',
+        ph: passwordFingerprint,
+      },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+
+    await sendMail({
+      to: user.email,
+      subject: 'Vaultix Password Reset',
+      html: `
+        <div style="font-family:Arial,sans-serif">
+          <h2>Reset your Vaultix password</h2>
+          <p>Click the button below to set a new password. This link expires in 10 minutes.</p>
+          <a href="${resetLink}" style="display:inline-block;background:#2563eb;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">
+            Reset Password
+          </a>
+          <p style="margin-top:16px">Or copy this link:</p>
+          <p>${resetLink}</p>
+          <p>If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: genericMessage });
+  } catch (error) {
+    console.error('Request password reset error:', error);
+    const isAuthError = error?.code === 'EAUTH';
+    res.status(500).json({
+      message: isAuthError
+        ? 'Email sending failed: invalid Gmail credentials. Use a 16-character App Password (myaccount.google.com/apppasswords).'
+        : 'Failed to send password reset email',
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    } catch {
+      return res.status(400).json({ message: 'Invalid or expired reset link' });
+    }
+
+    if (decoded.type !== 'password-reset' || !decoded.sub || !decoded.ph) {
+      return res.status(400).json({ message: 'Invalid reset link' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.sub },
+    });
+
+    if (!user || user.isActive === false) {
+      return res.status(400).json({ message: 'Invalid reset link' });
+    }
+
+    // Token is only valid while the password hasn't already changed.
+    const currentFingerprint = crypto
+      .createHash('sha256')
+      .update(user.passwordHash)
+      .digest('hex');
+
+    if (currentFingerprint !== decoded.ph) {
+      return res.status(400).json({ message: 'Reset link has already been used' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    // Restore login ability after a reset, regardless of any lockout state.
+    resetFailedAttempts(user.email);
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const verifyMasterPassword = async (req, res) => {
   try {
     const { masterPassword } = req.body;
@@ -552,15 +805,89 @@ const reencryptPasswords = async (req, res) => {
   }
 };
 
+const resetMasterPassword = async (req, res) => {
+  try {
+    const { newMasterPassword, hint, encryptedPrivateKey, publicKey, salt } = req.body;
+    const userId = req.user.id;
+
+    if (!newMasterPassword || !encryptedPrivateKey || !publicKey || !salt) {
+      return res.status(400).json({
+        message: 'New master password, encrypted private key, public key, and salt are required',
+      });
+    }
+
+    if (newMasterPassword.length < 8) {
+      return res.status(400).json({ message: 'Master password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(newMasterPassword)) {
+      return res.status(400).json({
+        message: 'Master password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    if (hint && hint.length > 100) {
+      return res.status(400).json({ message: 'Hint must be under 100 characters' });
+    }
+
+    const masterPasswordHash = await bcrypt.hash(newMasterPassword, 12);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          masterPasswordHash,
+          masterPasswordHint: hint || null,
+        },
+      });
+
+      const encryptedPrivateKeyParsed =
+        typeof encryptedPrivateKey === 'string'
+          ? JSON.parse(encryptedPrivateKey)
+          : encryptedPrivateKey;
+
+      const existing = await tx.userKeyPair.findUnique({
+        where: { userId },
+      });
+
+      if (existing) {
+        await tx.userKeyPair.update({
+          where: { userId },
+          data: { encryptedPrivateKey: encryptedPrivateKeyParsed, publicKey, salt },
+        });
+      } else {
+        await tx.userKeyPair.create({
+          data: {
+            id: await generateId('keyPair'),
+            userId,
+            encryptedPrivateKey: encryptedPrivateKeyParsed,
+            publicKey,
+            salt,
+          },
+        });
+      }
+    });
+
+    res.json({ message: 'Master password reset successfully' });
+  } catch (error) {
+    console.error('Reset master password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   register,
   saveLoginActivity,
   login,
+  refresh,
   me,
   setMasterPassword,
   verifyMasterPassword,
   updateProfile,
   changePassword,
+  requestPasswordReset,
+  resetPassword,
   changeMasterPassword,
+  resetMasterPassword,
   reencryptPasswords,
 };

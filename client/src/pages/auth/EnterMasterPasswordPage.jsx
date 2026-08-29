@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   ShieldCheck,
   TimerReset,
+  AlertTriangle,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
@@ -16,7 +17,12 @@ import {
   isEncryptedFormat,
   MASTER_VERIFIER_STORAGE_KEY,
   decryptPrivateKey,
+  generateKeyPair,
+  encryptPrivateKey,
+  createMasterPasswordVerifier,
 } from '../../utils/crypto';
+import { setRsaPrivateKey as storeRsaPrivateKey } from '../../utils/secureSession';
+import { validateMasterPassword, validateConfirmPassword, validateHint } from '../../utils/validation';
 import { verifyMasterPassword } from '../../utils/verifyMasterPassword';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
@@ -33,6 +39,17 @@ function EnterMasterPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [verifying, setVerifying] = useState(false);
+
+  const [resetMode, setResetMode] = useState(false);
+  const [resetData, setResetData] = useState({
+    newMasterPassword: '',
+    confirmMasterPassword: '',
+    hint: '',
+  });
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetErrors, setResetErrors] = useState({});
+  const [resetting, setResetting] = useState(false);
 
   if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
@@ -106,6 +123,74 @@ function EnterMasterPasswordPage() {
     }
   };
 
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+
+    const masterError = validateMasterPassword(resetData.newMasterPassword);
+    const confirmError = validateConfirmPassword(
+      resetData.newMasterPassword,
+      resetData.confirmMasterPassword
+    );
+    const hintError = validateHint(resetData.hint);
+
+    if (masterError || confirmError || hintError) {
+      setResetErrors({
+        newMasterPassword: masterError,
+        confirmMasterPassword: confirmError,
+        hint: hintError,
+      });
+      return;
+    }
+
+    if (!confirmReset) {
+      setResetErrors({ acknowledged: 'Please acknowledge the data-loss warning first.' });
+      return;
+    }
+
+    setResetErrors({});
+    setResetting(true);
+
+    try {
+      const salt = user?.encryptionSalt;
+
+      const { publicKeyJwk, privateKeyJwk } = await generateKeyPair();
+      const encryptedPrivateKey = await encryptPrivateKey(
+        privateKeyJwk,
+        resetData.newMasterPassword,
+        salt
+      );
+
+      await api.post(
+        '/auth/reset-master-password',
+        {
+          newMasterPassword: resetData.newMasterPassword,
+          hint: resetData.hint,
+          encryptedPrivateKey,
+          publicKey: publicKeyJwk,
+          salt,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const verifier = await createMasterPasswordVerifier(resetData.newMasterPassword, salt);
+      sessionStorage.setItem(MASTER_VERIFIER_STORAGE_KEY, verifier);
+
+      storeRsaPrivateKey(privateKeyJwk);
+      dispatch(setSessionMasterPassword(resetData.newMasterPassword));
+      dispatch(setSessionRsaPublicKey(publicKeyJwk));
+      dispatch(setMasterVerified(true));
+
+      navigate('/dashboard');
+    } catch (err) {
+      setResetErrors({
+        general:
+          err.response?.data?.message || 'Failed to reset master password. Please try again.',
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <div
       className="h-screen overflow-hidden bg-cover bg-center relative"
@@ -153,41 +238,185 @@ function EnterMasterPasswordPage() {
             </div>
           )}
 
-          {error && <ErrorBox message={error} />}
+          {!resetMode ? (
+            <>
+              {error && <ErrorBox message={error} />}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Master password"
-                value={masterPassword}
-                onChange={(e) => setMasterPassword(e.target.value)}
-                className="w-full rounded-2xl border border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                required
-              />
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Master password"
+                    value={masterPassword}
+                    onChange={(e) => setMasterPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 pr-12 py-4 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    required
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={verifying || loading}
+                  className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg disabled:opacity-60"
+                >
+                  {verifying ? 'Verifying...' : 'Unlock Vault'}
+                </button>
+              </form>
 
               <button
                 type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                onClick={() => {
+                  setResetMode(true);
+                  setError('');
+                }}
+                className="mt-5 w-full text-center text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                Forgot your master password?
               </button>
-            </div>
 
-            <button
-              type="submit"
-              disabled={verifying || loading}
-              className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg disabled:opacity-60"
-            >
-              {verifying ? 'Verifying...' : 'Unlock Vault'}
-            </button>
-          </form>
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
+                Your vault stays locked until your master password is verified.
+                Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-mono">Ctrl+Shift+L</kbd> anytime to re-lock.
+              </p>
+            </>
+          ) : (
+            <form onSubmit={handleResetSubmit} className="space-y-4">
+              <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-700 dark:text-red-300">
+                    <p className="font-semibold">Reset is permanent and destroys vault access.</p>
+                    <p className="mt-1">
+                      Because Vaultix is zero-knowledge, resetting without your current
+                      master password cannot recover existing entries — all encrypted vault
+                      items become permanently inaccessible. Only proceed if you have lost
+                      your master password and accept this loss.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
-            Your vault stays locked until your master password is verified.
-            Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-mono">Ctrl+Shift+L</kbd> anytime to re-lock.
-          </p>
+              {resetErrors.general && <ErrorBox message={resetErrors.general} />}
+
+              <div>
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    placeholder="New master password"
+                    value={resetData.newMasterPassword}
+                    onChange={(e) => {
+                      setResetErrors((p) => ({ ...p, newMasterPassword: '', general: '' }));
+                      setResetData((p) => ({ ...p, newMasterPassword: e.target.value }));
+                    }}
+                    className={`w-full rounded-2xl border bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+                      resetErrors.newMasterPassword
+                        ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-100'
+                        : 'border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-100'
+                    }`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    {showResetPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {resetErrors.newMasterPassword && (
+                  <p className="mt-1.5 text-sm text-red-500">{resetErrors.newMasterPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <input
+                  type={showResetPassword ? 'text' : 'password'}
+                  placeholder="Confirm new master password"
+                  value={resetData.confirmMasterPassword}
+                  onChange={(e) => {
+                    setResetErrors((p) => ({ ...p, confirmMasterPassword: '', general: '' }));
+                    setResetData((p) => ({ ...p, confirmMasterPassword: e.target.value }));
+                  }}
+                  className={`w-full rounded-2xl border bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 py-4 outline-none transition-all focus:ring-4 ${
+                    resetErrors.confirmMasterPassword
+                      ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-100'
+                      : 'border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-100'
+                  }`}
+                />
+                {resetErrors.confirmMasterPassword && (
+                  <p className="mt-1.5 text-sm text-red-500">{resetErrors.confirmMasterPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <input
+                  type="text"
+                  placeholder="Password hint (optional)"
+                  value={resetData.hint}
+                  onChange={(e) => {
+                    setResetErrors((p) => ({ ...p, hint: '', general: '' }));
+                    setResetData((p) => ({ ...p, hint: e.target.value }));
+                  }}
+                  className={`w-full rounded-2xl border bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 py-4 outline-none transition-all focus:ring-4 ${
+                    resetErrors.hint
+                      ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-100'
+                      : 'border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-100'
+                  }`}
+                />
+                {resetErrors.hint && (
+                  <p className="mt-1.5 text-sm text-red-500">{resetErrors.hint}</p>
+                )}
+              </div>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50/60 dark:bg-red-900/10 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmReset}
+                  onChange={(e) => {
+                    setConfirmReset(e.target.checked);
+                    setResetErrors((p) => ({ ...p, acknowledged: '' }));
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                <span className="text-sm text-red-700 dark:text-red-300">
+                  I understand this will generate a new encryption key and make all
+                  existing vault items inaccessible.
+                </span>
+              </label>
+              {resetErrors.acknowledged && (
+                <p className="text-sm text-red-500">{resetErrors.acknowledged}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={resetting}
+                className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white transition-all hover:bg-red-700 hover:shadow-lg disabled:opacity-60"
+              >
+                {resetting ? 'Resetting...' : 'Reset Master Password'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setResetMode(false);
+                  setResetErrors({});
+                  setConfirmReset(false);
+                  setResetData({ newMasterPassword: '', confirmMasterPassword: '', hint: '' });
+                }}
+                className="w-full text-center text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
         </AuthCard>
       </div>
     </div>

@@ -11,12 +11,16 @@ const {
 
 router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
+router.post('/refresh', authLimiter, authController.refresh);
+router.post('/forgot-password', authLimiter, authController.requestPasswordReset);
+router.post('/reset-password', sensitiveLimiter, authController.resetPassword);
 router.get('/me', authenticate, authController.me);
 router.post('/set-master-password', authenticate, authController.setMasterPassword);
 router.post('/verify-master-password', masterPasswordLimiter, authenticate, authController.verifyMasterPassword);
 router.put('/me', authenticate, authController.updateProfile);
 router.put('/change-password', sensitiveLimiter, authenticate, authController.changePassword);
 router.put('/change-master-password', sensitiveLimiter, authenticate, authController.changeMasterPassword);
+router.post('/reset-master-password', sensitiveLimiter, authenticate, authController.resetMasterPassword);
 router.post('/reencrypt-passwords', authenticate, authController.reencryptPasswords);
 
 module.exports = router;

@@ -808,12 +808,26 @@ const batchWrapKeys = async (req, res) => {
       return res.status(400).json({ message: 'wrappedFolders or wrappedPasswords is required' });
     }
 
+    const canWriteFolder = async (folderId) => {
+      const access = await getFolderAccess(folderId, req.user.id);
+      return (
+        !!access &&
+        ['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(access)
+      );
+    };
+
     let count = 0;
 
     await prisma.$transaction(async (tx) => {
       if (Array.isArray(wrappedFolders)) {
         for (const item of wrappedFolders) {
           if (!item.folderId || !item.wrappedKeys) continue;
+
+          // Object-level authorization: only authorized writers may mutate
+          // a folder's key material.
+          if (!(await canWriteFolder(item.folderId))) {
+            throw new Error('ACCESS_DENIED');
+          }
 
           const existing = await tx.folder.findUnique({
             where: { id: item.folderId },
@@ -845,6 +859,16 @@ const batchWrapKeys = async (req, res) => {
             continue;
           }
 
+          // Object-level authorization: only authorized writers may mutate
+          // a password entry's ciphertext / key material.
+          const pw = await tx.passwordEntry.findUnique({
+            where: { id: passwordId },
+            select: { folderId: true },
+          });
+          if (!pw || !pw.folderId || !(await canWriteFolder(pw.folderId))) {
+            throw new Error('ACCESS_DENIED');
+          }
+
           const existing = await tx.passwordEntry.findUnique({
             where: { id: passwordId },
             select: { wrappedKeys: true },
@@ -872,6 +896,9 @@ const batchWrapKeys = async (req, res) => {
     res.json({ message: 'Keys wrapped successfully', count });
   } catch (error) {
     console.error('Batch wrap keys error:', error);
+    if (error.message === 'ACCESS_DENIED') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 };

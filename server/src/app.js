@@ -24,12 +24,25 @@ const app = express();
 
 app.disable('x-powered-by');
 
+// When running behind a trusted reverse proxy (docker/production), honor the
+// real client IP for rate-limiting and audit logs. Set TRUST_PROXY=true.
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
 app.use(
   helmet({
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        // The API only returns JSON, so forbid loading any content.
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
   })
 );
 

@@ -44,9 +44,14 @@ export async function verifyMasterPassword(
   }
 
   try {
-    await api.post('/auth/verify-master-password', {
-      masterPassword: enteredPassword,
-    });
+    // This endpoint returns 401 when the entered master password is wrong —
+    // NOT because the session token expired. Mark it so the axios interceptor
+    // does not attempt a token refresh or force a logout on that 401.
+    await api.post(
+      '/auth/verify-master-password',
+      { masterPassword: enteredPassword },
+      { skipAuthRefresh: true }
+    );
     await saveVerifier(enteredPassword, salt);
     return true;
   } catch {

@@ -1,6 +1,15 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+// KDF configuration.
+// PBKDF2-SHA256 is used to derive the AES key from the master password.
+// New ciphertext ("v2" envelopes) uses a strong iteration count and a
+// freshly-generated per-ciphertext salt. Decryption is backward compatible
+// with older envelopes that used a fixed salt and 100k iterations.
+export const KDF_ITERATIONS_CURRENT = 600000;
+export const KDF_ITERATIONS_LEGACY = 100000;
+export const KDF_VERSION = 2;
+
 function getSaltBytes(salt) {
   return encoder.encode(salt || 'vault-salt');
 }
@@ -15,6 +24,17 @@ export function isEncryptedFormat(value) {
   }
 }
 
+const isVersion2 = (parsed) => parsed && parsed.kdf === 'PBKDF2' && parsed.v === 2;
+
+// Extract the KDF parameters (iteration count + salt) that were used to
+// produce an envelope. Returns null for legacy (100k + provided salt) data.
+function resolveKdfParams(parsed, salt) {
+  if (isVersion2(parsed)) {
+    return { iterations: parsed.iterations || KDF_ITERATIONS_CURRENT, salt: parsed.salt };
+  }
+  return { iterations: KDF_ITERATIONS_LEGACY, salt };
+}
+
 export async function encryptText(text, masterPassword, salt) {
   if (!text) return '';
 
@@ -26,11 +46,19 @@ export async function encryptText(text, masterPassword, salt) {
     ['deriveKey']
   );
 
+  // Random per-ciphertext salt for uniqueness, combined with the per-user salt
+  // for domain separation. The random salt is stored in the ciphertext
+  // envelope so it can be reproduced on decrypt.
+  const randomSalt = window.crypto.getRandomValues(new Uint8Array(16));
+  const kdfSalt = new Uint8Array(randomSalt.length + getSaltBytes(salt).length);
+  kdfSalt.set(randomSalt, 0);
+  kdfSalt.set(getSaltBytes(salt), randomSalt.length);
+
   const key = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: getSaltBytes(salt),
-      iterations: 100000,
+      salt: kdfSalt,
+      iterations: KDF_ITERATIONS_CURRENT,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -48,6 +76,10 @@ export async function encryptText(text, masterPassword, salt) {
   );
 
   return JSON.stringify({
+    v: KDF_VERSION,
+    kdf: 'PBKDF2',
+    iterations: KDF_ITERATIONS_CURRENT,
+    salt: Array.from(kdfSalt),
     iv: Array.from(iv),
     content: Array.from(new Uint8Array(encrypted)),
   });
@@ -110,6 +142,7 @@ export async function decryptText(encryptedText, masterPassword, salt) {
   if (!encryptedText) return '';
 
   const parsed = JSON.parse(encryptedText);
+  const { iterations, salt: kdfSalt } = resolveKdfParams(parsed, salt || 'vault-salt');
 
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
@@ -122,8 +155,8 @@ export async function decryptText(encryptedText, masterPassword, salt) {
   const key = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: getSaltBytes(salt),
-      iterations: 100000,
+      salt: isVersion2(parsed) && kdfSalt ? new Uint8Array(kdfSalt) : getSaltBytes(kdfSalt),
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -243,7 +276,7 @@ export async function generateKeyPair() {
   return { publicKeyJwk, privateKeyJwk };
 }
 
-async function getDeriveKeyForPrivateKey(masterPassword, salt) {
+async function getDeriveKeyForPrivateKey(masterPassword, salt, iterations, saltBytes) {
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
     encoder.encode(masterPassword),
@@ -255,8 +288,8 @@ async function getDeriveKeyForPrivateKey(masterPassword, salt) {
   return window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: getSaltBytes(salt),
-      iterations: 100000,
+      salt: saltBytes,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -267,7 +300,13 @@ async function getDeriveKeyForPrivateKey(masterPassword, salt) {
 }
 
 export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
-  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
+  const kdfSalt = window.crypto.getRandomValues(new Uint8Array(16));
+  const aesKey = await getDeriveKeyForPrivateKey(
+    masterPassword,
+    salt,
+    KDF_ITERATIONS_CURRENT,
+    kdfSalt
+  );
   const privateKeyData = encoder.encode(JSON.stringify(privateKeyJwk));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await window.crypto.subtle.encrypt(
@@ -276,18 +315,30 @@ export async function encryptPrivateKey(privateKeyJwk, masterPassword, salt) {
     privateKeyData
   );
   return JSON.stringify({
+    v: KDF_VERSION,
+    kdf: 'PBKDF2',
+    iterations: KDF_ITERATIONS_CURRENT,
+    salt: Array.from(kdfSalt),
     iv: Array.from(iv),
     content: Array.from(new Uint8Array(encrypted)),
   });
 }
 
 export async function decryptPrivateKey(encryptedPrivateKey, masterPassword, salt) {
-  const aesKey = await getDeriveKeyForPrivateKey(masterPassword, salt);
   // Prisma returns Json columns already parsed — accept object or string.
   const parsed =
     typeof encryptedPrivateKey === 'string'
       ? JSON.parse(encryptedPrivateKey)
       : encryptedPrivateKey;
+
+  const params = resolveKdfParams(parsed, salt || 'vault-salt');
+  const keySalt = isVersion2(parsed) && params.salt ? new Uint8Array(params.salt) : getSaltBytes(params.salt);
+  const aesKey = await getDeriveKeyForPrivateKey(
+    masterPassword,
+    salt,
+    params.iterations,
+    keySalt
+  );
   const decrypted = await window.crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(parsed.iv) },
     aesKey,

@@ -15,7 +15,7 @@ import FolderMembersSummary from '../../components/folder/FolderMembersSummary';
 import FolderUsersModal from '../../components/folder/FolderUsersModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, decryptPrivateKey, encryptTextWithAesKey, wrapItemKey, isEncryptedFormat } from '../../utils/crypto';
-import { getWrapRecipients, getPublicKeyForUser, wrapItemKeysForUsers } from '../../utils/keyWrapping';
+import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
 import { showToast } from '../../utils/toast';
 import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 
@@ -29,7 +29,6 @@ import {
   Download,
   Upload,
   Trash2,
-  RefreshCw,
 } from 'lucide-react';
 
 import {
@@ -51,7 +50,6 @@ function VaultPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [rewrapping, setRewrapping] = useState(false);
   const [prefillData, setPrefillData] = useState(null);
 
   const { user, token, sessionMasterPassword, sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector(
@@ -461,100 +459,6 @@ function VaultPage() {
     }
   };
 
-  const handleRewrapKeys = async () => {
-    if (!selectedFolder?.id) return;
-
-    const rsaKey = sessionRsaPrivateKey;
-    if (!rsaKey) {
-      showToast('Encryption key not available. Please refresh the page.', 'error');
-      return;
-    }
-
-    try {
-      setRewrapping(true);
-
-      const passwordsRes = await api.get(`/passwords/vault/${selectedVault.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const allPasswords = passwordsRes.data || [];
-      const currentFolderPasswords = allPasswords.filter((pw) => pw.folderId === selectedFolder.id);
-
-      let recipientIds = [];
-      try {
-        const recipientsRes = await api.get(`/folders/${selectedFolder.id}/wrap-recipients`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        recipientIds = recipientsRes.data?.userIds || [];
-      } catch {
-        recipientIds = [];
-      }
-
-      if (!recipientIds.includes(user.id)) recipientIds.push(user.id);
-
-      if (recipientIds.length <= 1) {
-        showToast('No other members to wrap keys for', 'error');
-        return;
-      }
-
-      const publicKeysCache = {};
-      for (const memberId of recipientIds) {
-        if (memberId === user.id) continue;
-        const publicKey = await getPublicKeyForUser(memberId);
-        if (publicKey) publicKeysCache[memberId] = publicKey;
-      }
-
-      let wrappedCount = 0;
-      const wrappedUpdates = [];
-
-      for (const pw of currentFolderPasswords) {
-        const myWrappedKey = pw.myWrappedKey;
-        if (!myWrappedKey) continue;
-
-        let aesKeyJwk;
-        try {
-          aesKeyJwk = await unwrapItemKey(myWrappedKey, rsaKey);
-        } catch {
-          continue;
-        }
-
-        const have = new Set(pw.wrappedUserIds || [user.id]);
-        const missingMembers = recipientIds.filter(
-          (memberId) => memberId !== user.id && !have.has(memberId) && publicKeysCache[memberId]
-        );
-
-        if (missingMembers.length === 0) continue;
-
-        // Send only the additions — the server merges them into the
-        // existing wrappedKeys so nobody else loses access.
-        const additions = await wrapItemKeysForUsers(aesKeyJwk, missingMembers);
-
-        if (Object.keys(additions).length > 0) {
-          wrappedCount += Object.keys(additions).length;
-          wrappedUpdates.push({
-            id: pw.id,
-            wrappedKeys: additions,
-          });
-        }
-      }
-
-      if (wrappedUpdates.length > 0) {
-        await api.post('/passwords/batch-wrap', {
-          wrappedPasswords: wrappedUpdates,
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        dispatch(fetchPasswordsByVault(selectedVault.id));
-        showToast(`Wrapped keys for ${wrappedCount} members`);
-      } else {
-        showToast('All passwords already have wrapped keys for members');
-      }
-    } catch {
-      showToast('Failed to re-wrap keys', 'error');
-    } finally {
-      setRewrapping(false);
-    }
-  };
-
   return (
     <AppLayout>
       <div className="bg-white rounded-[30px] border border-slate-200 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
@@ -648,23 +552,10 @@ function VaultPage() {
                             }}
                             className="hidden"
                           />
-                        </label>
+                          </label>
+                        </>
+                      )}
 
-                        {isAdminUser && (
-                          <button
-                            onClick={() => {
-                              handleRewrapKeys();
-                              setMenuOpen(false);
-                            }}
-                            disabled={rewrapping}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            <RefreshCw size={16} className={`text-slate-500 dark:text-slate-400 ${rewrapping ? 'animate-spin' : ''}`} />
-                            {rewrapping ? 'Re-wrapping...' : 'Re-wrap Keys for Members'}
-                          </button>
-                        )}
-                      </>
-                    )}
 
                     {canDeleteFolder && (
                       <button

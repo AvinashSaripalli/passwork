@@ -29,6 +29,7 @@ services:
       CLIENT_URL: ${CLIENT_URL}
       MAIL_USER: ${MAIL_USER}
       MAIL_PASS: ${MAIL_PASS}
+      TRUST_PROXY: "true"
 
   web:
     build:
