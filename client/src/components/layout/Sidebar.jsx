@@ -5,7 +5,7 @@ import {
   LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles, Building2,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../../features/auth/authSlice';
+import { logoutUser } from '../../features/auth/authSlice';
 import useLockVault from '../../hooks/useLockVault';
 import api from '../../services/api';
 import {
@@ -81,7 +81,7 @@ function Sidebar() {
   const accountMenu = [{ name: 'Profile', path: '/profile', icon: User }];
 
   const lockVault = useLockVault();
-  const handleLogout = () => { dispatch(logout()); navigate('/login'); };
+  const handleLogout = () => { dispatch(logoutUser()); navigate('/login'); };
   const openRename = (folder) => { setActionFolder(folder); setRenameOpen(true); };
   const openShare = (folder) => { setActionFolder(folder); setShareOpen(true); };
   const handleDeleteFolder = (folder) => { dispatch(clearVaultError()); setConfirmDelete({ open: true, folder }); };

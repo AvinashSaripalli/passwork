@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../../features/auth/authSlice';
+import { logoutUser } from '../../features/auth/authSlice';
 import { toggleTheme } from '../../features/theme/themeSlice';
 import useLockVault from '../../hooks/useLockVault';
 import api from '../../services/api';
@@ -355,7 +355,7 @@ function Topbar() {
               <button
                 onClick={() => {
                   setUserMenuOpen(false);
-                  dispatch(logout());
+                  dispatch(logoutUser());
                   navigate('/login');
                 }}
                 className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"

@@ -7,7 +7,6 @@ const {
   getUserDepartmentIds,
   getDepartmentIdsWithAncestors,
 } = require('../utils/permissions');
-const XLSX = require('xlsx');
 const generateId = require('../utils/generateId');
 
 const getVaultType = async (vaultId) => {
@@ -30,6 +29,29 @@ const toClientPassword = (pw, userId) => {
     myWrappedKey: allWrappedKeys[userId] || null,
     wrappedUserIds: Object.keys(allWrappedKeys),
   };
+};
+
+// Wrapped keys must only ever be stored for recipients that are currently
+// authorized for the folder. This prevents an authorized writer from injecting
+// (or overwriting) wrapped keys belonging to someone else, which would silently
+// break that user's ability to decrypt the shared item.
+const validateWrappedKeys = async (folderId, wrappedKeys) => {
+  if (
+    !wrappedKeys ||
+    typeof wrappedKeys !== 'object' ||
+    Array.isArray(wrappedKeys)
+  ) {
+    return false;
+  }
+
+  const keys = Object.keys(wrappedKeys);
+  if (keys.length === 0) return false;
+
+  const authorized = new Set(await getFolderAuthorizedUserIds(folderId));
+
+  return keys.every(
+    (uid) => authorized.has(uid) && typeof wrappedKeys[uid] === 'string' && wrappedKeys[uid].length > 0
+  );
 };
 
 const createPassword = async (req, res) => {
@@ -58,6 +80,16 @@ const createPassword = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    // The folder must belong to the vault the caller claims — otherwise a user
+    // could plant items in a vault they do not have access to.
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      select: { vaultId: true },
+    });
+    if (!folder || folder.vaultId !== vaultId) {
+      return res.status(400).json({ message: 'Folder does not belong to the given vault' });
+    }
+
     const vaultTypeForGuard = await getVaultType(vaultId);
 
     // Company/client vault items must carry a wrapped key for the creator,
@@ -73,6 +105,13 @@ const createPassword = async (req, res) => {
         message:
           'Encryption keys not ready — missing wrapped key for creator. Please re-enter your master password and retry.',
       });
+    }
+
+    // Wrapped keys may only target recipients currently authorized in the folder.
+    if (wrappedKeys && Object.keys(wrappedKeys).length > 0) {
+      if (!(await validateWrappedKeys(folderId, wrappedKeys))) {
+        return res.status(400).json({ message: 'Wrapped keys contain unauthorized recipients' });
+      }
     }
 
     const isWeak = req.body.isWeak ?? false;
@@ -170,6 +209,14 @@ const importPasswordsFromExcel = async (req, res) => {
     const access = await getFolderAccess(folderId, req.user.id);
     if (!access || !['ADMINISTRATOR', 'READ_WRITE', 'FULL_ACCESS'].includes(access)) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const importFolder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      select: { vaultId: true },
+    });
+    if (!importFolder || importFolder.vaultId !== vaultId) {
+      return res.status(400).json({ message: 'Folder does not belong to the given vault' });
     }
 
     const vaultTypeForGuard = await getVaultType(vaultId);
@@ -454,6 +501,29 @@ const updatePassword = async (req, res) => {
       wrappedKeys,
       tags,
     } = req.body;
+
+    // Moving an entry across vaults would let a user with write access to one
+    // folder relocate the item into a vault/folder they control. Only same-vault
+    // folder moves are allowed.
+    if (folderId !== undefined && folderId && folderId !== existingPassword.folderId) {
+      const targetFolder = await prisma.folder.findUnique({
+        where: { id: folderId },
+        select: { vaultId: true },
+      });
+      if (!targetFolder || targetFolder.vaultId !== existingPassword.vaultId) {
+        return res.status(400).json({ message: 'Folder does not belong to the same vault' });
+      }
+    }
+
+    const effectiveFolderId = folderId || existingPassword.folderId;
+
+    // Wrapped keys may only target recipients currently authorized in the
+    // folder the entry will live in after this update.
+    if (wrappedKeys && Object.keys(wrappedKeys).length > 0) {
+      if (!(await validateWrappedKeys(effectiveFolderId, wrappedKeys))) {
+        return res.status(400).json({ message: 'Wrapped keys contain unauthorized recipients' });
+      }
+    }
 
     const vaultTypeForGuard = await getVaultType(existingPassword.vaultId);
 
@@ -829,6 +899,11 @@ const batchWrapKeys = async (req, res) => {
             throw new Error('ACCESS_DENIED');
           }
 
+          // Keys may only be stored for recipients currently authorized in the folder.
+          if (!(await validateWrappedKeys(item.folderId, item.wrappedKeys))) {
+            throw new Error('INVALID_WRAPPED_KEYS');
+          }
+
           const existing = await tx.folder.findUnique({
             where: { id: item.folderId },
             select: { wrappedKeys: true },
@@ -869,6 +944,14 @@ const batchWrapKeys = async (req, res) => {
             throw new Error('ACCESS_DENIED');
           }
 
+          // If wrapped keys are supplied, they may only target recipients
+          // authorized in the password's folder.
+          if (item.wrappedKeys && Object.keys(item.wrappedKeys).length > 0) {
+            if (!(await validateWrappedKeys(pw.folderId, item.wrappedKeys))) {
+              throw new Error('INVALID_WRAPPED_KEYS');
+            }
+          }
+
           const existing = await tx.passwordEntry.findUnique({
             where: { id: passwordId },
             select: { wrappedKeys: true },
@@ -898,6 +981,9 @@ const batchWrapKeys = async (req, res) => {
     console.error('Batch wrap keys error:', error);
     if (error.message === 'ACCESS_DENIED') {
       return res.status(403).json({ message: 'Access denied' });
+    }
+    if (error.message === 'INVALID_WRAPPED_KEYS') {
+      return res.status(400).json({ message: 'Wrapped keys contain unauthorized recipients' });
     }
     res.status(500).json({ message: 'Server error' });
   }

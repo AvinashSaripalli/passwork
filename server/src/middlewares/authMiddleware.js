@@ -11,6 +11,13 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+
+    // Only accept tokens explicitly minted as access tokens. Tokens signed
+    // for other purposes (e.g. password reset) must never authorize API calls.
+    if (decoded.type !== 'access') {
+      return res.status(401).json({ message: 'Invalid token type' });
+    }
+
     req.user = decoded;
     next();
   } catch (error) {

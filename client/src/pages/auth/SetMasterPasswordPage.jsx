@@ -12,7 +12,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import {
   clearError,
-  logout,
+  logoutUser,
   setMasterPassword,
 } from '../../features/auth/authSlice';
 import {
@@ -165,7 +165,7 @@ function SetMasterPasswordPage() {
           title="Set master password"
           subtitle="Create a strong password to unlock your workspace."
           onBack={() => {
-            dispatch(logout());
+            dispatch(logoutUser());
             navigate('/register');
           }}
         >

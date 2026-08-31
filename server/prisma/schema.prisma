@@ -58,6 +58,7 @@ model User {
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   encryptionSalt          String?
+  tokenVersion            Int                @default(0)
   activityLogs            ActivityLog[]
   departmentMemberships   DepartmentMember[]
   folderPermissions       FolderPermission[]
@@ -70,6 +71,7 @@ model User {
   keyPair                 UserKeyPair?
   ownedVaults             Vault[]            @relation("VaultOwner")
   vaultPermissions        VaultPermission[]
+  refreshTokens           RefreshToken[]    @relation("RefreshTokenUser")
 }
 
 model Folder {
@@ -249,6 +251,20 @@ model LoginActivity {
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model RefreshToken {
+  id           String    @id
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+  user         User      @relation("RefreshTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([revokedAt])
 }
 
 model Notification {

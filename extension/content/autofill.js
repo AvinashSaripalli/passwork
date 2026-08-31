@@ -2,7 +2,6 @@
   if (window.__vaultixLoaded) return;
   window.__vaultixLoaded = true;
 
-  const LOCK_MS = 15 * 60 * 1000;
   let badge = null;
   let menu = null;
   let activePw = null;
@@ -21,50 +20,22 @@
   });
 
   async function getCachedCreds() {
-    try {
-      const data = await chrome.storage.session.get('cache');
-      if (data.cache && Date.now() - data.cache.ts < LOCK_MS) {
-        return data.cache.creds || [];
+    // Credentials come only from the background worker, which serves exactly
+    // the entries matching this tab's host. The full decrypted cache is kept
+    // in chrome.storage.session, which content scripts cannot read anymore.
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'VAULTIX_GET_CREDS' }, (resp) => {
+          if (chrome.runtime.lastError || !resp || !Array.isArray(resp.creds)) {
+            resolve([]);
+            return;
+          }
+          resolve(resp.creds);
+        });
+      } catch {
+        resolve([]);
       }
-    } catch {
-      /* session storage not shared with content scripts yet */
-    }
-    return [];
-  }
-
-  function hostOf(url) {
-    try {
-      return new URL(url).hostname.replace(/^www\./, '');
-    } catch {
-      return '';
-    }
-  }
-
-  function urlHost(entryUrl) {
-    if (!entryUrl) return '';
-    try {
-      return new URL(
-        entryUrl.includes('://') ? entryUrl : `https://${entryUrl}`
-      ).hostname.replace(/^www\./, '');
-    } catch {
-      return '';
-    }
-  }
-
-  function matchesSite(cred) {
-    const tabHost = location.hostname.replace(/^www\./, '');
-    if (!tabHost) return false;
-    const credHost = urlHost(cred.url);
-    if (
-      credHost &&
-      (credHost === tabHost ||
-        credHost.endsWith(`.${tabHost}`) ||
-        tabHost.endsWith(`.${credHost}`))
-    ) {
-      return true;
-    }
-    const base = tabHost.split('.')[0];
-    return base.length > 2 && cred.name.toLowerCase().includes(base);
+    });
   }
 
   function isVisible(el) {
@@ -219,10 +190,8 @@
   function openMenu(creds) {
     closeMenu();
 
-    const host = hostOf(location.href);
-    const matched = creds.filter(matchesSite);
-    const others = creds.filter((c) => !matched.includes(c));
-    const ordered = [...matched, ...others].slice(0, 30);
+    // Already limited to host-matched entries from the background worker.
+    const ordered = creds.slice(0, 30);
 
     menu = document.createElement('div');
     Object.assign(menu.style, {
@@ -254,13 +223,12 @@
 
     if (!ordered.length) {
       const empty = document.createElement('div');
-      empty.textContent = 'No vault items. Unlock in the extension popup.';
+      empty.textContent = 'Nothing for this site. Unlock in the extension popup, or add this item to your vault.';
       Object.assign(empty.style, { padding: '10px', color: '#94a3b8' });
       menu.appendChild(empty);
     }
 
     for (const cred of ordered) {
-      const isMatch = matched.includes(cred);
       const row = document.createElement('div');
       Object.assign(row.style, {
         padding: '7px 10px',
@@ -274,9 +242,9 @@
       row.addEventListener('mouseleave', () => (row.style.background = 'transparent'));
 
       const dot = document.createElement('span');
-      dot.textContent = isMatch ? '●' : '○';
-      dot.title = isMatch ? 'Matches this site' : 'Other item';
-      dot.style.color = isMatch ? '#818cf8' : '#475569';
+      dot.textContent = '●';
+      dot.title = 'Matches this site';
+      dot.style.color = '#818cf8';
 
       const textWrap = document.createElement('div');
       textWrap.style.cssText = 'flex:1;min-width:0;';

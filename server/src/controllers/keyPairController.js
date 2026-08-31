@@ -1,6 +1,25 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
-const { getFolderAccess } = require('../utils/permissions');
+const { getFolderAccess, getFolderAuthorizedUserIds } = require('../utils/permissions');
+
+const validateWrappedKeys = async (folderId, wrappedKeys) => {
+  if (
+    !wrappedKeys ||
+    typeof wrappedKeys !== 'object' ||
+    Array.isArray(wrappedKeys)
+  ) {
+    return false;
+  }
+
+  const keys = Object.keys(wrappedKeys);
+  if (keys.length === 0) return false;
+
+  const authorized = new Set(await getFolderAuthorizedUserIds(folderId));
+
+  return keys.every(
+    (uid) => authorized.has(uid) && typeof wrappedKeys[uid] === 'string' && wrappedKeys[uid].length > 0
+  );
+};
 
 const storeKeyPair = async (req, res) => {
   try {
@@ -155,6 +174,9 @@ const getAllVaultWrappedKeys = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Only fold in resources the user can actually access — wrapped key
+    // material must not be enumerated for folders/vaults the user has been
+    // removed from.
     const folders = await prisma.folder.findMany({
       select: {
         id: true,
@@ -166,6 +188,9 @@ const getAllVaultWrappedKeys = async (req, res) => {
     const passwordResults = [];
 
     for (const folder of folders) {
+      const folderAccess = await getFolderAccess(folder.id, userId);
+      if (!folderAccess) continue;
+
       if (folder.wrappedKeys && folder.wrappedKeys[userId]) {
         folderResults.push({
           id: folder.id,
@@ -221,6 +246,11 @@ const reWrapVaultKeys = async (req, res) => {
             throw new Error('ACCESS_DENIED');
           }
 
+          // Keys may only be stored for recipients currently authorized in the folder.
+          if (!(await validateWrappedKeys(item.id, item.wrappedKeys))) {
+            throw new Error('INVALID_WRAPPED_KEYS');
+          }
+
           const existing = await tx.folder.findUnique({
             where: { id: item.id },
             select: { wrappedKeys: true },
@@ -256,6 +286,11 @@ const reWrapVaultKeys = async (req, res) => {
             throw new Error('ACCESS_DENIED');
           }
 
+          // Keys may only be stored for recipients currently authorized in the folder.
+          if (!(await validateWrappedKeys(pw.folderId, item.wrappedKeys))) {
+            throw new Error('INVALID_WRAPPED_KEYS');
+          }
+
           const existing = await tx.passwordEntry.findUnique({
             where: { id: item.id },
             select: { wrappedKeys: true },
@@ -281,6 +316,9 @@ const reWrapVaultKeys = async (req, res) => {
     console.error('Re-wrap vault keys error:', error);
     if (error.message === 'ACCESS_DENIED') {
       return res.status(403).json({ message: 'Access denied' });
+    }
+    if (error.message === 'INVALID_WRAPPED_KEYS') {
+      return res.status(400).json({ message: 'Wrapped keys contain unauthorized recipients' });
     }
     res.status(500).json({ message: 'Server error' });
   }

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
-import { logout, setMasterVerified, setSessionMasterPassword, setSessionRsaPublicKey } from '../../features/auth/authSlice';
+import { logoutUser, setMasterVerified, setSessionMasterPassword, setSessionRsaPublicKey } from '../../features/auth/authSlice';
 import {
   isEncryptedFormat,
   MASTER_VERIFIER_STORAGE_KEY,
@@ -228,7 +228,7 @@ function EnterMasterPasswordPage() {
           title="Unlock vault"
           subtitle="Enter your master password to continue."
           onBack={() => {
-            dispatch(logout());
+            dispatch(logoutUser());
             navigate('/login');
           }}
         >

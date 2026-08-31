@@ -1,7 +1,39 @@
 const DEFAULT_URL = 'https://knbitrix.duckdns.org';
+const LOCK_MS = 15 * 60 * 1000;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== 'VAULTIX_LOG' || !msg.passwordId) return;
+  if (!msg || !msg.type) return;
+
+  // Content scripts (untrusted contexts) can no longer read the decrypted
+  // chrome.storage.session cache directly. The background worker — the only
+  // trusted context with access — filters the cache down to credentials that
+  // belong to the requesting tab's host before ever returning them. A page
+  // cannot enumerate items, and only host-matched secrets leave the worker.
+  if (msg.type === 'VAULTIX_GET_CREDS') {
+    (async () => {
+      try {
+        const data = await chrome.storage.session.get('cache');
+        const cache = data.cache;
+
+        if (!cache || Date.now() - cache.ts >= LOCK_MS) {
+          sendResponse({ ok: true, creds: [] });
+          return;
+        }
+
+        const tabHost = hostOf(sender.tab?.url || '');
+        const creds = (cache.creds || []).filter(
+          (c) => tabHost && hostMatches(tabHost, c.url)
+        );
+
+        sendResponse({ ok: true, creds });
+      } catch {
+        sendResponse({ ok: true, creds: [] });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.type !== 'VAULTIX_LOG' || !msg.passwordId) return;
 
   (async () => {
     try {
@@ -29,3 +61,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   return true;
 });
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function urlHost(entryUrl) {
+  if (!entryUrl) return '';
+  try {
+    return new URL(
+      entryUrl.includes('://') ? entryUrl : `https://${entryUrl}`
+    ).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+// Exact host-based matching only — no fuzzy name-keyword guessing that could
+// surface unrelated items on a site.
+function hostMatches(tabHost, entryUrl) {
+  const credHost = urlHost(entryUrl);
+  if (!credHost) return false;
+  return (
+    credHost === tabHost ||
+    credHost.endsWith(`.${tabHost}`) ||
+    tabHost.endsWith(`.${credHost}`)
+  );
+}

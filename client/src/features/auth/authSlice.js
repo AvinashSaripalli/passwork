@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import api from '../../services/api';
+import api, { logoutRequest } from '../../services/api';
 import {
   encryptText,
   decryptText,
@@ -101,6 +101,36 @@ export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, thunkAPI) => {
     );
   }
 });
+
+// Silent session restore on app boot: asks the server to exchange the
+// httpOnly refresh cookie for a fresh access token.
+export const refreshSession = createAsyncThunk(
+  'auth/refreshSession',
+  async (_, thunkAPI) => {
+    try {
+      const response = await api.post(
+        '/auth/refresh',
+        {},
+        { skipAuthRefresh: true }
+      );
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Session expired'
+      );
+    }
+  }
+);
+
+export const logoutUser = createAsyncThunk(
+  'auth/logoutUser',
+  async (_, thunkAPI) => {
+    // Clear local state synchronously first (so callers can navigate away
+    // immediately), then revoke the server-side session via the refresh cookie.
+    thunkAPI.dispatch(logout());
+    await logoutRequest();
+  }
+);
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
@@ -469,7 +499,6 @@ const authSlice = createSlice({
       state.userLoaded = true;
 
       localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       purgeSecureSession();
     },
@@ -496,9 +525,6 @@ const authSlice = createSlice({
         state.sessionAdminMasterPassword = null;
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
-        if (action.payload.refreshToken) {
-          localStorage.setItem('refreshToken', action.payload.refreshToken);
-        }
         saveUser(action.payload.user);
         purgeSecureSession();
       })
@@ -523,9 +549,6 @@ const authSlice = createSlice({
         state.sessionAdminMasterPassword = null;
         state.userLoaded = true;
         localStorage.setItem('token', action.payload.token);
-        if (action.payload.refreshToken) {
-          localStorage.setItem('refreshToken', action.payload.refreshToken);
-        }
         saveUser(action.payload.user);
         purgeSecureSession();
       })
@@ -533,6 +556,27 @@ const authSlice = createSlice({
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      .addCase(refreshSession.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(refreshSession.fulfilled, (state, action) => {
+        state.loading = false;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.userLoaded = true;
+        localStorage.setItem('token', action.payload.token);
+        saveUser(action.payload.user);
+      })
+
+      .addCase(refreshSession.rejected, (state) => {
+        state.loading = false;
+        state.isAuthenticated = false;
+        state.userLoaded = true;
       })
 
       .addCase(fetchMe.fulfilled, (state, action) => {
@@ -552,7 +596,6 @@ const authSlice = createSlice({
         state.userLoaded = true;
 
         localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         purgeSecureSession();
       })

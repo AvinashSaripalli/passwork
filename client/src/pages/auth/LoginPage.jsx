@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, Users } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearError, loginUser, logout } from '../../features/auth/authSlice';
+import { clearError, loginUser, logoutUser } from '../../features/auth/authSlice';
 import { validateEmail, validatePassword } from '../../utils/validation';
 import logo from '../../assets/Vaultix.png';
 import bgImage from '../../assets/auth-bg.png';
@@ -121,7 +121,7 @@ function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  dispatch(logout());
+                  dispatch(logoutUser());
                   navigate('/register');
                 }}
                 className="font-semibold text-blue-600"

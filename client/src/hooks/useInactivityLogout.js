@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  logout,
+  logoutUser,
   showSessionWarning,
   updateSessionWarningSeconds,
   dismissSessionWarning,
@@ -49,7 +49,7 @@ export default function useInactivityLogout() {
       const remaining = TIMEOUT_MS - elapsed;
 
       if (remaining <= 0) {
-        dispatch(logout());
+        dispatch(logoutUser());
         return;
       }
 

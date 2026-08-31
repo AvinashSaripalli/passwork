@@ -73,7 +73,8 @@ const validateEmail = (email) => {
 };
 
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
-const REFRESH_TOKEN_TTL = '30d';
+const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const REFRESH_COOKIE_NAME = 'vaultix_refresh';
 
 const signToken = (user) => {
   return jwt.sign(
@@ -88,52 +89,140 @@ const signToken = (user) => {
   );
 };
 
-const signRefreshToken = (user) => {
-  return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      type: 'refresh',
+const hashRefreshToken = (token) =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
+const createRefreshSession = async (userId) => {
+  const token = crypto.randomBytes(48).toString('hex');
+  const record = await prisma.refreshToken.create({
+    data: {
+      id: `RT-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+      userId,
+      tokenHash: hashRefreshToken(token),
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
     },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: REFRESH_TOKEN_TTL }
-  );
+  });
+  return { token, record };
 };
+
+const revokeAllRefreshTokens = (userId) =>
+  prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
+const setRefreshTokenCookie = (res, token) => {
+  res.cookie(REFRESH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    path: '/',
+    maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
+  });
+};
+
+const clearRefreshTokenCookie = (res) => {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  });
+};
+
+// Accept the refresh token from the httpOnly cookie (web client) or the
+// request body (browser extension / API clients).
+const getRefreshTokenFromRequest = (req) =>
+  req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refreshToken || null;
 
 const refresh = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const suppliedToken = getRefreshTokenFromRequest(req);
 
-    if (!refreshToken) {
-      return res.status(400).json({ message: 'refreshToken is required' });
+    if (!suppliedToken) {
+      return res.status(400).json({ message: 'Refresh token is required' });
     }
 
-    let decoded;
-    try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    } catch {
-      return res.status(401).json({ message: 'Invalid or expired refresh token' });
-    }
-
-    // Only accept tokens explicitly minted as refresh tokens.
-    if (decoded.type !== 'refresh') {
-      return res.status(401).json({ message: 'Invalid token type' });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+    const stored = await prisma.refreshToken.findUnique({
+      where: { tokenHash: hashRefreshToken(suppliedToken) },
     });
 
+    if (!stored) {
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    // Rotation reuse detection: the same token presented twice means it was
+    // stolen or used from a second device — revoke the whole session.
+    if (stored.revokedAt) {
+      await revokeAllRefreshTokens(stored.userId);
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ message: 'Session revoked; please sign in again' });
+    }
+
+    if (new Date(stored.expiresAt) < new Date()) {
+      await prisma.refreshToken.delete({ where: { id: stored.id } });
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ message: 'Session expired; please sign in again' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: stored.userId } });
+
     if (!user || user.isActive === false) {
+      await revokeAllRefreshTokens(stored.userId);
+      clearRefreshTokenCookie(res);
       return res.status(401).json({ message: 'Account unavailable' });
     }
 
-    const token = signToken(user);
+    // Rotate: revoke the old token and issue a fresh one.
+    const { token: newRefreshToken, record: newRecord } = await createRefreshSession(user.id);
 
-    res.json({ token });
+    await prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date(), replacedById: newRecord.id },
+    });
+
+    setRefreshTokenCookie(res, newRefreshToken);
+
+    res.json({
+      token: signToken(user),
+      refreshToken: newRefreshToken,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        masterPasswordHint: user.masterPasswordHint,
+        hasMasterPassword: !!user.masterPasswordHash,
+        encryptionSalt: user.encryptionSalt,
+      },
+    });
   } catch (error) {
     console.error('Refresh error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    const suppliedToken = getRefreshTokenFromRequest(req);
+
+    if (suppliedToken) {
+      const stored = await prisma.refreshToken.findUnique({
+        where: { tokenHash: hashRefreshToken(suppliedToken) },
+      });
+      if (stored && !stored.revokedAt) {
+        await prisma.refreshToken.update({
+          where: { id: stored.id },
+          data: { revokedAt: new Date() },
+        });
+      }
+    }
+
+    clearRefreshTokenCookie(res);
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -280,7 +369,8 @@ const register = async (req, res) => {
     }
 
     const jwtToken = signToken(user);
-    const refreshToken = signRefreshToken(user);
+    const { token: refreshToken } = await createRefreshSession(user.id);
+    setRefreshTokenCookie(res, refreshToken);
 
     await saveLoginActivity({
       req,
@@ -367,7 +457,8 @@ const login = async (req, res) => {
 
     resetFailedAttempts(email);
     const token = signToken(user);
-    const refreshToken = signRefreshToken(user);
+    const { token: refreshToken } = await createRefreshSession(user.id);
+    setRefreshTokenCookie(res, refreshToken);
 
     await saveLoginActivity({
       req,
@@ -551,6 +642,12 @@ const changePassword = async (req, res) => {
       data: { passwordHash },
     });
 
+    // Password changed — revoke every existing session, then immediately mint
+    // a fresh one for the current device so the user isn't logged out here.
+    await revokeAllRefreshTokens(userId);
+    const { token: sessionToken } = await createRefreshSession(userId);
+    setRefreshTokenCookie(res, sessionToken);
+
     res.json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error);
@@ -684,6 +781,10 @@ const resetPassword = async (req, res) => {
       where: { id: user.id },
       data: { passwordHash },
     });
+
+    // Password changed — revoke all refresh sessions and clear the cookie.
+    await revokeAllRefreshTokens(user.id);
+    clearRefreshTokenCookie(res);
 
     // Restore login ability after a reset, regardless of any lockout state.
     resetFailedAttempts(user.email);
@@ -880,6 +981,7 @@ module.exports = {
   saveLoginActivity,
   login,
   refresh,
+  logout,
   me,
   setMasterPassword,
   verifyMasterPassword,

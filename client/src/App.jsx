@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { dismissSessionWarning, fetchMe, setSessionRsaPrivateKey, setSessionRsaPublicKey } from './features/auth/authSlice';
+import { dismissSessionWarning, fetchMe, refreshSession, setSessionRsaPrivateKey, setSessionRsaPublicKey } from './features/auth/authSlice';
 import useInactivityLogout, { touchActivity } from './hooks/useInactivityLogout';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import useLockVault from './hooks/useLockVault';
@@ -46,11 +46,29 @@ function App() {
   useKeyboardShortcuts();
 
   useEffect(() => {
-    if (token && !userLoaded) {
-      dispatch(fetchMe()).finally(() => setInitDone(true));
-    } else {
+    (async () => {
+      if (token) {
+        // Access token present — refresh the profile if we haven't loaded it.
+        if (!userLoaded) {
+          try {
+            await dispatch(fetchMe()).unwrap();
+          } catch {
+            // expired/revoked token; the interceptor will have tried to refresh
+          }
+        }
+        setInitDone(true);
+        return;
+      }
+
+      // No stored access token — attempt a silent restore from the httpOnly
+      // refresh cookie (server-side session). Fails harmlessly when absent.
+      try {
+        await dispatch(refreshSession()).unwrap();
+      } catch {
+        // no valid session cookie — user must sign in
+      }
       setInitDone(true);
-    }
+    })();
   }, []);
 
   useEffect(() => {

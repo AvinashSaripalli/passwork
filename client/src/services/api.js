@@ -3,6 +3,7 @@ import { clearSecureSession } from '../utils/secureSession';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1',
+  withCredentials: true,
 });
 
 let isRefreshing = false;
@@ -11,7 +12,6 @@ let waitQueue = [];
 
 const clearAuth = () => {
   localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   clearSecureSession();
   try {
@@ -39,18 +39,18 @@ const flushQueue = (token) => {
   waitQueue = [];
 };
 
-// Attempt to obtain a fresh access token using the stored refresh token.
+// Attempt to obtain a fresh access token using the refresh cookie set by the
+// server on login/refresh. The token never touches localStorage or JS.
 const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    return null;
-  }
-
   try {
-    const res = await api.post('/auth/refresh', { refreshToken }, {
-      headers: { 'Content-Type': 'application/json' },
-      skipAuthRefresh: true,
-    });
+    const res = await api.post(
+      '/auth/refresh',
+      {},
+      {
+        headers: { 'Content-Type': 'application/json' },
+        skipAuthRefresh: true,
+      }
+    );
     const newToken = res.data?.token;
     if (newToken) {
       localStorage.setItem('token', newToken);
@@ -82,16 +82,17 @@ api.interceptors.response.use(
     }
 
     // Only auto-refresh on 401 from an authenticated request we haven't already
-    // retried, and never on the refresh request itself.
+    // retried, and never on the refresh request itself. Whether a refresh is
+    // possible is determined by the server's httpOnly cookie.
     const shouldRefresh =
       response.status === 401 &&
       !config?.skipAuthRefresh &&
       !config?._retry &&
-      localStorage.getItem('refreshToken');
+      !!localStorage.getItem('token');
 
     if (!shouldRefresh) {
       if (response.status === 401 && !config?.skipAuthRefresh && localStorage.getItem('token')) {
-        // A valid-looking token was rejected and there's no refresh token to use.
+        // A token was rejected and refresh is not applicable here.
         clearAuth();
       }
       return Promise.reject(error);
@@ -139,5 +140,15 @@ export const requestPasswordReset = (email) =>
 
 export const resetPasswordRequest = (token, newPassword) =>
   api.post('/auth/reset-password', { token, newPassword }, { skipAuthRefresh: true });
+
+// Server-side session termination: revokes the refresh token via the httpOnly
+// cookie. Best-effort — local state is cleared regardless of the server reply.
+export const logoutRequest = async () => {
+  try {
+    await api.post('/auth/logout', {}, { skipAuthRefresh: true });
+  } catch {
+    // ignore network errors — the local session still ends
+  }
+};
 
 export default api;

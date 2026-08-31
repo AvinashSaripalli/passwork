@@ -17,9 +17,10 @@ init();
 
 async function init() {
   try {
-    await chrome.storage.session.setAccessLevel({
-      accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
-    });
+    // Keep chrome.storage.session at its default TRUSTED_CONTEXTS level: the
+    // decrypted page cache must never be readable from content scripts, which
+    // run in untrusted contexts on arbitrary websites. Content scripts receive
+    // only host-matched credentials via the background worker (VAULTIX_GET_CREDS).
   } catch {
     /* Firefox may not need this */
   }
@@ -259,12 +260,12 @@ function urlHost(entryUrl) {
 function matchesSite(cred) {
   if (!tabHost) return false;
   const credHost = urlHost(cred.url);
-  if (credHost && (credHost === tabHost || credHost.endsWith(`.${tabHost}`) || tabHost.endsWith(`.${credHost}`))) {
-    return true;
-  }
-  const name = cred.name.toLowerCase();
-  const base = tabHost.split('.')[0];
-  return name.includes(base) && base.length > 2;
+  return (
+    !!credHost &&
+    (credHost === tabHost ||
+      credHost.endsWith(`.${tabHost}`) ||
+      tabHost.endsWith(`.${credHost}`))
+  );
 }
 
 function renderList() {
