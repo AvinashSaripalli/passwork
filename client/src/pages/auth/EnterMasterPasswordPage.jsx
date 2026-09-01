@@ -273,10 +273,7 @@ function EnterMasterPasswordPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setResetMode(true);
-                  setError('');
-                }}
+                onClick={() => navigate('/forgot-master-password')}
                 className="mt-5 w-full text-center text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 Forgot your master password?

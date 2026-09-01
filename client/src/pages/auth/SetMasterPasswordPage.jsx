@@ -45,6 +45,8 @@ function SetMasterPasswordPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [recoveryKey, setRecoveryKey] = useState(null);
+  const [showRecoveryKey, setShowRecoveryKey] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -103,6 +105,13 @@ function SetMasterPasswordPage() {
         user?.encryptionSalt
       );
       sessionStorage.setItem(MASTER_VERIFIER_STORAGE_KEY, verifier);
+
+      // Show the recovery key once so the user can save it safely before
+      // continuing into the dashboard.
+      if (result.payload?.recoveryKey) {
+        setRecoveryKey(result.payload.recoveryKey);
+        return;
+      }
 
       navigate('/dashboard');
     }
@@ -169,7 +178,52 @@ function SetMasterPasswordPage() {
             navigate('/register');
           }}
         >
-          {error && <ErrorBox message={error} />}
+          {recoveryKey ? (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center gap-3 mb-2">
+                <CheckCircle2 size={32} className="text-emerald-500" />
+                <p className="text-sm text-slate-600 dark:text-slate-300 text-center">
+                  Your master password is set. Save this recovery key in a safe
+                  place — you need it to recover your vault if you ever forget
+                  your master password.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-900/20 p-4 text-center">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                  Your recovery key
+                </p>
+                <p className="text-2xl font-black tracking-[2px] text-blue-700 dark:text-blue-300 font-mono">
+                  {showRecoveryKey
+                    ? recoveryKey
+                    : '••••-••••-••••'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowRecoveryKey((prev) => !prev)}
+                  className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {showRecoveryKey ? 'Hide recovery key' : 'Show recovery key'}
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                This key can also be sent to your email from the unlock screen if
+                you forget your master password.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg"
+              >
+                Continue to dashboard
+              </button>
+            </div>
+          ) : (
+          <>{
+            error && <ErrorBox message={error} />
+          }
 
           <form
             onSubmit={handleSubmit}
@@ -307,6 +361,8 @@ function SetMasterPasswordPage() {
                 : 'Save Master Password'}
             </button>
           </form>
+          </>
+          )}
         </AuthCard>
       </div>
     </div>

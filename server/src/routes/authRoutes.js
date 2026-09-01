@@ -17,6 +17,9 @@ router.post('/forgot-password', authLimiter, authController.requestPasswordReset
 router.post('/reset-password', sensitiveLimiter, authController.resetPassword);
 router.get('/me', authenticate, authController.me);
 router.post('/set-master-password', authenticate, authController.setMasterPassword);
+router.post('/setup-recovery-key', authenticate, authController.setupRecoveryKey);
+router.post('/forgot-master-password', authLimiter, authController.requestMasterRecoveryKey);
+router.post('/reset-master-password-with-recovery-key', sensitiveLimiter, authController.resetMasterPasswordWithRecoveryKey);
 router.post('/verify-master-password', masterPasswordLimiter, authenticate, authController.verifyMasterPassword);
 router.put('/me', authenticate, authController.updateProfile);
 router.put('/change-password', sensitiveLimiter, authenticate, authController.changePassword);

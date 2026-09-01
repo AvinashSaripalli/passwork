@@ -9,6 +9,7 @@ import {
   MASTER_VERIFIER_STORAGE_KEY,
   generateKeyPair,
   encryptPrivateKey,
+  generateRecoveryKey,
   reWrapItemKey,
   rsaDecrypt,
   rsaEncrypt,
@@ -392,12 +393,32 @@ export const setMasterPassword = createAsyncThunk(
 
       storeRsaPrivateKey(privateKeyJwk);
 
+      // Generate a master-password recovery key and escrow the RSA private key
+      // with it, so the user can recover their vault if they forget the master
+      // password. The recovery key is emailed on demand via the forgot flow.
+      const recoveryKey = generateRecoveryKey();
+      const recoveryEscrow = await encryptPrivateKey(
+        privateKeyJwk,
+        recoveryKey,
+        salt
+      );
+      try {
+        await api.post(
+          '/auth/setup-recovery-key',
+          { recoveryKey, escrow: recoveryEscrow },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } catch {
+        // Recovery setup is best-effort — master password still works.
+      }
+
       return {
         ...response.data,
         hint: formData.hint || '',
         masterPassword: formData.masterPassword,
         publicKeyJwk,
         privateKeyJwk,
+        recoveryKey,
       };
     } catch (error) {
       return thunkAPI.rejectWithValue(

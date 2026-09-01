@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
 const sendMail = require('../utils/sendMail');
+const {
+  encryptEnvelope,
+  decryptEnvelope,
+  generateRecoveryKey,
+} = require('../utils/recoveryKey');
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=<>?/{}[\]|~`])/;
 
@@ -504,6 +509,7 @@ const me = async (req, res) => {
       role: user.role,
       masterPasswordHint: user.masterPasswordHint,
       hasMasterPassword: !!user.masterPasswordHash,
+      hasRecoveryKey: !!(user.recoveryKey && user.recoveryKeyEscrow),
       encryptionSalt: user.encryptionSalt,
       createdAt: user.createdAt,
     });
@@ -906,6 +912,219 @@ const reencryptPasswords = async (req, res) => {
   }
 };
 
+// Stores a recovery key + an escrowed (recovery-key-encrypted) copy of the RSA
+// private key. Called during master-password setup so that a forgotten master
+// password can be recovered without losing vault data.
+const setupRecoveryKey = async (req, res) => {
+  try {
+    const { recoveryKey, escrow } = req.body;
+    const userId = req.user.id;
+
+    if (!recoveryKey || !escrow) {
+      return res.status(400).json({ message: 'Recovery key and escrow are required' });
+    }
+
+    // Sanity-check the escrow can actually be decrypted with the key before
+    // persisting it, so a bad setup never silently breaks future recovery.
+    let privateKey;
+    try {
+      privateKey = decryptEnvelope(escrow, recoveryKey);
+    } catch {
+      return res.status(400).json({ message: 'Recovery key could not unlock the escrow' });
+    }
+
+    if (!privateKey) {
+      return res.status(400).json({ message: 'Recovery escrow is empty' });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { recoveryKey, recoveryKeyEscrow: escrow },
+    });
+
+    res.json({ message: 'Recovery key saved successfully' });
+  } catch (error) {
+    console.error('Setup recovery key error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Step 1 of the forgotten-master-password flow: email the user their recovery
+// key so they can unlock the escrow and set a new master password.
+const requestMasterRecoveryKey = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
+    }
+
+    const genericMessage =
+      'If an account exists for that email and has a recovery key set up, the key has been sent to your inbox.';
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim() },
+    });
+
+    if (!user || user.isActive === false || !user.recoveryKey || !user.recoveryKeyEscrow) {
+      return res.json({ message: genericMessage });
+    }
+
+    await sendMail({
+      to: user.email,
+      subject: 'Vaultix Master Password Recovery Key',
+      html: `
+        <div style="font-family:Arial,sans-serif">
+          <h2>Your Vaultix recovery key</h2>
+          <p>Use the recovery key below to reset your master password and recover your vault data.</p>
+          <div style="font-size:22px;font-weight:bold;letter-spacing:2px;background:#f1f5f9;padding:16px;border-radius:8px;text-align:center">
+            ${user.recoveryKey}
+          </div>
+          <p style="margin-top:16px">Keep this key private. It grants full access to your encrypted vault.</p>
+          <p>If you did not request this, please change your password immediately and contact your administrator.</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: genericMessage });
+  } catch (error) {
+    console.error('Request master recovery key error:', error);
+    const isAuthError = error?.code === 'EAUTH';
+    res.status(500).json({
+      message: isAuthError
+        ? 'Email sending failed: invalid Gmail credentials. Use a 16-character App Password (myaccount.google.com/apppasswords).'
+        : 'Failed to send recovery key email',
+    });
+  }
+};
+
+// Final step of the forgotten-master-password flow. Verifies the recovery key,
+// decrypts the escrowed private key, re-encrypts it with the new master
+// password, and updates the master password + hint. Vault data is preserved.
+const resetMasterPasswordWithRecoveryKey = async (req, res) => {
+  try {
+    const { email, recoveryKey, newMasterPassword, hint } = req.body;
+
+    if (!email || !recoveryKey || !newMasterPassword) {
+      return res.status(400).json({
+        message: 'Email, recovery key, and new master password are required',
+      });
+    }
+
+    const emailValidationError = validateEmail(email);
+    if (emailValidationError) {
+      return res.status(400).json({ message: emailValidationError });
+    }
+
+    if (newMasterPassword.length < 8) {
+      return res.status(400).json({ message: 'Master password must be at least 8 characters' });
+    }
+
+    if (!PASSWORD_REGEX.test(newMasterPassword)) {
+      return res.status(400).json({
+        message: 'Master password must include uppercase, lowercase, number, and special character',
+      });
+    }
+
+    if (hint && hint.length > 100) {
+      return res.status(400).json({ message: 'Hint must be under 100 characters' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim() },
+    });
+
+    if (!user || user.isActive === false) {
+      return res.status(400).json({ message: 'Invalid recovery details' });
+    }
+
+    if (!user.recoveryKey || !user.recoveryKeyEscrow) {
+      return res.status(400).json({ message: 'No recovery key is set up for this account' });
+    }
+
+    // Constant-ish compare to avoid trivial timing leaks.
+    const keyMatches =
+      Buffer.from(user.recoveryKey || '').toString().toLowerCase() ===
+      Buffer.from(recoveryKey || '').toString().trim().toLowerCase();
+
+    if (!keyMatches) {
+      return res.status(400).json({ message: 'Invalid recovery key' });
+    }
+
+    // Decrypt the escrowed private key using the recovery key.
+    let privateKeyJwk;
+    try {
+      privateKeyJwk = decryptEnvelope(user.recoveryKeyEscrow, recoveryKey.trim());
+      JSON.parse(privateKeyJwk); // ensure it's valid JWK JSON
+    } catch {
+      return res.status(400).json({ message: 'Recovery key could not unlock your vault' });
+    }
+
+    // Re-encrypt the same private key with the new master password so the
+    // existing key pair (and therefore all vault data) is preserved.
+    const encryptedPrivateKey = encryptEnvelope(privateKeyJwk, newMasterPassword);
+    const masterPasswordHash = await bcrypt.hash(newMasterPassword, 12);
+
+    const encryptedPrivateKeyParsed =
+      typeof encryptedPrivateKey === 'string'
+        ? JSON.parse(encryptedPrivateKey)
+        : encryptedPrivateKey;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          masterPasswordHash,
+          masterPasswordHint: hint || null,
+          // Recovery key is single-use — clear it once used.
+          recoveryKey: null,
+          recoveryKeyEscrow: null,
+        },
+      });
+
+      const existing = await tx.userKeyPair.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (existing) {
+        await tx.userKeyPair.update({
+          where: { userId: user.id },
+          data: {
+            encryptedPrivateKey: encryptedPrivateKeyParsed,
+            salt: existing.salt || user.encryptionSalt,
+          },
+        });
+      } else {
+        // If no key pair exists, re-create it from the recovered key pair.
+        if (user.keyPair) {
+          await tx.userKeyPair.create({
+            data: {
+              id: await generateId('keyPair'),
+              userId: user.id,
+              encryptedPrivateKey: encryptedPrivateKeyParsed,
+              publicKey: user.keyPair.publicKey,
+              salt: user.keyPair.salt || user.encryptionSalt,
+            },
+          });
+        }
+      }
+    });
+
+    // Reset any login lockout state for this account.
+    resetFailedAttempts(user.email);
+
+    res.json({ message: 'Master password reset successfully' });
+  } catch (error) {
+    console.error('Reset master password with recovery key error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const resetMasterPassword = async (req, res) => {
   try {
     const { newMasterPassword, hint, encryptedPrivateKey, publicKey, salt } = req.body;
@@ -984,6 +1203,9 @@ module.exports = {
   logout,
   me,
   setMasterPassword,
+  setupRecoveryKey,
+  requestMasterRecoveryKey,
+  resetMasterPasswordWithRecoveryKey,
   verifyMasterPassword,
   updateProfile,
   changePassword,

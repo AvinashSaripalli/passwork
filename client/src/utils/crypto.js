@@ -213,9 +213,7 @@ export async function decryptFields(encryptedFields, masterPassword, salt) {
 
 export const MASTER_VERIFIER_MARKER = 'vaultix-master-verifier';
 
-export const MASTER_VERIFIER_STORAGE_KEY = 'masterPasswordVerifier';
-
-export async function createMasterPasswordVerifier(masterPassword, salt) {
+export const MASTER_VERIFIER_STORAGE_KEY = 'masterPasswordVerifier';export async function createMasterPasswordVerifier(masterPassword, salt) {
   return encryptText(MASTER_VERIFIER_MARKER, masterPassword, salt);
 }
 
@@ -274,6 +272,22 @@ export async function generateKeyPair() {
   const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
   return { publicKeyJwk, privateKeyJwk };
+}
+
+// Human-friendly master-password recovery key (e.g. "XK7P-9M2Q-4TRH").
+// Mirror of the server-side generator in server/src/utils/recoveryKey.js.
+export function generateRecoveryKey() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const random = window.crypto.getRandomValues(new Uint8Array(12));
+  const groups = [];
+  for (let g = 0; g < 3; g += 1) {
+    let group = '';
+    for (let i = 0; i < 4; i += 1) {
+      group += alphabet[random[g * 4 + i] % alphabet.length];
+    }
+    groups.push(group);
+  }
+  return groups.join('-');
 }
 
 async function getDeriveKeyForPrivateKey(masterPassword, salt, iterations, saltBytes) {

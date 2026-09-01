@@ -141,6 +141,20 @@ export const requestPasswordReset = (email) =>
 export const resetPasswordRequest = (token, newPassword) =>
   api.post('/auth/reset-password', { token, newPassword }, { skipAuthRefresh: true });
 
+// Master-password recovery via a recovery key escrowed at setup time.
+export const requestMasterRecoveryKey = (email) =>
+  api.post('/auth/forgot-master-password', { email }, { skipAuthRefresh: true });
+
+export const resetMasterPasswordWithRecoveryKey = (payload) =>
+  api.post(
+    '/auth/reset-master-password-with-recovery-key',
+    payload,
+    { skipAuthRefresh: true }
+  );
+
+export const setupRecoveryKey = (recoveryKey, escrow) =>
+  api.post('/auth/setup-recovery-key', { recoveryKey, escrow });
+
 // Server-side session termination: revokes the refresh token via the httpOnly
 // cookie. Best-effort — local state is cleared regardless of the server reply.
 export const logoutRequest = async () => {

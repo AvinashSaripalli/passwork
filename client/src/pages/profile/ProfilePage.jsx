@@ -3,9 +3,12 @@ import {
   CheckCircle2,
   KeyRound,
   Lock,
+  LockKeyhole,
   LogIn,
+  RefreshCw,
   Save,
   Shield,
+  ShieldCheck,
   User,
   Eye,
   EyeOff,
@@ -18,6 +21,8 @@ import {
   changeMasterPassword,
 } from '../../features/auth/authSlice';
 import { validateEmail, validateFullName } from '../../utils/validation';
+import { encryptPrivateKey, generateRecoveryKey } from '../../utils/crypto';
+import { setupRecoveryKey } from '../../services/api';
 import AppLayout from '../../components/layout/AppLayout';
 
 const TABS = [
@@ -268,6 +273,8 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
   });
   const [mpErrors, setMpErrors] = useState({});
 
+  const privateKey = useSelector((state) => state.auth.sessionRsaPrivateKey);
+
   const inputClass = (field, errors) =>
     `w-full rounded-xl border bg-white dark:bg-slate-700 dark:text-slate-200 px-4 py-3 outline-none transition-all focus:ring-4 ${
       errors[field]
@@ -467,6 +474,136 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
           </div>
         </form>
       </div>
+
+      {/* Master Password Recovery */}
+      <RecoveryKeySetup
+        user={user}
+        privateKey={privateKey}
+        onSuccess={onSuccess}
+        onError={onError}
+      />
+    </div>
+  );
+}
+
+function RecoveryKeySetup({ user, privateKey, onSuccess, onError }) {
+  const [status, setStatus] = useState('loading');
+  const [recoveryKey, setRecoveryKey] = useState(null);
+  const [showRecoveryKey, setShowRecoveryKey] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await api.get('/auth/me');
+        setStatus(res.data?.hasRecoveryKey ? 'set' : 'not-set');
+      } catch {
+        setStatus('not-set');
+      }
+    };
+    check();
+  }, []);
+
+  const handleGenerate = async () => {
+    onSuccess('');
+    onError('');
+    setBusy(true);
+    try {
+      if (!privateKey) {
+        onError('Could not load your encryption keys. Please unlock your vault first.');
+        return;
+      }
+      const key = generateRecoveryKey();
+      const escrow = await encryptPrivateKey(privateKey, key, user?.encryptionSalt);
+      await setupRecoveryKey(key, escrow);
+      setRecoveryKey(key);
+      setStatus('set');
+      onSuccess('Recovery key saved. Store it somewhere safe.');
+    } catch (err) {
+      onError(err.response?.data?.message || 'Failed to save recovery key. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (status === 'loading') {
+    return (
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 text-center text-slate-500 dark:text-slate-400">
+        Loading recovery key status...
+      </div>
+    );
+  }
+
+  const enabled = !!user?.hasMasterPassword;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
+      <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+        <KeyRound size={20} className="text-slate-400 dark:text-slate-500" />
+        <div>
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Master Password Recovery Key</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Create a recovery key so you can recover your vault if you forget your master password.
+          </p>
+        </div>
+      </div>
+
+      {!enabled ? (
+        <div className="mt-5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-400">
+          Set a master password first to enable recovery.
+        </div>
+      ) : recoveryKey ? (
+        <div className="mt-5 space-y-4">
+          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4">
+            <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-emerald-700 dark:text-emerald-300">
+              Save this recovery key in a safe place. It can also be emailed to you
+              from the unlock screen if you forget your master password.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-900/20 p-5 text-center">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Your recovery key</p>
+            <p className="text-2xl font-black tracking-[2px] text-blue-700 dark:text-blue-300 font-mono">
+              {showRecoveryKey ? recoveryKey : '••••-••••-••••'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRecoveryKey((prev) => !prev)}
+              className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {showRecoveryKey ? 'Hide recovery key' : 'Show recovery key'}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { setRecoveryKey(null); setShowRecoveryKey(false); }}
+            className="w-full rounded-xl bg-slate-100 dark:bg-slate-700 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+          >
+            Generate a new recovery key
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 space-y-4">
+          <div className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
+            <Shield size={18} className={`shrink-0 ${status === 'set' ? 'text-emerald-500' : 'text-slate-400'}`} />
+            {status === 'set'
+              ? 'A recovery key is already set up for this account. You can generate a new one at any time.'
+              : 'No recovery key is set up yet. Generate one to enable recovery of your vault.'}
+          </div>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleGenerate}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 disabled:opacity-60 transition"
+          >
+            <KeyRound size={16} />
+            {busy ? 'Generating...' : 'Generate Recovery Key'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

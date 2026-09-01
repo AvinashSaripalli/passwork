@@ -10,6 +10,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import ForgotMasterPasswordPage from './pages/auth/ForgotMasterPasswordPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import SetMasterPasswordPage from './pages/auth/SetMasterPasswordPage';
 import EnterMasterPasswordPage from './pages/auth/EnterMasterPasswordPage';
@@ -79,7 +80,7 @@ function App() {
     }
   }, [mode]);
 
-  const isMasterPage = ['/enter-master-password', '/set-master-password', '/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname);
+  const isMasterPage = ['/enter-master-password', '/set-master-password', '/login', '/register', '/forgot-password', '/reset-password', '/forgot-master-password'].includes(location.pathname);
 
   useEffect(() => {
     if (!initDone || !token || !isMasterVerified || isMasterPage || keysLoading) return;
@@ -150,6 +151,7 @@ function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/forgot-master-password" element={<ForgotMasterPasswordPage />} />
 
       <Route
         path="/set-master-password"

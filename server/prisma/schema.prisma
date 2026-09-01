@@ -58,6 +58,8 @@ model User {
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   encryptionSalt          String?
+  recoveryKey             String?
+  recoveryKeyEscrow       String?
   tokenVersion            Int                @default(0)
   activityLogs            ActivityLog[]
   departmentMemberships   DepartmentMember[]

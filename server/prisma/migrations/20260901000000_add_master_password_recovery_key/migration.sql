@@ -1,0 +1,2 @@
+-- Noop: recovery key escrow columns already introduced by
+-- 20260831000001_add_recovery_key_escrow.
