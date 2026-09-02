@@ -41,6 +41,7 @@ function EnterMasterPasswordPage() {
   const [verifying, setVerifying] = useState(false);
 
   const [resetMode, setResetMode] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
   const [resetData, setResetData] = useState({
     newMasterPassword: '',
     confirmMasterPassword: '',
@@ -133,6 +134,11 @@ function EnterMasterPasswordPage() {
     );
     const hintError = validateHint(resetData.hint);
 
+    if (!accountPassword) {
+      setResetErrors({ accountPassword: 'Account password is required to reset the master password' });
+      return;
+    }
+
     if (masterError || confirmError || hintError) {
       setResetErrors({
         newMasterPassword: masterError,
@@ -168,6 +174,7 @@ function EnterMasterPasswordPage() {
           encryptedPrivateKey,
           publicKey: publicKeyJwk,
           salt,
+          accountPassword,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -307,6 +314,36 @@ function EnterMasterPasswordPage() {
                 <div className="relative">
                   <input
                     type={showResetPassword ? 'text' : 'password'}
+                    placeholder="Account password"
+                    value={accountPassword}
+                    onChange={(e) => {
+                      setResetErrors((p) => ({ ...p, accountPassword: '', general: '' }));
+                      setAccountPassword(e.target.value);
+                    }}
+                    className={`w-full rounded-2xl border bg-white/90 dark:bg-slate-800/90 dark:text-slate-100 px-5 pr-12 py-4 outline-none transition-all focus:ring-4 ${
+                      resetErrors.accountPassword
+                        ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-100'
+                        : 'border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-100'
+                    }`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    {showResetPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {resetErrors.accountPassword && (
+                  <p className="mt-1.5 text-sm text-red-500">{resetErrors.accountPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
                     placeholder="New master password"
                     value={resetData.newMasterPassword}
                     onChange={(e) => {
@@ -406,6 +443,7 @@ function EnterMasterPasswordPage() {
                   setResetMode(false);
                   setResetErrors({});
                   setConfirmReset(false);
+                  setAccountPassword('');
                   setResetData({ newMasterPassword: '', confirmMasterPassword: '', hint: '' });
                 }}
                 className="w-full text-center text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"

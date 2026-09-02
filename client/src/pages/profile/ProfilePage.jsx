@@ -123,6 +123,7 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
     fullName: user?.fullName || '',
     email: user?.email || '',
   });
+  const [currentPassword, setCurrentPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [myDepartments, setMyDepartments] = useState([]);
 
@@ -145,6 +146,8 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const emailChanged = formData.email !== (user?.email || '');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     onSuccess('');
@@ -158,9 +161,21 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
       return;
     }
 
-    const result = await dispatch(updateProfile(formData));
+    if (emailChanged && !currentPassword) {
+      setErrors({ currentPassword: 'Current password is required to change your email' });
+      return;
+    }
+
+    const result = await dispatch(
+      updateProfile({
+        fullName: formData.fullName,
+        email: formData.email,
+        currentPassword: emailChanged ? currentPassword : undefined,
+      })
+    );
     if (updateProfile.fulfilled.match(result)) {
       onSuccess('Profile updated successfully');
+      setCurrentPassword('');
     } else {
       onError(result.payload || 'Failed to update profile');
     }
@@ -205,6 +220,24 @@ function InfoTab({ user, loading, dispatch, onSuccess, onError }) {
             />
             {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
           </div>
+
+          {emailChanged && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => {
+                  setErrors((prev) => ({ ...prev, currentPassword: '' }));
+                  setCurrentPassword(e.target.value);
+                }}
+                className={inputClass('currentPassword')}
+                placeholder="Confirm your current password"
+                autoComplete="current-password"
+              />
+              {errors.currentPassword && <p className="mt-1 text-sm text-red-500">{errors.currentPassword}</p>}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300 space-y-2">

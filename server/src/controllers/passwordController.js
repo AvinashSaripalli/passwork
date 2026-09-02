@@ -236,6 +236,14 @@ const importPasswordsFromExcel = async (req, res) => {
             'Encryption keys not ready — missing wrapped key for importer. Please re-enter your master password and retry.',
         });
       }
+
+      // Same guarantee as createPassword: wrapped keys may only target
+      // recipients currently authorized in the folder, never arbitrary users.
+      if (row.wrappedKeys && Object.keys(row.wrappedKeys).length > 0) {
+        if (!(await validateWrappedKeys(folderId, row.wrappedKeys))) {
+          return res.status(400).json({ message: 'Wrapped keys contain unauthorized recipients' });
+        }
+      }
     }
 
     const createdPasswords = [];

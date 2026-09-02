@@ -129,7 +129,8 @@ const setRefreshTokenCookie = (res, token) => {
 const clearRefreshTokenCookie = (res) => {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
-    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     path: '/',
   });
 };
@@ -560,7 +561,7 @@ const setMasterPassword = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { fullName, email } = req.body;
+    const { fullName, email, currentPassword } = req.body;
     const userId = req.user.id;
 
     if (!fullName || !email) {
@@ -576,7 +577,26 @@ const updateProfile = async (req, res) => {
       return res.status(400).json({ message: 'Name must be at least 2 characters' });
     }
 
-    if (email !== req.user.email) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Changing the email changes the account's recovery channel — require the
+    // current account password to confirm, so a stolen access token alone
+    // cannot hijack the account.
+    if (email !== user.email) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          message: 'Current password is required to change your email',
+        });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+
       const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) {
         return res.status(400).json({ message: 'Email already in use' });
@@ -1127,13 +1147,33 @@ const resetMasterPasswordWithRecoveryKey = async (req, res) => {
 
 const resetMasterPassword = async (req, res) => {
   try {
-    const { newMasterPassword, hint, encryptedPrivateKey, publicKey, salt } = req.body;
+    const { newMasterPassword, hint, encryptedPrivateKey, publicKey, salt, accountPassword } = req.body;
     const userId = req.user.id;
 
     if (!newMasterPassword || !encryptedPrivateKey || !publicKey || !salt) {
       return res.status(400).json({
         message: 'New master password, encrypted private key, public key, and salt are required',
       });
+    }
+
+    // Resetting the master password and rotating the RSA keypair is a
+    // destructive, credential-level operation. A bare access token is not
+    // enough — the caller must re-prove the account password so a stolen
+    // session (e.g. a leaked JWT) cannot silently take over the vault.
+    if (!accountPassword) {
+      return res.status(400).json({
+        message: 'Account password is required to reset the master password',
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(accountPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Account password is incorrect' });
     }
 
     if (newMasterPassword.length < 8) {
@@ -1187,6 +1227,12 @@ const resetMasterPassword = async (req, res) => {
         });
       }
     });
+
+    // Credential changed — revoke every other session, then mint a fresh one
+    // for the current device so the user isn't logged out here.
+    await revokeAllRefreshTokens(userId);
+    const { token: sessionToken } = await createRefreshSession(userId);
+    setRefreshTokenCookie(res, sessionToken);
 
     res.json({ message: 'Master password reset successfully' });
   } catch (error) {
