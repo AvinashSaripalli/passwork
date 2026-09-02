@@ -1,6 +1,7 @@
 ﻿const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
 const createNotification = require('../utils/createNotification');
+const { getVaultAccess, getFolderAccess } = require('../utils/permissions');
 
 const ALLOWED_ACCESS_LEVELS = ['NOT_SET', 'FORBIDDEN', 'READ_ONLY', 'READ_WRITE', 'FULL_ACCESS', 'ADMINISTRATOR'];
 const VALID_MEMBER_ROLES = ['MANAGER', 'MEMBER'];
@@ -656,9 +657,25 @@ const { vaultId, folderId, accessLevel } = req.body;
           .json({ message: 'This department already has access to this vault' });
       }
 
-      grantData = { vaultId };
+grantData = { vaultId };
       metadataTarget = { vaultId, vaultName: vault.name };
       targetName = `vault "${vault.name}"`;
+    }
+
+    // Only grant access the caller themselves holds at the administrator
+    // level on the target — mirrors shareVault/shareFolder semantics. Without
+    // this, any department manager could hand their whole department (and all
+    // sub-departments) ADMINISTRATOR access to a vault/folder they have no
+    // rights to, which is a cross-organization privilege escalation.
+    const targetAccess = folderId
+      ? await getFolderAccess(folderId, req.user.id)
+      : await getVaultAccess(vaultId, req.user.id);
+
+    if (targetAccess !== 'ADMINISTRATOR') {
+      return res.status(403).json({
+        message:
+          'Administrator access on the target vault or folder is required to grant department access to it',
+      });
     }
 
     const grant = await prisma.departmentPermission.create({
