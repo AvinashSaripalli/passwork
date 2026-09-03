@@ -55,6 +55,13 @@ model User {
   masterPasswordHint      String?
   role                    Role               @default(USER)
   isActive                Boolean            @default(true)
+  emailVerified           Boolean            @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  twoFactorEnabled        Boolean            @default(false)
+  twoFactorSecret         String?
+  twoFactorBackupCodes    Json?
+  vaultTimeoutMinutes     Int                @default(15)
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   encryptionSalt          String?
@@ -74,6 +81,7 @@ model User {
   ownedVaults             Vault[]            @relation("VaultOwner")
   vaultPermissions        VaultPermission[]
   refreshTokens           RefreshToken[]    @relation("RefreshTokenUser")
+  webAuthnCredentials     WebAuthnCredential[]
 }
 
 model Folder {
@@ -269,6 +277,22 @@ model RefreshToken {
   @@index([revokedAt])
 }
 
+model WebAuthnCredential {
+  id                String   @id
+  userId            String
+  credentialId      String   @unique
+  publicKey         Json
+  counter           BigInt   @default(0)
+  transports        String?
+  attestationFormat String?
+  friendlyName      String?
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([credentialId])
+}
+
 model Notification {
   id        String           @id
   userId    String
@@ -357,6 +381,9 @@ enum ActivityAction {
   UPDATE_DEPARTMENT_MEMBER
   GRANT_DEPARTMENT_ACCESS
   REVOKE_DEPARTMENT_ACCESS
+  ENABLE_2FA
+  DISABLE_2FA
+  VERIFY_EMAIL
 }
 
 enum LoginStatus {

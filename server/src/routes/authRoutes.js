@@ -26,5 +26,7 @@ router.put('/change-password', sensitiveLimiter, authenticate, authController.ch
 router.put('/change-master-password', sensitiveLimiter, authenticate, authController.changeMasterPassword);
 router.post('/reset-master-password', sensitiveLimiter, authenticate, authController.resetMasterPassword);
 router.post('/reencrypt-passwords', authenticate, authController.reencryptPasswords);
+router.post('/request-email-verification', authenticate, authController.requestEmailVerification);
+router.post('/verify-email', sensitiveLimiter, authController.verifyEmail);
 
 module.exports = router;

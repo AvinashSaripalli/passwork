@@ -85,6 +85,54 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+export const verify2FA = createAsyncThunk(
+  'auth/verify2FA',
+  async ({ email, password, twoFactorCode, twoFactorMethod, backupCode }, thunkAPI) => {
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+        twoFactorCode,
+        twoFactorMethod,
+        backupCode,
+      });
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || '2FA verification failed'
+      );
+    }
+  }
+);
+
+export const requestEmailVerification = createAsyncThunk(
+  'auth/requestEmailVerification',
+  async (_, thunkAPI) => {
+    try {
+      const response = await api.post('/auth/request-email-verification');
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to send verification email'
+      );
+    }
+  }
+);
+
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async (token, thunkAPI) => {
+    try {
+      const response = await api.post('/auth/verify-email', { token }, { skipAuthRefresh: true });
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to verify email'
+      );
+    }
+  }
+);
+
 export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, thunkAPI) => {
   try {
     const token = thunkAPI.getState().auth.token || getSavedToken();
@@ -561,6 +609,11 @@ const authSlice = createSlice({
       })
 
       .addCase(loginUser.fulfilled, (state, action) => {
+        if (action.payload.requires2FA) {
+          state.loading = false;
+          state.error = null;
+          return;
+        }
         state.loading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
@@ -575,6 +628,25 @@ const authSlice = createSlice({
       })
 
       .addCase(loginUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(verify2FA.fulfilled, (state, action) => {
+        state.loading = false;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.isMasterVerified = false;
+        state.sessionMasterPassword = null;
+        state.sessionAdminMasterPassword = null;
+        state.userLoaded = true;
+        localStorage.setItem('token', action.payload.token);
+        saveUser(action.payload.user);
+        purgeSecureSession();
+      })
+
+      .addCase(verify2FA.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

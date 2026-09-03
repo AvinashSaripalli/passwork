@@ -9,6 +9,7 @@ const {
   decryptEnvelope,
   generateRecoveryKey,
 } = require('../utils/recoveryKey');
+const { verifyTOTP, verifyBackupCode, hashBackupCode } = require('../utils/totp');
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=<>?/{}[\]|~`])/;
 
@@ -201,6 +202,9 @@ const refresh = async (req, res) => {
         masterPasswordHint: user.masterPasswordHint,
         hasMasterPassword: !!user.masterPasswordHash,
         encryptionSalt: user.encryptionSalt,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        vaultTimeoutMinutes: user.vaultTimeoutMinutes,
       },
     });
   } catch (error) {
@@ -295,6 +299,7 @@ const register = async (req, res) => {
     }
 
     let role = 'USER';
+    let emailVerified = false;
 
     if (token) {
       const invitation = await prisma.invitation.findUnique({
@@ -314,6 +319,7 @@ const register = async (req, res) => {
       }
 
       role = invitation.role;
+      emailVerified = true; // Invited users are pre-verified
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -328,6 +334,14 @@ const register = async (req, res) => {
     const encryptionSalt = crypto.randomBytes(16).toString('hex');
     const userId = await generateId('user');
 
+    // Generate email verification token for non-invited users
+    const verificationToken = emailVerified
+      ? null
+      : crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = emailVerified
+      ? null
+      : new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     let user;
 
     if (token) {
@@ -341,6 +355,7 @@ const register = async (req, res) => {
               passwordHash,
               encryptionSalt,
               role,
+              emailVerified: true,
             },
           });
 
@@ -370,7 +385,34 @@ const register = async (req, res) => {
           passwordHash,
           encryptionSalt,
           role,
+          emailVerified: false,
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiry: verificationExpiry,
         },
+      });
+    }
+
+    // Send verification email for non-invited users
+    if (!emailVerified && verificationToken) {
+      const verifyLink = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+      sendMail({
+        to: user.email,
+        subject: 'Verify your Vaultix email',
+        html: `
+          <div style="font-family:Arial,sans-serif">
+            <h2>Verify your email address</h2>
+            <p>Click the button below to verify your email and activate your account.</p>
+            <a href="${verifyLink}" style="display:inline-block;background:#2563eb;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">
+              Verify Email
+            </a>
+            <p style="margin-top:16px">Or copy this link:</p>
+            <p>${verifyLink}</p>
+            <p>This link expires in 24 hours.</p>
+            <p>If you did not create this account, you can safely ignore this email.</p>
+          </div>
+        `,
+      }).catch(() => {
+        // Email sending is best-effort
       });
     }
 
@@ -385,9 +427,12 @@ const register = async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: emailVerified
+        ? 'User registered successfully'
+        : 'User registered successfully. Please verify your email.',
       token: jwtToken,
       refreshToken,
+      emailVerified,
       user: {
         id: user.id,
         fullName: user.fullName,
@@ -396,6 +441,7 @@ const register = async (req, res) => {
         encryptionSalt: user.encryptionSalt,
         hasMasterPassword: false,
         masterPasswordHint: null,
+        emailVerified,
       },
     });
   } catch (error) {
@@ -406,7 +452,7 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, twoFactorCode, twoFactorMethod, backupCode } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -461,6 +507,54 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // ── 2FA verification ──────────────────────────────────────────────────
+    if (user.twoFactorEnabled) {
+      // If no 2FA code provided yet, return a partial response asking for 2FA
+      if (!twoFactorCode && !backupCode) {
+        return res.status(200).json({
+          requires2FA: true,
+          twoFactorMethods: ['totp', 'backup'],
+          user: {
+            id: user.id,
+            email: user.email,
+          },
+        });
+      }
+
+      let twoFactorVerified = false;
+
+      if (backupCode) {
+        // Verify backup code
+        const backupCodes = user.twoFactorBackupCodes || [];
+        const backupCodesArr = Array.isArray(backupCodes) ? backupCodes : [];
+        twoFactorVerified = verifyBackupCode(backupCode, backupCodesArr);
+        if (twoFactorVerified) {
+          // Save remaining backup codes
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { twoFactorBackupCodes: backupCodesArr },
+          });
+        }
+      } else if (twoFactorMethod === 'totp' || !twoFactorMethod) {
+        // Verify TOTP code
+        if (!user.twoFactorSecret) {
+          return res.status(400).json({ message: '2FA is not properly configured' });
+        }
+        twoFactorVerified = verifyTOTP(user.twoFactorSecret, twoFactorCode);
+      }
+
+      if (!twoFactorVerified) {
+        trackFailedAttempt(email);
+        await saveLoginActivity({
+          req,
+          userId: user.id,
+          status: 'FAILED',
+        });
+        return res.status(400).json({ message: 'Invalid 2FA code' });
+      }
+    }
+    // ── End 2FA verification ──────────────────────────────────────────────
+
     resetFailedAttempts(email);
     const token = signToken(user);
     const { token: refreshToken } = await createRefreshSession(user.id);
@@ -485,6 +579,9 @@ const login = async (req, res) => {
         masterPasswordHint: user.masterPasswordHint,
         hasMasterPassword: !!user.masterPasswordHash,
         encryptionSalt: user.encryptionSalt,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        vaultTimeoutMinutes: user.vaultTimeoutMinutes,
       },
     });
   } catch (error) {
@@ -512,6 +609,9 @@ const me = async (req, res) => {
       hasMasterPassword: !!user.masterPasswordHash,
       hasRecoveryKey: !!(user.recoveryKey && user.recoveryKeyEscrow),
       encryptionSalt: user.encryptionSalt,
+      emailVerified: user.emailVerified,
+      twoFactorEnabled: user.twoFactorEnabled,
+      vaultTimeoutMinutes: user.vaultTimeoutMinutes,
       createdAt: user.createdAt,
     });
   } catch (error) {
@@ -1241,6 +1341,110 @@ const resetMasterPassword = async (req, res) => {
   }
 };
 
+const requestEmailVerification = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ message: 'Email is already verified' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiry: verificationExpiry,
+      },
+    });
+
+    const verifyLink = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+
+    await sendMail({
+      to: user.email,
+      subject: 'Verify your Vaultix email',
+      html: `
+        <div style="font-family:Arial,sans-serif">
+          <h2>Verify your email address</h2>
+          <p>Click the button below to verify your email and activate your account.</p>
+          <a href="${verifyLink}" style="display:inline-block;background:#2563eb;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">
+            Verify Email
+          </a>
+          <p style="margin-top:16px">Or copy this link:</p>
+          <p>${verifyLink}</p>
+          <p>This link expires in 24 hours.</p>
+          <p>If you did not create this account, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Request email verification error:', error);
+    res.status(500).json({
+      message: error?.code === 'EAUTH'
+        ? 'Email sending failed: invalid Gmail credentials. Use a 16-character App Password (myaccount.google.com/apppasswords).'
+        : 'Failed to send verification email',
+    });
+  }
+};
+
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { emailVerificationToken: token },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid verification token' });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ message: 'Email is already verified', verified: true });
+    }
+
+    if (user.emailVerificationExpiry && new Date(user.emailVerificationExpiry) < new Date()) {
+      return res.status(400).json({ message: 'Verification link has expired. Please request a new one.' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: `ACT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        userId: user.id,
+        action: 'VERIFY_EMAIL',
+      },
+    });
+
+    res.json({ message: 'Email verified successfully', verified: true });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   register,
   saveLoginActivity,
@@ -1260,4 +1464,6 @@ module.exports = {
   changeMasterPassword,
   resetMasterPassword,
   reencryptPasswords,
+  requestEmailVerification,
+  verifyEmail,
 };

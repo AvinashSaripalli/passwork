@@ -39,9 +39,7 @@ function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated && userLoaded) navigate('/set-master-password');
-  }, [isAuthenticated, userLoaded, navigate]);
-
-  useEffect(() => {
+  }, [isAuthenticated, userLoaded, navigate]);  useEffect(() => {
     if (!inviteToken) return;
 
     let cancelled = false;

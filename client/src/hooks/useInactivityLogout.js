@@ -7,7 +7,7 @@ import {
   dismissSessionWarning,
 } from '../features/auth/authSlice';
 
-const TIMEOUT_MS = 15 * 60 * 1000;
+const DEFAULT_TIMEOUT_MINUTES = 15;
 const WARNING_MS = 2 * 60 * 1000;
 const CHECK_INTERVAL_MS = 5 * 1000;
 const LAST_ACTIVITY_KEY = 'vaultix-last-activity';
@@ -33,13 +33,16 @@ export const touchActivity = () => {
 
 export default function useInactivityLogout() {
   const dispatch = useDispatch();
-  const { isAuthenticated, isMasterVerified, sessionWarningOpen } = useSelector(
+  const { isAuthenticated, isMasterVerified, sessionWarningOpen, user } = useSelector(
     (state) => state.auth
   );
   const warningShownRef = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated || !isMasterVerified) return;
+
+    const timeoutMinutes = user?.vaultTimeoutMinutes || DEFAULT_TIMEOUT_MINUTES;
+    const TIMEOUT_MS = Math.max(1, timeoutMinutes) * 60 * 1000;
 
     const checkInactivity = () => {
       const last = readLastActivity();
@@ -53,6 +56,7 @@ export default function useInactivityLogout() {
         return;
       }
 
+      // Only show the warning if the timeout is long enough to matter
       if (remaining <= WARNING_MS) {
         const secondsLeft = Math.ceil(remaining / 1000);
         if (!warningShownRef.current) {
@@ -98,5 +102,5 @@ export default function useInactivityLogout() {
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
     };
-  }, [isAuthenticated, isMasterVerified, sessionWarningOpen, dispatch]);
+  }, [isAuthenticated, isMasterVerified, sessionWarningOpen, dispatch, user?.vaultTimeoutMinutes]);
 }

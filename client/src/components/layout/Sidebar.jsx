@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Shield, Users, Activity, Folder, FolderOpen,
   LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles, Building2,
+  Smartphone, Clock,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../../features/auth/authSlice';
@@ -48,6 +49,8 @@ function Sidebar() {
 
   useEffect(() => {
     const fetchUnread = async () => {
+      // Don't poll if there's no token — avoids infinite 401 loops on expired sessions
+      if (!localStorage.getItem('token')) return;
       try {
         const params = {};
         const lastViewed = localStorage.getItem('lastViewedAt');
@@ -57,7 +60,7 @@ function Sidebar() {
       } catch { setUnreadCount(0); }
     };
     fetchUnread();
-    const interval = setInterval(fetchUnread, 10000);
+    const interval = setInterval(fetchUnread, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -69,7 +72,11 @@ function Sidebar() {
   const deptMenu = user?.role !== 'ADMIN'
     ? [{ name: 'My Departments', path: '/my-departments', icon: Building2 }]
     : [];
-  const securityMenu = [{ name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount }];
+  const securityMenu = [
+    { name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount },
+    { name: 'Two-Factor Auth', path: '/security/2fa', icon: Smartphone },
+    { name: 'Vault Timeout', path: '/security/vault-timeout', icon: Clock },
+  ];
   const toolsMenu = [{ name: 'Password Generator', icon: Sparkles }];
   const adminMenu = user?.role === 'ADMIN'
     ? [

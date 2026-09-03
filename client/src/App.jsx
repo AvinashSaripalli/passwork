@@ -26,6 +26,9 @@ import InviteUserPage from './pages/team/InviteUserPage';
 import MyVaultPage from './pages/vaults/MyVaultPage';
 import SharedWithMePage from './pages/shared/SharedWithMePage';
 import ProfilePage from './pages/profile/ProfilePage';
+import VerifyEmailPage from './pages/auth/VerifyEmailPage';
+import TwoFactorSettingsPage from './pages/security/TwoFactorSettingsPage';
+import VaultTimeoutSettingsPage from './pages/security/VaultTimeoutSettingsPage';
 import StatusBar from './components/common/StatusBar';
 import api from './services/api';
 import { decryptPrivateKey } from './utils/crypto';
@@ -80,7 +83,7 @@ function App() {
     }
   }, [mode]);
 
-  const isMasterPage = ['/enter-master-password', '/set-master-password', '/login', '/register', '/forgot-password', '/reset-password', '/forgot-master-password'].includes(location.pathname);
+  const isMasterPage = ['/enter-master-password', '/set-master-password', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/forgot-master-password'].includes(location.pathname);
 
   useEffect(() => {
     if (!initDone || !token || !isMasterVerified || isMasterPage || keysLoading) return;
@@ -149,6 +152,7 @@ function App() {
       <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forgot-master-password" element={<ForgotMasterPasswordPage />} />
@@ -221,6 +225,24 @@ function App() {
         element={
           <MasterProtectedRoute>
             <ProfilePage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security/2fa"
+        element={
+          <MasterProtectedRoute>
+            <TwoFactorSettingsPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security/vault-timeout"
+        element={
+          <MasterProtectedRoute>
+            <VaultTimeoutSettingsPage />
           </MasterProtectedRoute>
         }
       />

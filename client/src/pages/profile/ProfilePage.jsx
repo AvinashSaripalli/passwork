@@ -12,6 +12,8 @@ import {
   User,
   Eye,
   EyeOff,
+  Smartphone,
+  Clock,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../services/api';
@@ -24,6 +26,7 @@ import { validateEmail, validateFullName } from '../../utils/validation';
 import { encryptPrivateKey, generateRecoveryKey } from '../../utils/crypto';
 import { setupRecoveryKey } from '../../services/api';
 import AppLayout from '../../components/layout/AppLayout';
+import { Link } from 'react-router-dom';
 
 const TABS = [
   { key: 'info', label: 'Personal Info', icon: User },
@@ -515,6 +518,47 @@ function SecurityTab({ user, loading, dispatch, onSuccess, onError }) {
         onSuccess={onSuccess}
         onError={onError}
       />
+
+      {/* Security Quick Links */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
+        <div className="flex items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+          <Shield size={20} className="text-slate-400 dark:text-slate-500" />
+          <div>
+            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Account Security</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Manage additional security settings</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link
+            to="/security/2fa"
+            className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            <div className="h-10 w-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <Smartphone size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Two-Factor Authentication</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Add an extra layer of security</p>
+            </div>
+            <ChevronRightIcon />
+          </Link>
+
+          <Link
+            to="/security/vault-timeout"
+            className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Clock size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Vault Timeout</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Set auto-lock after inactivity</p>
+            </div>
+            <ChevronRightIcon />
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
@@ -726,3 +770,11 @@ function ActivityTab() {
 }
 
 export default ProfilePage;
+
+function ChevronRightIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}

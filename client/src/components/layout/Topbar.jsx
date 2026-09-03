@@ -79,6 +79,8 @@ function Topbar() {
   const userMenuRef = useRef(null);
 
   const fetchRecentActivity = useCallback(async () => {
+    // Don't poll if there's no token — avoids infinite 401 loops on expired sessions
+    if (!localStorage.getItem('token')) return;
     setLoading(true);
     try {
       const params = {};
@@ -90,7 +92,9 @@ function Topbar() {
       setItems(res.data?.items || []);
       setUnreadCount(res.data?.unreadCount || 0);
     } catch (err) {
-      console.error('fetchRecentActivity error:', err);
+      if (err?.response?.status !== 401) {
+        console.error('fetchRecentActivity error:', err);
+      }
       setItems([]);
       setUnreadCount(0);
     } finally {
@@ -100,7 +104,7 @@ function Topbar() {
 
   useEffect(() => {
     fetchRecentActivity();
-    const interval = setInterval(fetchRecentActivity, 10000);
+    const interval = setInterval(fetchRecentActivity, 30000);
     return () => clearInterval(interval);
   }, [fetchRecentActivity]);
 
