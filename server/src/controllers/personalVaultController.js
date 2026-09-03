@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const generateId = require('../utils/generateId');
+const { VALID_ITEM_TYPES, validateItemFields, validateLoginForType } = require('../utils/itemFieldSchemas');
 
 const makeSlug = (name, userId) =>
   `${name}-${userId}`
@@ -176,10 +177,30 @@ const createMyVaultPassword = async (req, res) => {
       return res.status(400).json({ message: 'name and folderId are required' });
     }
 
-    if (type === 'LOGIN' && (!login || !encryptedPassword)) {
+    const loginCheck = validateLoginForType(type, login);
+    if (!loginCheck.valid) {
+      return res.status(400).json({ message: loginCheck.message });
+    }
+
+    if (type === 'LOGIN' && !encryptedPassword) {
       return res.status(400).json({
-        message: 'name, login, encryptedPassword and folderId are required',
+        message: 'encryptedPassword is required for LOGIN items',
       });
+    }
+
+    if (encryptedFields && type !== 'LOGIN' && type !== 'SECURE_NOTE') {
+      let parsedFields;
+      try {
+        parsedFields = typeof encryptedFields === 'string'
+          ? JSON.parse(encryptedFields)
+          : encryptedFields;
+      } catch {
+        return res.status(400).json({ message: 'encryptedFields must be valid JSON' });
+      }
+      const fieldCheck = validateItemFields(type, parsedFields);
+      if (!fieldCheck.valid) {
+        return res.status(400).json({ message: fieldCheck.message });
+      }
     }
 
     const vault = await prisma.vault.findFirst({
@@ -453,6 +474,31 @@ const updateMyVaultPassword = async (req, res) => {
 
     if (type !== undefined && !ITEM_TYPES.includes(type)) {
       return res.status(400).json({ message: 'Invalid item type' });
+    }
+
+    if (type !== undefined) {
+      const loginCheck = validateLoginForType(type, login);
+      if (!loginCheck.valid) {
+        return res.status(400).json({ message: loginCheck.message });
+      }
+    }
+
+    if (encryptedFields !== undefined && encryptedFields) {
+      const effectiveType = type || password.type;
+      if (effectiveType !== 'LOGIN' && effectiveType !== 'SECURE_NOTE') {
+        let parsedFields;
+        try {
+          parsedFields = typeof encryptedFields === 'string'
+            ? JSON.parse(encryptedFields)
+            : encryptedFields;
+        } catch {
+          return res.status(400).json({ message: 'encryptedFields must be valid JSON' });
+        }
+        const fieldCheck = validateItemFields(effectiveType, parsedFields);
+        if (!fieldCheck.valid) {
+          return res.status(400).json({ message: fieldCheck.message });
+        }
+      }
     }
 
     const cleanTags = Array.isArray(tags)

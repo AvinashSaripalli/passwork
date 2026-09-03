@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { KeyRound, Lock, X, Eye, EyeOff, FolderDown } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import TagInput from '../common/TagInput';
@@ -66,6 +66,17 @@ function AddMyVaultPasswordModal({
     setFormError('');
   }, [open, parent, selectedFolder, initialType]);
 
+  const fieldsValid = useMemo(() => {
+    if (formData.type !== 'CARD') return true;
+    const f = formData.fields;
+    if (!f) return true;
+    const errors = [];
+    if (f.cardNumber && !/^\d{13,19}$/.test(f.cardNumber.replace(/[\s-]/g, ''))) errors.push('cardNumber');
+    if (f.expiry && !/^\d{1,2}\s*\/\s*\d{2}$/.test(f.expiry)) errors.push('expiry');
+    if (f.cvv && !/^\d{3,4}$/.test(f.cvv)) errors.push('cvv');
+    return errors.length === 0;
+  }, [formData.type, formData.fields]);
+
   if (!open) return null;
 
   const inputClass =
@@ -111,6 +122,16 @@ function AddMyVaultPasswordModal({
 
     if (formData.type === 'LOGIN' && (!formData.login || !formData.encryptedPassword)) {
       setFormError('Login and password are required for a login item');
+      return;
+    }
+
+    if (formData.type === 'LOGIN' && !formData.encryptedPassword) {
+      setFormError('Password is required for a login item');
+      return;
+    }
+
+    if (formData.type !== 'LOGIN' && formData.type !== 'SECURE_NOTE' && !fieldsValid) {
+      setFormError('Please fix the validation errors in the fields above');
       return;
     }
 

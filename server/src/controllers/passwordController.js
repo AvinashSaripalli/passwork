@@ -8,6 +8,7 @@ const {
   getDepartmentIdsWithAncestors,
 } = require('../utils/permissions');
 const generateId = require('../utils/generateId');
+const { VALID_ITEM_TYPES, validateItemFields, validateLoginForType } = require('../utils/itemFieldSchemas');
 
 const getVaultType = async (vaultId) => {
   try {
@@ -61,18 +62,52 @@ const createPassword = async (req, res) => {
       login,
       encryptedPassword,
       encryptedNote,
+      encryptedFields,
       url,
       colorTag,
       vaultId,
       folderId,
       wrappedKeys,
+      type = 'LOGIN',
       tags = [],
     } = req.body;
 
-    if (!name || !login || !encryptedPassword || !vaultId || !folderId) {
+    const itemtype = type || 'LOGIN';
+
+    if (!VALID_ITEM_TYPES.includes(itemtype)) {
+      return res.status(400).json({ message: `Invalid item type: ${itemtype}` });
+    }
+
+    if (!name || !vaultId || !folderId) {
       return res.status(400).json({
-        message: 'name, login, encryptedPassword, vaultId and folderId are required',
+        message: 'name, vaultId and folderId are required',
       });
+    }
+
+    const loginCheck = validateLoginForType(itemtype, login);
+    if (!loginCheck.valid) {
+      return res.status(400).json({ message: loginCheck.message });
+    }
+
+    if (itemtype === 'LOGIN' && !encryptedPassword) {
+      return res.status(400).json({
+        message: 'encryptedPassword is required for LOGIN items',
+      });
+    }
+
+    if (encryptedFields && itemtype !== 'LOGIN' && itemtype !== 'SECURE_NOTE') {
+      let parsedFields;
+      try {
+        parsedFields = typeof encryptedFields === 'string'
+          ? JSON.parse(encryptedFields)
+          : encryptedFields;
+      } catch {
+        return res.status(400).json({ message: 'encryptedFields must be valid JSON' });
+      }
+      const fieldCheck = validateItemFields(itemtype, parsedFields);
+      if (!fieldCheck.valid) {
+        return res.status(400).json({ message: fieldCheck.message });
+      }
     }
 
     const access = await getFolderAccess(folderId, req.user.id);
@@ -124,10 +159,11 @@ const createPassword = async (req, res) => {
       data: {
         id: await generateId('passwordEntry'),
         name,
-        login,
-        encryptedPassword,
+        login: login || '',
+        type: itemtype,
+        encryptedPassword: encryptedPassword || '',
         encryptedNote,
-        encryptedFields: req.body.encryptedFields || null,
+        encryptedFields: encryptedFields || null,
         url,
         colorTag,
         vaultId,
@@ -222,7 +258,14 @@ const importPasswordsFromExcel = async (req, res) => {
     const vaultTypeForGuard = await getVaultType(vaultId);
 
     for (const row of rows) {
-      if (!row.name || !row.login || !row.encryptedPassword) continue;
+      if (!row.name || !row.encryptedPassword) continue;
+
+      const rowType = row.type || 'LOGIN';
+
+      if (!VALID_ITEM_TYPES.includes(rowType)) continue;
+
+      const rowLoginCheck = validateLoginForType(rowType, row.login);
+      if (!rowLoginCheck.valid) continue;
 
       if (
         vaultTypeForGuard &&
@@ -249,13 +292,17 @@ const importPasswordsFromExcel = async (req, res) => {
     const createdPasswords = [];
 
     for (const row of rows) {
-      if (!row.name || !row.login || !row.encryptedPassword) continue;
+      if (!row.name || !row.encryptedPassword) continue;
+
+      const rowType = row.type || 'LOGIN';
+      if (!VALID_ITEM_TYPES.includes(rowType)) continue;
 
       const created = await prisma.passwordEntry.create({
         data: {
           id: await generateId('passwordEntry'),
           name: row.name,
-          login: row.login,
+          login: row.login || '',
+          type: rowType,
           encryptedPassword: row.encryptedPassword,
           encryptedNote: row.encryptedNote || '',
           url: row.url || '',
@@ -503,12 +550,35 @@ const updatePassword = async (req, res) => {
       login,
       encryptedPassword,
       encryptedNote,
+      encryptedFields,
       url,
       colorTag,
       folderId,
       wrappedKeys,
+      type,
       tags,
     } = req.body;
+
+    if (type !== undefined && !VALID_ITEM_TYPES.includes(type)) {
+      return res.status(400).json({ message: `Invalid item type: ${type}` });
+    }
+
+    const effectiveType = type || existingPassword.type;
+
+    if (encryptedFields !== undefined && encryptedFields && effectiveType !== 'LOGIN' && effectiveType !== 'SECURE_NOTE') {
+      let parsedFields;
+      try {
+        parsedFields = typeof encryptedFields === 'string'
+          ? JSON.parse(encryptedFields)
+          : encryptedFields;
+      } catch {
+        return res.status(400).json({ message: 'encryptedFields must be valid JSON' });
+      }
+      const fieldCheck = validateItemFields(effectiveType, parsedFields);
+      if (!fieldCheck.valid) {
+        return res.status(400).json({ message: fieldCheck.message });
+      }
+    }
 
     // Moving an entry across vaults would let a user with write access to one
     // folder relocate the item into a vault/folder they control. Only same-vault
@@ -570,8 +640,10 @@ const updatePassword = async (req, res) => {
       data: {
         name,
         login,
+        type: type || undefined,
         encryptedPassword,
         encryptedNote,
+        encryptedFields: encryptedFields !== undefined ? encryptedFields || null : undefined,
         url,
         colorTag,
         folderId: folderId === undefined ? undefined : folderId,

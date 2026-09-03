@@ -197,15 +197,46 @@ export async function encryptFields(fields, masterPassword, salt) {
   if (!fields) return '';
   const keys = Object.keys(fields).filter((key) => fields[key]);
   if (keys.length === 0) return '';
-  return encryptText(JSON.stringify(fields), masterPassword, salt);
+
+  const encrypted = {};
+  for (const key of keys) {
+    encrypted[key] = await encryptText(String(fields[key]), masterPassword, salt);
+  }
+  return JSON.stringify(encrypted);
 }
 
 export async function decryptFields(encryptedFields, masterPassword, salt) {
   if (!encryptedFields) return null;
 
   try {
-    const decrypted = await decryptText(encryptedFields, masterPassword, salt);
-    return decrypted ? JSON.parse(decrypted) : null;
+    let parsed;
+    if (typeof encryptedFields === 'string') {
+      parsed = JSON.parse(encryptedFields);
+    } else {
+      parsed = encryptedFields;
+    }
+
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    if (Array.isArray(parsed.iv) && Array.isArray(parsed.content)) {
+      const decrypted = await decryptText(encryptedFields, masterPassword, salt);
+      return decrypted ? JSON.parse(decrypted) : null;
+    }
+
+    const result = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'string' && value.startsWith('{')) {
+        try {
+          const decrypted = await decryptText(value, masterPassword, salt);
+          result[key] = decrypted || '';
+        } catch {
+          result[key] = '';
+        }
+      } else {
+        result[key] = '';
+      }
+    }
+    return Object.keys(result).length > 0 ? result : null;
   } catch {
     return null;
   }

@@ -135,9 +135,9 @@ model VaultPermission {
 model PasswordEntry {
   id                String          @id
   name              String
-  login             String
+  login             String          @default("")
   type              ItemType        @default(LOGIN)
-  encryptedPassword String
+  encryptedPassword String          @default("")
   encryptedFields   String?
   encryptedNote     String?
   wrappedKeys       Json?
