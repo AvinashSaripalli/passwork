@@ -30,7 +30,7 @@ systemctl enable --now docker
 
 ```bash
 mkdir -p /var/www && cd /var/www
-git clone <your-repo-url> vaultix
+git clone https://github.com/AvinashSaripalli/vaultix.git vaultix
 cd vaultix
 ```
 
@@ -41,9 +41,26 @@ cp .env.example .env
 nano .env
 ```
 
-Fill in real values. Generate JWT secrets with `openssl rand -base64 48`.
+Fill in **all** values. Generate JWT secrets with `openssl rand -base64 48`.
 
-> `JWT_REFRESH_SECRET` is **required** — `server/src/config/prisma.js` exits on startup without it.
+### Required variables
+
+| Variable | Description |
+|---|---|
+| `DB_PASSWORD` | PostgreSQL password (any strong random string) |
+| `JWT_ACCESS_SECRET` | Short-lived token secret (`openssl rand -base64 48`) |
+| `JWT_REFRESH_SECRET` | Refresh token secret — **required**, server exits without it |
+| `CLIENT_URL` | Must **exactly** match the origin users visit (CORS is strict) |
+| `WEBAUTHN_RP_ID` | Domain only, no protocol — e.g. `vaultix.com` |
+| `WEBAUTHN_ORIGIN` | Full URL — e.g. `https://vaultix.com` |
+
+### Optional variables
+
+| Variable | Description |
+|---|---|
+| `MAIL_USER` | Gmail address for invitation emails |
+| `MAIL_PASS` | Gmail App Password (16 chars, not your real password) |
+| `TRUST_PROXY` | Set to `true` when behind a reverse proxy (Nginx, Cloudflare) |
 
 ## 4. Deploy (first time or update — same command)
 
@@ -129,6 +146,24 @@ docker compose up -d --build
 
 Roll back to a previous release: `git checkout <old-tag>` then the same compose command.
 
+## Features included
+
+| Feature | Description |
+|---|---|
+| **Personal Vault** | Private passwords with AES-256-GCM client-side encryption |
+| **Company Vaults** | Team-shared vaults with folder-level permissions |
+| **Password Sharing** | RSA key-wrapping for secure cross-user sharing |
+| **Vault Policies** | Admin-enforced rules: min strength, max age, blocked common passwords |
+| **Password Health** | Strength analysis, age distribution, breach detection, recommendations |
+| **Password Generator** | Configurable random password creation |
+| **Activity Log** | Full audit trail of all vault actions |
+| **2FA / WebAuthn** | FIDO2 hardware key + TOTP support |
+| **Session Management** | View and revoke active sessions |
+| **Vault Timeout** | Auto-lock after inactivity |
+| **Import/Export** | CSV, Excel, Bitwarden JSON, and native JSON formats |
+| **Trash & Restore** | Soft-delete with 30-day restore window |
+| **Browser Extension** | Chrome extension for autofill |
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -138,3 +173,5 @@ Roll back to a previous release: `git checkout <old-tag>` then the same compose 
 | 502 on `/api/` | Nginx can't reach api container | `docker compose logs api`; confirm `depends_on`/healthcheck |
 | White screen on refresh of `/dashboard` | Missing SPA fallback | Nginx `try_files $uri $uri/ /index.html;` |
 | SSL won't issue | DNS not propagated / port 80 blocked | `dig your-domain.com`; open ports 80/443 in cloud firewall |
+| 401 loops in console | Expired refresh token | User must log out and log back in |
+| WebAuthn 2FA fails | `WEBAUTHN_RP_ID` or `WEBAUTHN_ORIGIN` wrong | Must match deployed domain exactly |
