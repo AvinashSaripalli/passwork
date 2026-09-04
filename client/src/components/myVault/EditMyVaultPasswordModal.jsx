@@ -10,7 +10,7 @@ import {
   encryptFields,
   isEncryptedFormat,
 } from '../../utils/crypto';
-import { getPasswordStrength } from '../../utils/passwordStrength';
+import { estimateStrength, checkBreachedPassword } from '../../utils/breachCheck';
 import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
 import { ITEM_TYPES, getTypePlaceholder } from '../../utils/itemTypes';
 
@@ -168,7 +168,12 @@ function EditMyVaultPasswordModal({
         user?.encryptionSalt
       );
 
-      const strength = isLogin ? getPasswordStrength(formData.encryptedPassword) : null;
+      const strengthScore = isLogin ? estimateStrength(formData.encryptedPassword) : 0;
+
+      const atRisk = isLogin
+        ? ((await checkBreachedPassword(formData.encryptedPassword)).breached) ||
+          isPasswordAtRisk(formData.encryptedPassword)
+        : false;
 
       onSubmit({
         folderId: formData.folderId,
@@ -182,10 +187,10 @@ function EditMyVaultPasswordModal({
         encryptedFields,
         tags: formData.tags,
         isSensitive: formData.isSensitive,
-        strengthScore: strength ? (strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40) : 0,
-        isWeak: strength?.label === 'Weak',
+        strengthScore,
+        isWeak: strengthScore <= 2,
         isOld: isLogin ? isPasswordOld(password.lastUpdatedAt, password.createdAt) : false,
-        isAtRisk: isLogin ? isPasswordAtRisk(formData.encryptedPassword) : false,
+        isAtRisk: atRisk,
       });
 
       setShowPassword(false);

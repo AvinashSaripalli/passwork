@@ -8,7 +8,7 @@ import {
 import TagInput from '../common/TagInput';
 import { encryptTextWithAesKey, wrapItemKey, decryptPrivateKey } from '../../utils/crypto';
 import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
-import { getPasswordStrength } from '../../utils/passwordStrength';
+import { checkBreachedPassword, estimateStrength } from '../../utils/breachCheck';
 import { isPasswordOld, isPasswordAtRisk } from '../../utils/passwordRisk';
 import {
   clearCompanyPasswordEditCache,
@@ -237,7 +237,12 @@ function EditPasswordModal() {
         }
       }
 
-      const strength = getPasswordStrength(formDataPayload.password);
+      const strengthScore = estimateStrength(formDataPayload.password);
+
+      const breach = await checkBreachedPassword(formDataPayload.password);
+      const atRisk =
+        (formDataPayload.password && breach.breached) ||
+        isPasswordAtRisk(formDataPayload.password);
 
       const resultPayload = {
         name: formDataPayload.name,
@@ -249,15 +254,10 @@ function EditPasswordModal() {
         folderId: formDataPayload.folderId,
         tags: formDataPayload.tags,
         isSensitive: formDataPayload.isSensitive,
-        strengthScore:
-          strength?.label === 'Strong'
-            ? 90
-            : strength?.label === 'Medium'
-              ? 70
-              : 40,
-        isWeak: strength?.label === 'Weak',
+        strengthScore,
+        isWeak: strengthScore <= 2,
         isOld: isPasswordOld(selectedPassword.lastUpdatedAt, selectedPassword.createdAt),
-        isAtRisk: isPasswordAtRisk(formDataPayload.password),
+        isAtRisk: atRisk,
       };
 
       const result = await dispatch(

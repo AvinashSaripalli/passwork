@@ -6,5 +6,6 @@ const activityController = require('../controllers/activityController');
 
 router.get('/', authenticate, activityController.getAllActivityLogs);
 router.get('/vault/:vaultId', authenticate, activityController.getVaultActivityLogs);
+router.get('/vault/:vaultId/export', authenticate, activityController.exportVaultAudit);
 
 module.exports = router;

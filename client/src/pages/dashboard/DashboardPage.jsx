@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   Shield, KeyRound, AlertTriangle, Clock, Activity, LogIn,
-  ExternalLink, Eye, ArrowRight, TrendingUp, Users,
+  ExternalLink, Eye, ArrowRight, TrendingUp, Users, ShieldCheck,
 } from 'lucide-react';
 import AppLayout from '../../components/layout/AppLayout';
 import {
@@ -212,18 +212,21 @@ function DashboardPage() {
                 subtext={totalPasswords > 0 ? `${Math.round((weakPasswords / totalPasswords) * 100)}% of total` : 'No data'}
                 gradient="bg-gradient-to-br from-amber-500 to-orange-600"
                 valueColor="text-amber-600"
+                onClick={() => navigate('/security/password-health')}
               />
               <StatCard
                 icon={Clock} label="Old Passwords" value={oldPasswords || 0}
                 subtext={totalPasswords > 0 ? `${Math.round((oldPasswords / totalPasswords) * 100)}% of total` : 'No data'}
                 gradient="bg-gradient-to-br from-orange-500 to-red-500"
                 valueColor="text-orange-600"
+                onClick={() => navigate('/security/password-health')}
               />
               <StatCard
                 icon={Shield} label="At Risk" value={riskPasswords || 0}
                 subtext={totalPasswords > 0 ? `${Math.round((riskPasswords / totalPasswords) * 100)}% of total` : 'No data'}
                 gradient="bg-gradient-to-br from-red-500 to-rose-600"
                 valueColor="text-red-600"
+                onClick={() => navigate('/security/password-health')}
               />
             </div>
 
@@ -329,9 +332,17 @@ function DashboardPage() {
 
               {/* Security Score */}
               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 min-w-0 flex flex-col">
-                <div className="mb-2">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Security Score</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Overall vault health</p>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Security Score</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Overall vault health</p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/security/password-health')}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Full Report →
+                  </button>
                 </div>
 
                 {/* Large radial chart */}
@@ -466,6 +477,16 @@ function DashboardPage() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">Audit trail of all actions</p>
                     </div>
                     <ArrowRight size={16} className="text-slate-400 dark:text-slate-500 group-hover:text-amber-600 transition shrink-0" />
+                  </button>
+                  <button onClick={() => navigate('/security/password-health')} className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/20 transition group text-left">
+                    <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-800/50 transition shrink-0">
+                      <ShieldCheck size={18} className="text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Password Health</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Strength analysis & recommendations</p>
+                    </div>
+                    <ArrowRight size={16} className="text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 transition shrink-0" />
                   </button>
                   {user?.role === 'ADMIN' && (
                     <>

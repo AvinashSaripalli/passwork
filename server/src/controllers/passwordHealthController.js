@@ -31,8 +31,8 @@ const BREACHED_PASSWORDS = new Set([
 const getPasswordHealth = async (req, res) => {
   try {
     const where = req.user.role === 'ADMIN'
-      ? { vault: { type: 'COMPANY' } }
-      : { vault: { ownerId: req.user.id, type: 'PERSONAL' } };
+      ? { vault: { type: 'COMPANY' }, deletedAt: null }
+      : { vault: { ownerId: req.user.id, type: 'PERSONAL' }, deletedAt: null };
 
     const passwords = await prisma.passwordEntry.findMany({
       where,

@@ -30,6 +30,8 @@ import {
   Upload,
   Trash2,
   ChevronDown,
+  RotateCcw,
+  Shield,
 } from 'lucide-react';
 
 import {
@@ -38,7 +40,12 @@ import {
   fetchFoldersByVault,
   openAddPasswordModal,
   deleteFolder,
+  fetchVaultTrash,
+  restorePassword,
+  purgePassword,
 } from '../../features/vault/vaultSlice';
+
+import VaultPolicyModal from '../../components/vault/VaultPolicyModal';
 
 function VaultPage() {
   const dispatch = useDispatch();
@@ -53,6 +60,10 @@ function VaultPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [prefillData, setPrefillData] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [confirmPurge, setConfirmPurge] = useState({ open: false, item: null });
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const [auditExportOpen, setAuditExportOpen] = useState(false);
 
   const { user, token, sessionMasterPassword, sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector(
     (state) => state.auth
@@ -67,6 +78,8 @@ function VaultPage() {
     vaultsLoading,
     passwordsLoading,
     passwords,
+    trashByVault,
+    trashLoading,
     error,
   } = useSelector((state) => state.vault);
 
@@ -103,6 +116,12 @@ function VaultPage() {
       dispatch(fetchFoldersByVault(selectedVault.id));
     }
   }, [dispatch, selectedVault?.id]);
+
+  useEffect(() => {
+    if (trashOpen && selectedVault?.id) {
+      dispatch(fetchVaultTrash(selectedVault.id));
+    }
+  }, [dispatch, trashOpen, selectedVault?.id]);
 
   useEffect(() => {
     if (
@@ -459,6 +478,43 @@ function VaultPage() {
     }
   };
 
+  const handleRestoreTrashItem = async (item) => {
+    await dispatch(restorePassword({ passwordId: item.id, vaultId: selectedVault.id }));
+  };
+
+  const handlePurgeTrashItem = (item) => {
+    setConfirmPurge({ open: true, item });
+  };
+
+  const executePurgeTrash = async () => {
+    if (!confirmPurge.item) return;
+    await dispatch(purgePassword({ passwordId: confirmPurge.item.id, vaultId: selectedVault.id }));
+    setConfirmPurge({ open: false, item: null });
+  };
+
+  const handleAuditExport = async (format) => {
+    try {
+      const res = await api.get(`/activity/vault/${selectedVault.id}/export?format=${format}`, {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vault-audit-${selectedVault.id}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setAuditExportOpen(false);
+      showToast(`Audit exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to export audit', 'error');
+    }
+  };
+
+  const canManagePolicy = isAdminUser || selectedFolderAccess === 'ADMINISTRATOR';
+
   return (
     <AppLayout>
       <div className="bg-white rounded-[30px] border border-slate-200 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
@@ -476,7 +532,7 @@ function VaultPage() {
               <FolderMembersSummary onClick={() => setUsersOpen(true)} />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {selectedFolder && canShareFolder && (
                 <button
                   onClick={() => setShareOpen(true)}
@@ -494,6 +550,23 @@ function VaultPage() {
                   Add password
                 </button>
               )}
+
+              <button
+                onClick={() => setTrashOpen((prev) => !prev)}
+                className={`h-[46px] px-5 rounded-full border text-sm font-semibold flex items-center gap-2 relative ${
+                  trashOpen
+                    ? 'bg-red-50 border-red-300 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400'
+                    : 'border-slate-300 bg-white hover:bg-slate-50 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Trash2 size={18} />
+                {trashOpen ? 'Back' : 'Trash'}
+                {!trashOpen && trashByVault[selectedVault?.id]?.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {trashByVault[selectedVault.id].length}
+                  </span>
+                )}
+              </button>
 
               <div className="relative">
                 <button
@@ -524,7 +597,19 @@ function VaultPage() {
                       className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
                       <Users size={16} className="text-slate-500 dark:text-slate-400" />
-                      Members
+                      Manage Members
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setPolicyOpen(true);
+                        setMenuOpen(false);
+                      }}
+                      disabled={!canManagePolicy}
+                      className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Shield size={16} className="text-slate-500 dark:text-slate-400" />
+                      Vault Policy
                     </button>
 
                     {selectedFolder && (
@@ -573,6 +658,36 @@ function VaultPage() {
                           </div>
                         )}
 
+                        <button
+                          onClick={() => {
+                            setAuditExportOpen((prev) => !prev);
+                          }}
+                          className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                        >
+                          <History size={16} className="text-slate-500 dark:text-slate-400" />
+                          Export audit
+                          <ChevronDown size={14} className="ml-auto text-slate-400" />
+                        </button>
+
+                        {auditExportOpen && (
+                          <div className="py-1 border-t border-slate-100 dark:border-slate-700">
+                            <button
+                              onClick={() => { setMenuOpen(false); handleAuditExport('csv'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Audit CSV (.csv)
+                            </button>
+                            <button
+                              onClick={() => { setMenuOpen(false); handleAuditExport('json'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              Audit JSON (.json)
+                            </button>
+                          </div>
+                        )}
+
                         <label className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer dark:hover:bg-slate-700">
                           <Upload size={16} className="text-slate-500 dark:text-slate-400" />
                           Import (CSV / Excel / JSON)
@@ -614,7 +729,70 @@ function VaultPage() {
 
         {error && <div className="p-8 text-red-600 dark:text-red-400">{error}</div>}
 
-        {!vaultsLoading && !passwordsLoading && !error && (
+        {!vaultsLoading && !passwordsLoading && !error && trashOpen && (
+          <div className="min-h-[640px]">
+            <div className="px-8 py-6 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
+                Trash
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Deleted passwords in this vault can be restored or permanently removed.
+              </p>
+            </div>
+
+            {trashLoading && (
+              <div className="px-8 py-6 text-slate-500 dark:text-slate-400 text-sm">
+                Loading trash...
+              </div>
+            )}
+
+            {!trashLoading && (!trashByVault[selectedVault?.id] || trashByVault[selectedVault?.id]?.length === 0) && (
+              <div className="px-8 py-10 text-center text-slate-500 dark:text-slate-400 text-sm">
+                Trash is empty.
+              </div>
+            )}
+
+            {!trashLoading && trashByVault[selectedVault?.id]?.length > 0 && (
+              <div className="px-8 py-6 space-y-2">
+                {trashByVault[selectedVault?.id].map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {item.name}
+                      </p>
+                      {item.login && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {item.login}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                      <button
+                        onClick={() => handleRestoreTrashItem(item)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+                      >
+                        <RotateCcw size={14} />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => handlePurgeTrashItem(item)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                      >
+                        <Trash2 size={14} />
+                        Delete permanently
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!vaultsLoading && !passwordsLoading && !error && !trashOpen && (
           <>
             {!selectedFolderId ? (
               <div className="min-h-[640px] flex flex-col items-center justify-center text-center px-6">
@@ -689,6 +867,21 @@ function VaultPage() {
           setConfirmDelete(false);
         }}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmModal
+        open={confirmPurge.open}
+        title="Permanently Delete"
+        message={`Are you sure you want to permanently delete "${confirmPurge.item?.name}"? This cannot be undone.`}
+        confirmLabel="Delete permanently"
+        onConfirm={executePurgeTrash}
+        onCancel={() => setConfirmPurge({ open: false, item: null })}
+      />
+
+      <VaultPolicyModal
+        open={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        vaultId={selectedVault?.id || null}
       />
 
       <AddFolderModal />

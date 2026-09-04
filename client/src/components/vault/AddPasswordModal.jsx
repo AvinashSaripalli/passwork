@@ -9,7 +9,7 @@ import TagInput from '../common/TagInput';
 import { encryptTextWithAesKey, wrapItemKey, decryptPrivateKey } from '../../utils/crypto';
 import { generatePassword } from '../../utils/passwordGenerator';
 import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
-import { getPasswordStrength } from '../../utils/passwordStrength';
+import { checkBreachedPassword, estimateStrength } from '../../utils/breachCheck';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
 import api from '../../services/api';
 import {
@@ -240,7 +240,10 @@ function AddPasswordModal({ prefill, prefillName, onPrefillConsumed }) {
         }
       }
 
-      const strength = getPasswordStrength(payload.password);
+      const strengthScore = estimateStrength(payload.password);
+
+      const breach = await checkBreachedPassword(payload.password);
+      const atRisk = breach.breached || isPasswordAtRisk(payload.password);
 
       const result = await dispatch(
         createPassword({
@@ -254,15 +257,10 @@ function AddPasswordModal({ prefill, prefillName, onPrefillConsumed }) {
           folderId: payload.folderId,
           tags: payload.tags,
           isSensitive: payload.isSensitive,
-          strengthScore:
-            strength?.label === 'Strong'
-              ? 90
-              : strength?.label === 'Medium'
-                ? 70
-                : 40,
-          isWeak: strength?.label === 'Weak',
+          strengthScore,
+          isWeak: strengthScore <= 2,
           isOld: false,
-          isAtRisk: isPasswordAtRisk(payload.password),
+          isAtRisk: atRisk,
         })
       );
 

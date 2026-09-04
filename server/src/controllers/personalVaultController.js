@@ -31,6 +31,9 @@ const getOrCreateMyVault = async (req, res) => {
             },
             folder: true,
           },
+          where: {
+            deletedAt: null,
+          },
           orderBy: { createdAt: 'desc' },
         },
       },
@@ -318,6 +321,7 @@ const getMyVaultPasswords = async (req, res) => {
     const passwords = await prisma.passwordEntry.findMany({
       where: {
         vaultId: vault.id,
+        deletedAt: null,
       },
       include: {
         folder: true,
@@ -536,6 +540,10 @@ const updateMyVaultPassword = async (req, res) => {
       return res.status(404).json({ message: 'Password not found' });
     }
 
+    if (password.deletedAt) {
+      return res.status(404).json({ message: 'Password not found' });
+    }
+
     if (folderId) {
       const folder = await prisma.folder.findFirst({
         where: {
@@ -647,6 +655,25 @@ const updateMyVaultPassword = async (req, res) => {
   }
 };
 
+const collectMyVaultSubtreeIds = async (rootId, vaultId) => {
+  const ids = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const rows = await prisma.passwordEntry.findMany({
+      where: { vaultId, parentId: { in: [...ids] } },
+      select: { id: true },
+    });
+    for (const row of rows) {
+      if (!ids.has(row.id)) {
+        ids.add(row.id);
+        changed = true;
+      }
+    }
+  }
+  return [...ids];
+};
+
 const deleteMyVaultPassword = async (req, res) => {
   try {
     const { passwordId } = req.params;
@@ -673,8 +700,12 @@ const deleteMyVaultPassword = async (req, res) => {
       return res.status(404).json({ message: 'Password not found' });
     }
 
-    const deletedPassword = await prisma.passwordEntry.delete({
-      where: { id: passwordId },
+    const subtreeIds = await collectMyVaultSubtreeIds(passwordId, vault.id);
+    const now = new Date();
+
+    await prisma.passwordEntry.updateMany({
+      where: { id: { in: subtreeIds } },
+      data: { deletedAt: now },
     });
 
     await prisma.activityLog.create({
@@ -685,17 +716,122 @@ const deleteMyVaultPassword = async (req, res) => {
         targetType: 'PasswordEntry',
         targetId: passwordId,
         metadata: {
-          name: deletedPassword.name,
+          name: password.name,
           vaultId: vault.id,
-          folderId: deletedPassword.folderId,
+          folderId: password.folderId,
           personalVault: true,
+          softDelete: true,
         },
       },
     });
 
-    res.json({ message: 'Password deleted successfully' });
+    res.json({ message: 'Password moved to trash' });
   } catch (error) {
     console.error('Delete my vault password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const restoreMyVaultPassword = async (req, res) => {
+  try {
+    const { passwordId } = req.params;
+
+    const vault = await prisma.vault.findFirst({
+      where: { ownerId: req.user.id, type: 'PERSONAL' },
+    });
+
+    if (!vault) {
+      return res.status(404).json({ message: 'Personal vault not found' });
+    }
+
+    const password = await prisma.passwordEntry.findFirst({
+      where: { id: passwordId, vaultId: vault.id },
+    });
+
+    if (!password) {
+      return res.status(404).json({ message: 'Password not found' });
+    }
+
+    if (!password.deletedAt) {
+      return res.status(400).json({ message: 'Password is not in the trash' });
+    }
+
+    const subtreeIds = await collectMyVaultSubtreeIds(passwordId, vault.id);
+
+    await prisma.passwordEntry.updateMany({
+      where: { id: { in: subtreeIds } },
+      data: { deletedAt: null },
+    });
+
+    res.json({ message: 'Password restored successfully' });
+  } catch (error) {
+    console.error('Restore my vault password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const purgeMyVaultPassword = async (req, res) => {
+  try {
+    const { passwordId } = req.params;
+
+    const vault = await prisma.vault.findFirst({
+      where: { ownerId: req.user.id, type: 'PERSONAL' },
+    });
+
+    if (!vault) {
+      return res.status(404).json({ message: 'Personal vault not found' });
+    }
+
+    const password = await prisma.passwordEntry.findFirst({
+      where: { id: passwordId, vaultId: vault.id },
+    });
+
+    if (!password) {
+      return res.status(404).json({ message: 'Password not found' });
+    }
+
+    if (!password.deletedAt) {
+      return res.status(400).json({ message: 'Password is not in the trash' });
+    }
+
+    const subtreeIds = await collectMyVaultSubtreeIds(passwordId, vault.id);
+
+    await prisma.passwordEntry.deleteMany({
+      where: { id: { in: subtreeIds } },
+    });
+
+    res.json({ message: 'Password permanently deleted' });
+  } catch (error) {
+    console.error('Purge my vault password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getMyVaultTrash = async (req, res) => {
+  try {
+    const vault = await prisma.vault.findFirst({
+      where: { ownerId: req.user.id, type: 'PERSONAL' },
+    });
+
+    if (!vault) {
+      return res.json([]);
+    }
+
+    const trash = await prisma.passwordEntry.findMany({
+      where: {
+        vaultId: vault.id,
+        deletedAt: { not: null },
+      },
+      include: {
+        folder: true,
+        tags: { include: { tag: true } },
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+
+    res.json(trash);
+  } catch (error) {
+    console.error('Get my vault trash error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -757,5 +893,8 @@ module.exports = {
   deleteMyVaultFolder,
   updateMyVaultPassword,
   deleteMyVaultPassword,
+  restoreMyVaultPassword,
+  purgeMyVaultPassword,
+  getMyVaultTrash,
   getPasswordShares,
 };

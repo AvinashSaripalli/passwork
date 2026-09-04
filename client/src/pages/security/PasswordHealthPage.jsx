@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
   ShieldCheck, AlertTriangle, Clock, AlertOctagon, Eye, KeyRound,
-  TrendingDown, Sparkles, RefreshCw, CheckCircle2,
+  TrendingDown, Sparkles, RefreshCw, CheckCircle2, ExternalLink,
 } from 'lucide-react';
 import AppLayout from '../../components/layout/AppLayout';
 import { fetchPasswordHealth } from '../../features/passwordHealth/passwordHealthSlice';
@@ -39,11 +40,15 @@ function formatTimeAgo(dateStr) {
 
 function PasswordHealthPage() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const {
     total, securityScore, weakCount, oldCount, atRiskCount, sensitiveCount,
     strengthDistribution, ageDistribution, weakPasswords, oldPasswords,
     atRiskPasswords, recommendations, loading, error,
   } = useSelector((state) => state.passwordHealth);
+
+  const vaults = useSelector((state) => state.vault?.vaults);
+  const firstCompanyVaultSlug = vaults?.find((v) => v.type === 'COMPANY')?.slug;
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -337,6 +342,7 @@ function PasswordHealthPage() {
                     passwords={weakPasswords}
                     emptyMessage="No weak passwords found"
                     columns={['name', 'login', 'strength']}
+                    onNavigateVault={(slug) => navigate(`/vaults/${slug}`)}
                   />
                 )}
 
@@ -345,6 +351,7 @@ function PasswordHealthPage() {
                     passwords={oldPasswords}
                     emptyMessage="No old passwords found"
                     columns={['name', 'login', 'age']}
+                    onNavigateVault={(slug) => navigate(`/vaults/${slug}`)}
                   />
                 )}
 
@@ -353,6 +360,7 @@ function PasswordHealthPage() {
                     passwords={atRiskPasswords}
                     emptyMessage="No at-risk passwords found"
                     columns={['name', 'login', 'vault']}
+                    onNavigateVault={(slug) => navigate(`/vaults/${slug}`)}
                   />
                 )}
               </div>
@@ -364,7 +372,7 @@ function PasswordHealthPage() {
   );
 }
 
-function PasswordTable({ passwords, emptyMessage, columns }) {
+function PasswordTable({ passwords, emptyMessage, columns, onNavigateVault }) {
   if (!passwords.length) {
     return (
       <div className="text-center py-12">
@@ -390,6 +398,7 @@ function PasswordTable({ passwords, emptyMessage, columns }) {
             {columns.includes('vault') && (
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vault</th>
             )}
+            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Action</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -419,6 +428,17 @@ function PasswordTable({ passwords, emptyMessage, columns }) {
                   </span>
                 </td>
               )}
+              <td className="px-4 py-3 text-right">
+                {pw.vault?.slug && (
+                  <button
+                    onClick={() => onNavigateVault?.(pw.vault.slug)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/30 transition"
+                  >
+                    <ExternalLink size={12} />
+                    Go to Vault
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

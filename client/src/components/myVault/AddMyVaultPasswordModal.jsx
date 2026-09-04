@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import TagInput from '../common/TagInput';
 import ItemFields from './ItemFields';
 import { encryptText, encryptFields } from '../../utils/crypto';
-import { getPasswordStrength } from '../../utils/passwordStrength';
+import { estimateStrength, checkBreachedPassword } from '../../utils/breachCheck';
 import { isPasswordAtRisk } from '../../utils/passwordRisk';
 import {
   ITEM_TYPES,
@@ -161,7 +161,12 @@ function AddMyVaultPasswordModal({
         user?.encryptionSalt
       );
 
-      const strength = isLogin ? getPasswordStrength(formData.encryptedPassword) : null;
+      const strengthScore = isLogin ? estimateStrength(formData.encryptedPassword) : 0;
+
+      const atRisk = isLogin
+        ? ((await checkBreachedPassword(formData.encryptedPassword)).breached) ||
+          isPasswordAtRisk(formData.encryptedPassword)
+        : false;
 
       const payload = {
         folderId: formData.folderId,
@@ -175,10 +180,10 @@ function AddMyVaultPasswordModal({
         encryptedFields,
         tags: formData.tags,
         isSensitive: formData.isSensitive,
-        strengthScore: strength ? (strength?.label === 'Strong' ? 90 : strength?.label === 'Medium' ? 70 : 40) : 0,
-        isWeak: strength?.label === 'Weak',
+        strengthScore,
+        isWeak: strengthScore <= 2,
         isOld: false,
-        isAtRisk: isLogin ? isPasswordAtRisk(formData.encryptedPassword) : false,
+        isAtRisk: atRisk,
       };
 
       onSubmit(payload);

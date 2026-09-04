@@ -99,6 +99,48 @@ export const deleteMyVaultPassword = createAsyncThunk(
   }
 );
 
+export const fetchMyVaultTrash = createAsyncThunk(
+  'myVault/fetchMyVaultTrash',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('/my-vault/trash');
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to load trash'
+      );
+    }
+  }
+);
+
+export const restoreMyVaultPassword = createAsyncThunk(
+  'myVault/restoreMyVaultPassword',
+  async (passwordId, { rejectWithValue }) => {
+    try {
+      await api.post(`/my-vault/passwords/${passwordId}/restore`);
+      return passwordId;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to restore password'
+      );
+    }
+  }
+);
+
+export const purgeMyVaultPassword = createAsyncThunk(
+  'myVault/purgeMyVaultPassword',
+  async (passwordId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/my-vault/passwords/${passwordId}/purge`);
+      return passwordId;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to permanently delete password'
+      );
+    }
+  }
+);
+
 const removeEntrySubtree = (passwords, id) => {
   const idsToRemove = new Set([id]);
   let changed = true;
@@ -127,9 +169,11 @@ const myVaultSlice = createSlice({
     vault: null,
     folders: [],
     passwords: [],
+    trash: [],
     selectedFolderId: null,
     loading: false,
     actionLoading: false,
+    trashLoading: false,
     error: null,
   },
 
@@ -268,6 +312,27 @@ const myVaultSlice = createSlice({
       .addCase(deleteMyVaultPassword.rejected, (state, action) => {
         state.actionLoading = false;
         state.error = action.payload;
+      })
+
+      .addCase(fetchMyVaultTrash.pending, (state) => {
+        state.trashLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchMyVaultTrash.fulfilled, (state, action) => {
+        state.trashLoading = false;
+        state.trash = action.payload || [];
+      })
+      .addCase(fetchMyVaultTrash.rejected, (state, action) => {
+        state.trashLoading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(restoreMyVaultPassword.fulfilled, (state, action) => {
+        state.trash = state.trash.filter((item) => item.id !== action.payload);
+      })
+
+      .addCase(purgeMyVaultPassword.fulfilled, (state, action) => {
+        state.trash = state.trash.filter((item) => item.id !== action.payload);
       });
   },
 });

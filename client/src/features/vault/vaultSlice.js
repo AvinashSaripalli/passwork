@@ -169,6 +169,57 @@ export const deletePassword = createAsyncThunk(
   }
 );
 
+export const fetchVaultTrash = createAsyncThunk(
+  'vault/fetchVaultTrash',
+  async (vaultId, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.token;
+      const res = await api.get(`/passwords/vault/${vaultId}/trash`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { vaultId, trash: res.data || [] };
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to load trash'
+      );
+    }
+  }
+);
+
+export const restorePassword = createAsyncThunk(
+  'vault/restorePassword',
+  async ({ passwordId, vaultId }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.token;
+      await api.post(`/passwords/${passwordId}/restore`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { passwordId, vaultId };
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to restore password'
+      );
+    }
+  }
+);
+
+export const purgePassword = createAsyncThunk(
+  'vault/purgePassword',
+  async ({ passwordId, vaultId }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.token;
+      await api.delete(`/passwords/${passwordId}/purge`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { passwordId, vaultId };
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || 'Failed to permanently delete password'
+      );
+    }
+  }
+);
+
 export const deleteFolder = createAsyncThunk(
   'vault/deleteFolder',
   async (folderId, thunkAPI) => {
@@ -257,6 +308,8 @@ const initialState = {
   selectedVault: null,
   passwords: [],
   folders: [],
+  trash: [],
+  trashByVault: {},
   activityLogs: [],
   selectedPasswordId: null,
   selectedFolderId: null,
@@ -270,6 +323,7 @@ const initialState = {
   foldersLoading: false,
   activityLoading: false,
   actionLoading: false,
+  trashLoading: false,
 
   searchTerm: '',
   collapsedFolders: {},
@@ -474,6 +528,37 @@ const vaultSlice = createSlice({
       .addCase(deletePassword.rejected, (state, action) => {
         state.actionLoading = false;
         state.error = action.payload;
+      })
+
+      .addCase(fetchVaultTrash.pending, (state, action) => {
+        state.trashLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchVaultTrash.fulfilled, (state, action) => {
+        state.trashLoading = false;
+        state.trashByVault[action.payload.vaultId] = action.payload.trash || [];
+      })
+      .addCase(fetchVaultTrash.rejected, (state, action) => {
+        state.trashLoading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(restorePassword.fulfilled, (state, action) => {
+        const list = state.trashByVault[action.payload.vaultId];
+        if (list) {
+          state.trashByVault[action.payload.vaultId] = list.filter(
+            (item) => item.id !== action.payload.passwordId
+          );
+        }
+      })
+
+      .addCase(purgePassword.fulfilled, (state, action) => {
+        const list = state.trashByVault[action.payload.vaultId];
+        if (list) {
+          state.trashByVault[action.payload.vaultId] = list.filter(
+            (item) => item.id !== action.payload.passwordId
+          );
+        }
       })
 
       .addCase(deleteFolder.pending, (state) => {

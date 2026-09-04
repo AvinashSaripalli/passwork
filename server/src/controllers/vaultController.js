@@ -544,10 +544,122 @@ const unshareVault = async (req, res) => {
   }
 };
 
+const getVaultPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vault = await prisma.vault.findUnique({
+      where: { id },
+      select: {
+        type: true,
+        minStrengthScore: true,
+        maxAgeDays: true,
+        blockCommon: true,
+        allowedTypes: true,
+      },
+    });
+
+    if (!vault) {
+      return res.status(404).json({ message: 'Vault not found' });
+    }
+
+    res.json({
+      minStrengthScore: vault.minStrengthScore ?? null,
+      maxAgeDays: vault.maxAgeDays ?? null,
+      blockCommon: vault.blockCommon ?? false,
+      allowedTypes: Array.isArray(vault.allowedTypes) ? vault.allowedTypes : null,
+    });
+  } catch (error) {
+    console.error('Get vault policy error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const setVaultPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { minStrengthScore, maxAgeDays, blockCommon, allowedTypes } = req.body;
+
+    const vault = await prisma.vault.findUnique({ where: { id } });
+    if (!vault) {
+      return res.status(404).json({ message: 'Vault not found' });
+    }
+    if (vault.type === 'PERSONAL') {
+      return res.status(400).json({ message: 'Policies cannot be set on personal vaults' });
+    }
+    if (req.user.role !== 'ADMIN') {
+      const access = await getVaultAccess(id, req.user.id);
+      if (access !== 'ADMINISTRATOR') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    const data = {};
+
+    if (minStrengthScore !== undefined) {
+      if (minStrengthScore !== null && (!Number.isInteger(minStrengthScore) || minStrengthScore < 1 || minStrengthScore > 5)) {
+        return res.status(400).json({ message: 'minStrengthScore must be an integer between 1 and 5' });
+      }
+      data.minStrengthScore = minStrengthScore;
+    }
+
+    if (maxAgeDays !== undefined) {
+      if (maxAgeDays !== null && (!Number.isInteger(maxAgeDays) || maxAgeDays < 1)) {
+        return res.status(400).json({ message: 'maxAgeDays must be a positive integer' });
+      }
+      data.maxAgeDays = maxAgeDays;
+    }
+
+    if (blockCommon !== undefined) {
+      data.blockCommon = !!blockCommon;
+    }
+
+    if (allowedTypes !== undefined) {
+      if (allowedTypes !== null && !Array.isArray(allowedTypes)) {
+        return res.status(400).json({ message: 'allowedTypes must be an array' });
+      }
+      data.allowedTypes = allowedTypes;
+    }
+
+    const updated = await prisma.vault.update({
+      where: { id },
+      data,
+      select: {
+        minStrengthScore: true,
+        maxAgeDays: true,
+        blockCommon: true,
+        allowedTypes: true,
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        id: await generateId('activityLog'),
+        userId: req.user.id,
+        action: 'UPDATE_VAULT',
+        targetType: 'Vault',
+        targetId: id,
+        metadata: { vaultId: id, policyUpdated: true, ...data },
+      },
+    });
+
+    res.json({
+      minStrengthScore: updated.minStrengthScore ?? null,
+      maxAgeDays: updated.maxAgeDays ?? null,
+      blockCommon: updated.blockCommon ?? false,
+      allowedTypes: Array.isArray(updated.allowedTypes) ? updated.allowedTypes : null,
+    });
+  } catch (error) {
+    console.error('Set vault policy error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createVault,
   getVaults,
   getVaultBySlug,
   shareVault,
   unshareVault,
+  getVaultPolicy,
+  setVaultPolicy,
 };

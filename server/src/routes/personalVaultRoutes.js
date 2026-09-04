@@ -11,6 +11,9 @@ const {
   deleteMyVaultFolder,
   updateMyVaultPassword,
   deleteMyVaultPassword,
+  restoreMyVaultPassword,
+  purgeMyVaultPassword,
+  getMyVaultTrash,
   getPasswordShares,
 } = require('../controllers/personalVaultController');
 
@@ -29,6 +32,9 @@ router.get('/passwords', getMyVaultPasswords);
 router.post('/passwords', createMyVaultPassword);
 router.put('/passwords/:passwordId', updateMyVaultPassword);
 router.delete('/passwords/:passwordId', deleteMyVaultPassword);
+router.post('/passwords/:passwordId/restore', restoreMyVaultPassword);
+router.delete('/passwords/:passwordId/purge', purgeMyVaultPassword);
+router.get('/trash', getMyVaultTrash);
 
 router.get('/passwords/:passwordId/shares', getPasswordShares);
 
