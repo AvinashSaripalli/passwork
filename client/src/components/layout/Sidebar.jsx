@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Shield, Users, Activity, Folder, FolderOpen,
   LogOut, Plus, ChevronDown, LockKeyhole, Share2, User, Sparkles, Building2,
-  Smartphone, Clock,
+  Smartphone, Clock, HeartPulse, MonitorCheck, Clipboard,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../../features/auth/authSlice';
@@ -74,8 +74,13 @@ function Sidebar() {
     : [];
   const securityMenu = [
     { name: 'Activity Log', path: '/activity-log', icon: Activity, badge: unreadCount },
+    { name: 'Password Health', path: '/security/password-health', icon: HeartPulse },
+  ];
+  const settingsMenu = [
+    { name: 'Active Sessions', path: '/security/sessions', icon: MonitorCheck },
     { name: 'Two-Factor Auth', path: '/security/2fa', icon: Smartphone },
     { name: 'Vault Timeout', path: '/security/vault-timeout', icon: Clock },
+    { name: 'Clipboard', path: '/security/clipboard', icon: Clipboard },
   ];
   const toolsMenu = [{ name: 'Password Generator', icon: Sparkles }];
   const adminMenu = user?.role === 'ADMIN'
@@ -277,7 +282,8 @@ function Sidebar() {
             })}
           </div>
 
-          {renderMenuSection('Security', securityMenu)}
+          {renderMenuSection('Security & Monitoring', securityMenu)}
+          {renderMenuSection('Settings', settingsMenu)}
 
           {/* Tools */}
           <div>

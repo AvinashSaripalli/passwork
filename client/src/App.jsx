@@ -29,6 +29,9 @@ import ProfilePage from './pages/profile/ProfilePage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import TwoFactorSettingsPage from './pages/security/TwoFactorSettingsPage';
 import VaultTimeoutSettingsPage from './pages/security/VaultTimeoutSettingsPage';
+import PasswordHealthPage from './pages/security/PasswordHealthPage';
+import SessionsPage from './pages/security/SessionsPage';
+import ClipboardSettingsPage from './pages/security/ClipboardSettingsPage';
 import StatusBar from './components/common/StatusBar';
 import api from './services/api';
 import { decryptPrivateKey } from './utils/crypto';
@@ -243,6 +246,33 @@ function App() {
         element={
           <MasterProtectedRoute>
             <VaultTimeoutSettingsPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security/password-health"
+        element={
+          <MasterProtectedRoute>
+            <PasswordHealthPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security/sessions"
+        element={
+          <MasterProtectedRoute>
+            <SessionsPage />
+          </MasterProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security/clipboard"
+        element={
+          <MasterProtectedRoute>
+            <ClipboardSettingsPage />
           </MasterProtectedRoute>
         }
       />

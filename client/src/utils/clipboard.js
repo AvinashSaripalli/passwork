@@ -1,8 +1,18 @@
 import { showToast } from './toast';
 
-const CLEAR_DELAY = 15 * 1000;
+const CLEAR_DELAY_KEY = 'vaultix_clipboard_clear_delay';
+const DEFAULT_CLEAR_DELAY = 15 * 1000;
 
 let clearTimer = null;
+
+function getClearDelay() {
+  try {
+    const stored = parseInt(localStorage.getItem(CLEAR_DELAY_KEY), 10);
+    return !isNaN(stored) && stored > 0 ? stored * 1000 : DEFAULT_CLEAR_DELAY;
+  } catch {
+    return DEFAULT_CLEAR_DELAY;
+  }
+}
 
 function clearClipboard() {
   if (clearTimer) {
@@ -20,7 +30,7 @@ function clearClipboard() {
 function scheduleClear() {
   if (clearTimer) clearTimeout(clearTimer);
 
-  clearTimer = setTimeout(clearClipboard, CLEAR_DELAY);
+  clearTimer = setTimeout(clearClipboard, getClearDelay());
   window.addEventListener('blur', clearClipboard);
 }
 
@@ -42,20 +52,24 @@ function fallbackCopy(value, message) {
   }
 }
 
-export function secureCopyText(value, message = 'Copied — clipboard clears in 15s') {
+export function secureCopyText(value, message) {
   if (!value) return;
+
+  const delaySecs = Math.round(getClearDelay() / 1000);
+  const defaultMsg = `Copied — clipboard clears in ${delaySecs}s`;
+  const finalMessage = message || defaultMsg;
 
   if (navigator.clipboard?.writeText) {
     navigator.clipboard
       .writeText(value)
       .then(() => {
-        showToast(message);
+        showToast(finalMessage);
         scheduleClear();
       })
       .catch(() => {
-        fallbackCopy(value, message);
+        fallbackCopy(value, finalMessage);
       });
   } else {
-    fallbackCopy(value, message);
+    fallbackCopy(value, finalMessage);
   }
 }

@@ -5,6 +5,8 @@ import dashboardReducer from '../features/dashboard/dashboardSlice';
 import myVaultReducer from '../features/myVault/myVaultSlice';
 import sharedPasswordsReducer from '../features/sharedPasswords/sharedPasswordsSlice';
 import themeReducer from '../features/theme/themeSlice';
+import passwordHealthReducer from '../features/passwordHealth/passwordHealthSlice';
+import sessionsReducer from '../features/sessions/sessionsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,5 +16,7 @@ export const store = configureStore({
     myVault: myVaultReducer,
     sharedPasswords: sharedPasswordsReducer,
     theme: themeReducer,
+    passwordHealth: passwordHealthReducer,
+    sessions: sessionsReducer,
   },
 });

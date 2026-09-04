@@ -18,8 +18,8 @@ import { safeDecryptText, unwrapItemKey, decryptTextWithAesKey, decryptPrivateKe
 import { getWrapRecipients, wrapItemKeysForUsers } from '../../utils/keyWrapping';
 import { showToast } from '../../utils/toast';
 import { setSessionRsaPrivateKey, setSessionRsaPublicKey } from '../../features/auth/authSlice';
+import { parseImportFile, downloadExport, detectFileFormat } from '../../utils/vaultImportExport';
 
-import * as XLSX from 'xlsx';
 import api from '../../services/api';
 
 import {
@@ -29,6 +29,7 @@ import {
   Download,
   Upload,
   Trash2,
+  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -51,6 +52,7 @@ function VaultPage() {
   const [importFile, setImportFile] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [prefillData, setPrefillData] = useState(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const { user, token, sessionMasterPassword, sessionRsaPrivateKey, sessionRsaPublicKey } = useSelector(
     (state) => state.auth
@@ -225,7 +227,7 @@ function VaultPage() {
     !!selectedFolder &&
     (user?.role === 'ADMIN' || selectedFolderAccess === 'ADMINISTRATOR');
 
-  const handleExportExcel = () => {
+  const handleExport = (format) => {
     if (!selectedVault?.id) {
       showToast('Vault not loaded', 'error');
       return;
@@ -241,10 +243,10 @@ function VaultPage() {
       return;
     }
 
-    handleExportVerified();
+    handleExportVerified(format);
   };
 
-  const handleExportVerified = async () => {
+  const handleExportVerified = async (format = 'excel') => {
     try {
       // Self-heal session keys before attempting bulk decryption.
       let rsaKey = sessionRsaPrivateKey;
@@ -301,25 +303,29 @@ function VaultPage() {
         });
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Passwords');
-
-      XLSX.writeFile(
-        workbook,
-        `${selectedFolder?.name || selectedVault?.name || 'passwords'}.xlsx`
-      );
+      const baseName = selectedFolder?.name || selectedVault?.name || 'passwords';
+      downloadExport(rows, format, baseName);
+      setExportMenuOpen(false);
+      showToast(`Exported ${rows.length} passwords as ${format.toUpperCase()}`);
     } catch {
       showToast('Export failed. Unable to decrypt passwords.', 'error');
     }
   };
 
-  const handleImportExcel = async (e) => {
+  const handleImportFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
 
     if (!file) return;
+
+    const format = detectFileFormat(file);
+    if (format === 'keepass') {
+      showToast(
+        'Direct KeePass KDBX import is not supported for security. Use File > Export > CSV in KeePass and import that CSV instead.',
+        'error'
+      );
+      return;
+    }
 
     if (!selectedVault?.id) {
       showToast('Vault not loaded', 'error');
@@ -332,22 +338,15 @@ function VaultPage() {
     }
 
     setImportFile(file);
-
-    handleImportVerified();
+    handleImportVerified(file);
   };
 
-  const handleImportVerified = async () => {
+  const handleImportVerified = async (importFileArg) => {
     try {
-      if (!importFile) return;
+      const file = importFileArg || importFile;
+      if (!file) return;
 
-      const arrayBuffer = await importFile.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-
-      const rows = XLSX.utils.sheet_to_json(worksheet, {
-        defval: '',
-      });
+      const { rows, format, detectedSource } = await parseImportFile(file);
 
       const publicKeysCache = {};
       const getPublicKeyForUser = async (uid) => {
@@ -431,7 +430,7 @@ function VaultPage() {
       }
 
       if (!encryptedRows.length) {
-        showToast('No valid rows found. Required columns: Name, Login, Password', 'error');
+        showToast('No valid rows found. Required columns: Name/Title, Login/Username, Password', 'error');
         setImportFile(null);
         return;
       }
@@ -452,10 +451,11 @@ function VaultPage() {
 
       dispatch(fetchPasswordsByVault(selectedVault.id));
       showToast(`${encryptedRows.length} passwords imported successfully`);
-
+      setMenuOpen(false);
       setImportFile(null);
     } catch (error) {
-      showToast(error.response?.data?.message || 'Failed to import Excel', 'error');
+      showToast(error.response?.data?.message || error.message || 'Failed to import file', 'error');
+      setMenuOpen(false);
     }
   };
 
@@ -504,7 +504,7 @@ function VaultPage() {
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-20 dark:bg-slate-800 dark:border-slate-600">
+                  <div className="absolute right-0 top-12 w-64 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-20 dark:bg-slate-800 dark:border-slate-600">
                     <button
                       onClick={() => {
                         setHistoryOpen(true);
@@ -531,28 +531,60 @@ function VaultPage() {
                       <>
                         <button
                           onClick={() => {
-                            handleExportExcel();
-                            setMenuOpen(false);
+                            setExportMenuOpen((prev) => !prev);
                           }}
                           className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
                         >
                           <Download size={16} className="text-slate-500 dark:text-slate-400" />
                           Export
+                          <ChevronDown size={14} className="ml-auto text-slate-400" />
                         </button>
+
+                        {exportMenuOpen && (
+                          <div className="py-1 border-t border-slate-100 dark:border-slate-700">
+                            <button
+                              onClick={() => { setMenuOpen(false); handleExport('csv'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              CSV (.csv)
+                            </button>
+                            <button
+                              onClick={() => { setMenuOpen(false); handleExport('excel'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+                              Excel (.xlsx)
+                            </button>
+                            <button
+                              onClick={() => { setMenuOpen(false); handleExport('bitwarden'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              Bitwarden (.json)
+                            </button>
+                            <button
+                              onClick={() => { setMenuOpen(false); handleExport('json'); }}
+                              className="flex items-center gap-3 w-full px-6 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              JSON (.json)
+                            </button>
+                          </div>
+                        )}
 
                         <label className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-slate-50 cursor-pointer dark:hover:bg-slate-700">
                           <Upload size={16} className="text-slate-500 dark:text-slate-400" />
-                          Import
+                          Import (CSV / Excel / JSON)
                           <input
                             type="file"
-                            accept=".xlsx,.xls"
+                            accept=".csv,.xlsx,.xls,.json,.kdbx,.kdb"
                             onChange={(e) => {
-                              handleImportExcel(e);
-                              setMenuOpen(false);
+                              handleImportFile(e);
                             }}
                             className="hidden"
                           />
-                          </label>
+                        </label>
                         </>
                       )}
 

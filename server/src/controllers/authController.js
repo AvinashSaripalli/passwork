@@ -98,7 +98,7 @@ const signToken = (user) => {
 const hashRefreshToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
-const createRefreshSession = async (userId) => {
+const createRefreshSession = async (userId, req) => {
   const token = crypto.randomBytes(48).toString('hex');
   const record = await prisma.refreshToken.create({
     data: {
@@ -106,6 +106,8 @@ const createRefreshSession = async (userId) => {
       userId,
       tokenHash: hashRefreshToken(token),
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+      userAgent: req?.headers?.['user-agent'] ? String(req.headers['user-agent']).slice(0, 255) : null,
+      ipAddress: req ? getClientIp(req) : null,
     },
   });
   return { token, record };
@@ -181,7 +183,7 @@ const refresh = async (req, res) => {
     }
 
     // Rotate: revoke the old token and issue a fresh one.
-    const { token: newRefreshToken, record: newRecord } = await createRefreshSession(user.id);
+    const { token: newRefreshToken, record: newRecord } = await createRefreshSession(user.id, req);
 
     await prisma.refreshToken.update({
       where: { id: stored.id },
@@ -417,7 +419,7 @@ const register = async (req, res) => {
     }
 
     const jwtToken = signToken(user);
-    const { token: refreshToken } = await createRefreshSession(user.id);
+    const { token: refreshToken } = await createRefreshSession(user.id, req);
     setRefreshTokenCookie(res, refreshToken);
 
     await saveLoginActivity({
@@ -557,7 +559,7 @@ const login = async (req, res) => {
 
     resetFailedAttempts(email);
     const token = signToken(user);
-    const { token: refreshToken } = await createRefreshSession(user.id);
+    const { token: refreshToken } = await createRefreshSession(user.id, req);
     setRefreshTokenCookie(res, refreshToken);
 
     await saveLoginActivity({
@@ -771,7 +773,7 @@ const changePassword = async (req, res) => {
     // Password changed — revoke every existing session, then immediately mint
     // a fresh one for the current device so the user isn't logged out here.
     await revokeAllRefreshTokens(userId);
-    const { token: sessionToken } = await createRefreshSession(userId);
+    const { token: sessionToken } = await createRefreshSession(userId, req);
     setRefreshTokenCookie(res, sessionToken);
 
     res.json({ message: 'Password changed successfully' });
@@ -1331,7 +1333,7 @@ const resetMasterPassword = async (req, res) => {
     // Credential changed — revoke every other session, then mint a fresh one
     // for the current device so the user isn't logged out here.
     await revokeAllRefreshTokens(userId);
-    const { token: sessionToken } = await createRefreshSession(userId);
+    const { token: sessionToken } = await createRefreshSession(userId, req);
     setRefreshTokenCookie(res, sessionToken);
 
     res.json({ message: 'Master password reset successfully' });

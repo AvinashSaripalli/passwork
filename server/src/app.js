@@ -21,6 +21,8 @@ const loginActivityRoutes = require('./routes/loginActivityRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const keyPairRoutes = require('./routes/keyPairRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
+const passwordHealthRoutes = require('./routes/passwordHealthRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
 
 const app = express();
 
@@ -84,6 +86,8 @@ app.use('/api/v1/login-activity', loginActivityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/keypair', keyPairRoutes);
 app.use('/api/v1/2fa', twoFactorRoutes);
+app.use('/api/v1/password-health', passwordHealthRoutes);
+app.use('/api/v1/sessions', sessionRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'API endpoint not found' });
